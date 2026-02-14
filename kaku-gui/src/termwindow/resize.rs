@@ -53,9 +53,8 @@ impl super::TermWindow {
         if last_state != self.window_state {
             self.load_os_parameters();
         }
-        let fullscreen_transition =
-            last_state.contains(WindowState::FULL_SCREEN)
-                != self.window_state.contains(WindowState::FULL_SCREEN);
+        let fullscreen_transition = last_state.contains(WindowState::FULL_SCREEN)
+            != self.window_state.contains(WindowState::FULL_SCREEN);
 
         if let Some(webgpu) = self.webgpu.as_mut() {
             webgpu.resize(dimensions);

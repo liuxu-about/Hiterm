@@ -711,7 +711,11 @@ fn fatal_toast_notification(title: &str, message: &str) {
     };
 
     if !should_show {
-        log::error!("suppressed fatal toast in debug build: {} - {}", title, message);
+        log::error!(
+            "suppressed fatal toast in debug build: {} - {}",
+            title,
+            message
+        );
         return;
     }
 

@@ -8,7 +8,9 @@ impl crate::TermWindow {
         &mut self,
         layers: &mut TripleLayerQuadAllocator,
     ) -> anyhow::Result<()> {
-        let is_fullscreen = self.window_state.contains(::window::WindowState::FULL_SCREEN);
+        let is_fullscreen = self
+            .window_state
+            .contains(::window::WindowState::FULL_SCREEN);
         let border_dimensions = if is_fullscreen {
             self.os_parameters
                 .as_ref()
@@ -107,7 +109,9 @@ impl crate::TermWindow {
                 .os_parameters
                 .as_ref()
                 .and_then(|p| p.border_dimensions.as_ref())
-                .map(|b| b.top.get() > 0 || b.left.get() > 0 || b.right.get() > 0 || b.bottom.get() > 0)
+                .map(|b| {
+                    b.top.get() > 0 || b.left.get() > 0 || b.right.get() > 0 || b.bottom.get() > 0
+                })
                 .unwrap_or(false);
 
         if is_simple_fullscreen_with_notch_padding {
@@ -206,7 +210,10 @@ impl crate::TermWindow {
     }
 
     pub fn get_os_border(&self) -> window::parameters::Border {
-        if self.window_state.contains(::window::WindowState::FULL_SCREEN) {
+        if self
+            .window_state
+            .contains(::window::WindowState::FULL_SCREEN)
+        {
             self.os_parameters
                 .as_ref()
                 .and_then(|p| p.border_dimensions.clone())
