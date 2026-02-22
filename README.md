@@ -48,7 +48,8 @@ Kaku comes with intuitive macOS-native shortcuts:
 | Zoom/Unzoom Pane | `Cmd + Shift + Enter` |
 | Resize Pane | `Cmd + Ctrl + Arrows` |
 | Clear Screen | `Cmd + K` |
-| Kaku AI Config | `Cmd + Shift + A` |
+| Kaku AI Settings | `Cmd + Shift + A` |
+| Kaku Assistant Apply Suggestion | `Cmd + Shift + E` |
 | Open Lazygit | `Cmd + Shift + G` |
 | Font Size | `Cmd + +`, `Cmd + -`, `Cmd + 0` |
 | Smart Jump | `z <dir>` |
@@ -74,7 +75,24 @@ Optional CLI tools installed via Homebrew during `kaku init`:
 
 Kaku uses `~/.config/kaku/kaku.lua` for configuration, fully compatible with WezTerm's Lua API, with built-in defaults at `Kaku.app/Contents/Resources/kaku.lua` as fallback.
 
-Run `kaku` in your terminal to see all available commands such as `kaku update`, `kaku reset`, and `kaku config`.
+Run `kaku` in your terminal to see all available commands such as `kaku update`, `kaku reset`, `kaku config`, and `kaku ai`.
+
+## Kaku AI
+
+Kaku includes a built-in assistant for command-line error recovery and a unified settings UI for external AI coding tools.
+
+- **Kaku Assistant**: Automatically analyzes failed commands and prepares a safe command suggestion.
+- **AI Tools Config**: Manage settings for tools like Claude Code, Codex, Gemini CLI, Copilot CLI, OpenCode, and OpenClaw.
+
+Open AI settings with:
+
+```bash
+kaku ai
+```
+
+Inside `kaku ai`, configure **Kaku Assistant** (enable, model, base URL, API key) and your external AI tools in one place.
+
+When Kaku Assistant has a suggestion ready after a command error, press `Cmd + Shift + E` to apply it.
 
 ## Why Kaku?
 
