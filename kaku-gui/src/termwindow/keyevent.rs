@@ -921,9 +921,7 @@ impl super::TermWindow {
         }
 
         // Cmd+Arrow: same logic - if selection is active, let native shortcut handle it
-        if matches!(key.phys_code, Some(PK::LeftArrow | PK::RightArrow))
-            && m == Modifiers::SUPER
-        {
+        if matches!(key.phys_code, Some(PK::LeftArrow | PK::RightArrow)) && m == Modifiers::SUPER {
             return has_sel;
         }
 
@@ -965,10 +963,7 @@ impl super::TermWindow {
         // Cmd+Arrow: same logic - if selection is active, let native shortcut handle it
         if matches!(
             k,
-            WK::LeftArrow
-                | WK::ApplicationLeftArrow
-                | WK::RightArrow
-                | WK::ApplicationRightArrow
+            WK::LeftArrow | WK::ApplicationLeftArrow | WK::RightArrow | WK::ApplicationRightArrow
         ) && m == Modifiers::SUPER
         {
             return has_sel;
@@ -976,10 +971,20 @@ impl super::TermWindow {
 
         Self::key_category_preserves_selection(
             matches!(k, WK::Shift | WK::LeftShift | WK::RightShift),
-            matches!(k, WK::LeftArrow | WK::ApplicationLeftArrow | WK::RightArrow | WK::ApplicationRightArrow)
-                && m == Modifiers::SHIFT,
-            matches!(k, WK::LeftArrow | WK::ApplicationLeftArrow | WK::RightArrow | WK::ApplicationRightArrow)
-                && m == (Modifiers::SUPER | Modifiers::SHIFT),
+            matches!(
+                k,
+                WK::LeftArrow
+                    | WK::ApplicationLeftArrow
+                    | WK::RightArrow
+                    | WK::ApplicationRightArrow
+            ) && m == Modifiers::SHIFT,
+            matches!(
+                k,
+                WK::LeftArrow
+                    | WK::ApplicationLeftArrow
+                    | WK::RightArrow
+                    | WK::ApplicationRightArrow
+            ) && m == (Modifiers::SUPER | Modifiers::SHIFT),
             matches!(k, WK::Char('a') | WK::Char('A')) && m == Modifiers::SUPER,
             matches!(k, WK::Char('\u{8}') | WK::Char('\u{7f}')),
             // ESC: only preserve when selection is active so the cancel branch in
