@@ -11,7 +11,7 @@ members = [
   "crates/wezterm-open-url",
   "crates/wezterm-ssh",
   "crates/wezterm-surface",
-  "crates/wezterm-uds", "test_input",
+  "crates/wezterm-uds",
 ]
 resolver = "2"
 exclude = [

@@ -160,6 +160,22 @@ Achieved through aggressive stripping of unused features, lazy loading of color 
 
    Finally run `kaku doctor` in your terminal to verify everything is healthy.
 
+6. **How can I use Kaku's CLI capabilities (like `split-pane`) from other scripts or tools?**
+
+   Kaku exposes a powerful CLI for interacting with its multiplexer. For example, to split the current pane, run:
+
+   ```bash
+   kaku cli split-pane
+   ```
+
+   To split it and run a specific command instead of your default shell:
+
+   ```bash
+   kaku cli split-pane -- bash -c "echo Hello"
+   ```
+
+   You can explore all available CLI commands by running `kaku cli --help` or specifically `kaku cli split-pane --help`. This is very useful when integrating Kaku with workflows or AI tools.
+
 ## Contributors
 
 Big thanks to all contributors who helped build Kaku. Go follow them! ❤️

@@ -4,8 +4,8 @@ static VERSION: OnceLock<&'static str> = OnceLock::new();
 static TRIPLE: OnceLock<&'static str> = OnceLock::new();
 
 pub fn assign_version_info(version: &'static str, triple: &'static str) {
-    VERSION.set(version).unwrap();
-    TRIPLE.set(triple).unwrap();
+    let _ = VERSION.set(version);
+    let _ = TRIPLE.set(triple);
 }
 
 pub fn wezterm_version() -> &'static str {
