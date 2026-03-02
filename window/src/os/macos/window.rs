@@ -4291,6 +4291,39 @@ impl WindowView {
         }
     }
 
+    /// Returns the frame to use when zooming (maximizing) the window.
+    /// We return the screen's visible frame to ensure the window fills the entire
+    /// available space, ignoring resize increments that would otherwise cause
+    /// the window to not fill the screen completely.
+    /// <https://github.com/tw93/Kaku/issues/131>
+    extern "C" fn window_will_use_standard_frame(
+        _this: &mut Object,
+        _sel: Sel,
+        window: id,
+        screen: id,
+    ) -> NSRect {
+        let visible_frame: NSRect = unsafe { msg_send![screen, visibleFrame] };
+        log::trace!(
+            "window_will_use_standard_frame: screen visible_frame = ({}, {}, {}, {})",
+            visible_frame.origin.x,
+            visible_frame.origin.y,
+            visible_frame.size.width,
+            visible_frame.size.height
+        );
+        // Adjust for the title bar height so content area fills the visible frame.
+        let frame = unsafe { NSWindow::frame(window) };
+        let content_frame: NSRect =
+            unsafe { msg_send![window, contentRectForFrameRect: frame] };
+        let title_bar_height = frame.size.height - content_frame.size.height;
+        NSRect::new(
+            visible_frame.origin,
+            NSSize::new(
+                visible_frame.size.width,
+                visible_frame.size.height + title_bar_height,
+            ),
+        )
+    }
+
     extern "C" fn update_layer(_view: &mut Object, _sel: Sel) {
         log::trace!("update_layer called");
     }
@@ -4618,6 +4651,11 @@ impl WindowView {
             cls.add_method(
                 sel!(windowDidResize:),
                 Self::did_resize as extern "C" fn(&mut Object, Sel, id),
+            );
+            cls.add_method(
+                sel!(windowWillUseStandardFrame:onScreen:),
+                Self::window_will_use_standard_frame
+                    as extern "C" fn(&mut Object, Sel, id, id) -> NSRect,
             );
             cls.add_method(
                 sel!(windowDidMove:),
