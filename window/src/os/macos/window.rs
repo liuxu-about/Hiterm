@@ -2283,8 +2283,10 @@ fn is_unicode_noncharacter(c: char) -> bool {
 }
 
 fn is_dead_key_placeholder_text(s: &str) -> bool {
-    let mut chars = s.chars();
-    matches!((chars.next(), chars.next()), (Some(c), None) if is_unicode_noncharacter(c))
+    // Some keyboard layouts return multiple Unicode noncharacters for dead keys.
+    // Treat the string as a dead-key placeholder if it's non-empty and
+    // consists entirely of Unicode noncharacters.
+    !s.is_empty() && s.chars().all(is_unicode_noncharacter)
 }
 
 impl Keyboard {
