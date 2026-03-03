@@ -2968,6 +2968,10 @@ impl WindowView {
             s,
             replacement_range
         );
+        // Filter out dead key placeholder text that may be sent by some keyboard layouts
+        if is_dead_key_placeholder_text(s) {
+            return;
+        }
         if let Some(myself) = Self::get_this(this) {
             let mut inner = myself.inner.borrow_mut();
 
@@ -3008,6 +3012,8 @@ impl WindowView {
             selected_range,
             replacement_range
         );
+        // Filter out dead key placeholder text; use empty string so dead key composing works
+        let s = if is_dead_key_placeholder_text(s) { "" } else { s };
         if let Some(myself) = Self::get_this(this) {
             let mut inner = myself.inner.borrow_mut();
             inner.ime_text = s.to_string();
@@ -4366,10 +4372,13 @@ impl WindowView {
         _this: &mut Object,
         _sel: Sel,
         window: id,
-        _default_frame: NSRect,
+        default_frame: NSRect,
     ) -> NSRect {
         unsafe {
             let screen: id = msg_send![window, screen];
+            if screen.is_null() {
+                return default_frame;
+            }
             msg_send![screen, visibleFrame]
         }
     }
