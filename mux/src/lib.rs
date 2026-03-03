@@ -110,7 +110,7 @@ pub struct Mux {
     default_domain: RwLock<Option<Arc<dyn Domain>>>,
     domains: RwLock<HashMap<DomainId, Arc<dyn Domain>>>,
     domains_by_name: RwLock<HashMap<String, Arc<dyn Domain>>>,
-    subscribers: RwLock<HashMap<usize, Box<dyn Fn(MuxNotification) -> bool + Send + Sync>>>,
+    subscribers: RwLock<HashMap<usize, Arc<dyn Fn(MuxNotification) -> bool + Send + Sync>>>,
     banner: RwLock<Option<String>>,
     clients: RwLock<HashMap<ClientId, ClientInfo>>,
     identity: RwLock<Option<Arc<ClientId>>>,
@@ -787,12 +787,37 @@ impl Mux {
         let sub_id = SUB_ID.fetch_add(1, Ordering::Relaxed);
         self.subscribers
             .write()
-            .insert(sub_id, Box::new(subscriber));
+            .insert(sub_id, Arc::new(subscriber));
     }
 
     pub fn notify(&self, notification: MuxNotification) {
-        let mut subscribers = self.subscribers.write();
-        subscribers.retain(|_, notify| notify(notification.clone()));
+        // Collect subscribers while holding the lock briefly
+        let subscribers: Vec<(usize, Arc<dyn Fn(MuxNotification) -> bool + Send + Sync>)> = self
+            .subscribers
+            .read()
+            .iter()
+            .map(|(k, v)| (*k, Arc::clone(v)))
+            .collect();
+
+        // Call subscribers outside the lock to avoid deadlock/reentrancy
+        let to_remove: Vec<usize> = subscribers
+            .into_iter()
+            .filter_map(|(sub_id, notify)| {
+                if !notify(notification.clone()) {
+                    Some(sub_id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Remove unsubscribed callbacks
+        if !to_remove.is_empty() {
+            let mut subscribers = self.subscribers.write();
+            for sub_id in to_remove {
+                subscribers.remove(&sub_id);
+            }
+        }
     }
 
     pub fn notify_from_any_thread(notification: MuxNotification) {
