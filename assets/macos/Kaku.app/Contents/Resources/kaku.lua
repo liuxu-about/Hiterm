@@ -776,6 +776,26 @@ local function read_ai_custom_headers(file_key)
   return headers
 end
 
+-- Detect if the foreground process is a shell.
+-- Returns false for interactive programs like claude, vim, ssh.
+local function is_shell_foreground(pane)
+  if not pane then
+    return false
+  end
+
+  local ok, proc = pcall(function()
+    return pane:get_foreground_process_name()
+  end)
+  if not ok or type(proc) ~= "string" or proc == "" then
+    return false
+  end
+
+  -- Strip leading dash for login shells (e.g., -zsh -> zsh)
+  local name = proc:lower():gsub("^%-", "")
+  local shells = { zsh = true, bash = true, fish = true, sh = true, dash = true, ksh = true, tcsh = true, csh = true }
+  return shells[name] == true
+end
+
 -- Keep cold startup fast: parse assistant.toml lazily only when AI fix is needed.
 local ai_fix_enabled = true
 local ai_fix_api_base_url = "https://api.vivgrid.com/v1"
@@ -2130,6 +2150,13 @@ wezterm.on('user-var-changed', function(window, pane, name, value)
 
   if not ai_fix_api_key or ai_fix_api_key == "" then
     ai_debug_log("user-var-changed missing api key after refresh")
+    return
+  end
+
+  -- Skip AI fix if foreground process is not a shell.
+  -- This prevents injecting input into interactive programs like claude, vim, ssh.
+  if not is_shell_foreground(pane) then
+    ai_debug_log("user-var-changed skipped non-shell foreground process")
     return
   end
 
