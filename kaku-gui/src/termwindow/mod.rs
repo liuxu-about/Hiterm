@@ -7,9 +7,9 @@ use crate::inputmap::InputMap;
 #[cfg(not(target_os = "macos"))]
 use crate::overlay::confirm_close_window;
 use crate::overlay::{
+    CopyModeParams, CopyOverlay, LauncherArgs, LauncherFlags, QuickSelectOverlay,
     confirm_close_pane, confirm_close_tab, confirm_quit_program, launcher, show_debug_overlay,
-    start_overlay, start_overlay_pane, CopyModeParams, CopyOverlay, LauncherArgs, LauncherFlags,
-    QuickSelectOverlay,
+    start_overlay, start_overlay_pane,
 };
 use crate::resize_increment_calculator::ResizeIncrementCalculator;
 use crate::scripting::guiwin::GuiWin;
@@ -18,7 +18,7 @@ use crate::selection::Selection;
 use crate::shapecache::*;
 use crate::tabbar::{TabBarItem, TabBarState};
 use crate::termwindow::background::{
-    load_background_image, reload_background_image, LoadedBackgroundLayer,
+    LoadedBackgroundLayer, load_background_image, reload_background_image,
 };
 use crate::termwindow::keyevent::{KeyTableArgs, KeyTableState};
 use crate::termwindow::modal::Modal;
@@ -30,15 +30,15 @@ use crate::termwindow::render::{
 use crate::termwindow::webgpu::WebGpuState;
 use ::wezterm_term::input::{ClickPosition, MouseButton as TMB};
 use ::window::*;
-use anyhow::{anyhow, ensure, Context};
+use anyhow::{Context, anyhow, ensure};
 use config::keyassignment::{
     Confirmation, KeyAssignment, LauncherActionArgs, PaneDirection, PaneEncoding, Pattern,
     PromptInputLine, QuickSelectArguments, RotationDirection, SpawnCommand, SplitSize,
 };
 use config::window::WindowLevel;
 use config::{
-    configuration, AudibleBell, ConfigHandle, Dimension, DimensionContext, FrontEndSelection,
-    GeometryOrigin, GuiPosition, TermConfig, WindowCloseConfirmation,
+    AudibleBell, ConfigHandle, Dimension, DimensionContext, FrontEndSelection, GeometryOrigin,
+    GuiPosition, TermConfig, WindowCloseConfirmation, configuration,
 };
 use lfucache::*;
 use mlua::{FromLua, LuaSerdeExt, UserData, UserDataFields};
@@ -53,8 +53,8 @@ use mux::tab::{
 use mux::window::WindowId as MuxWindowId;
 use mux::{Mux, MuxNotification};
 use mux_lua::MuxPane;
-use smol::channel::Sender;
 use smol::Timer;
+use smol::channel::Sender;
 use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, LinkedList};
 use std::ops::Add;
@@ -66,8 +66,8 @@ use std::time::{Duration, Instant};
 use termwiz::hyperlink::Hyperlink;
 use termwiz::surface::SequenceNo;
 use wezterm_dynamic::Value;
-use wezterm_font::units::PixelLength;
 use wezterm_font::FontConfiguration;
+use wezterm_font::units::PixelLength;
 use wezterm_term::color::ColorPalette;
 use wezterm_term::input::LastMouseClick;
 use wezterm_term::{Alert, Progress, StableRowIndex, TerminalConfiguration, TerminalSize};
@@ -743,6 +743,7 @@ pub struct TermWindow {
     webgpu: Option<Rc<WebGpuState>>,
     config_subscription: Option<config::ConfigSubscription>,
     skip_config_reload_generation: Option<usize>,
+    silent_reload_queued: bool,
 
     /// Toast notification: (start_time, message, lifetime)
     toast: Option<(Instant, String, Duration)>,
@@ -908,6 +909,23 @@ impl TermWindow {
 }
 
 impl TermWindow {
+    fn schedule_silent_config_reload(&mut self, window: &Window) {
+        if self.silent_reload_queued {
+            return;
+        }
+        self.silent_reload_queued = true;
+        let window = window.clone();
+        promise::spawn::spawn_into_main_thread(async move {
+            // Coalesce rapid override updates and run after current event dispatch.
+            Timer::after(Duration::from_millis(1)).await;
+            window.notify(TermWindowNotif::Apply(Box::new(|tw| {
+                tw.config_was_reloaded_silently();
+                tw.silent_reload_queued = false;
+            })));
+        })
+        .detach();
+    }
+
     pub async fn new_window(mux_window_id: MuxWindowId) -> anyhow::Result<()> {
         let config = configuration();
         let dpi = config.dpi.unwrap_or_else(|| ::window::default_dpi()) as usize;
@@ -1037,6 +1055,7 @@ impl TermWindow {
             fps: 0.,
             config_subscription: None,
             skip_config_reload_generation: None,
+            silent_reload_queued: false,
             os_parameters: None,
             gl: None,
             webgpu: None,
@@ -1224,9 +1243,9 @@ impl TermWindow {
                         "WebGpu initialization failed; falling back to OpenGL. Error: {:#}",
                         err
                     );
-                    let gl = window.enable_opengl().await.with_context(|| {
-                        "WebGpu initialization failed and OpenGL fallback also failed"
-                    })?;
+                    let gl = window.enable_opengl().await.with_context(
+                        || "WebGpu initialization failed and OpenGL fallback also failed",
+                    )?;
                     (Some(gl), None)
                 }
             },
@@ -1308,7 +1327,9 @@ impl TermWindow {
                 // be nasty for folks with a lot of windows.
                 // <https://github.com/wezterm/wezterm/issues/2295>
                 config::reload();
-                self.config_was_reloaded_silently();
+                // Defer per-window reload to avoid re-entrant RefCell borrow
+                // while dispatching the current window event.
+                self.schedule_silent_config_reload(window);
                 Ok(true)
             }
             WindowEvent::PerformKeyAssignment(action) => {
@@ -1576,7 +1597,8 @@ impl TermWindow {
                     self.config_overrides = value;
                     // Overrides are often updated by runtime hooks (eg: resize/fullscreen),
                     // so keep this reload silent to avoid noisy toast spam.
-                    self.config_was_reloaded_silently();
+                    // Defer the reload to avoid re-entrant borrow of WindowInner.
+                    self.schedule_silent_config_reload(window);
                 }
             }
             TermWindowNotif::CancelOverlayForPane(pane_id) => {

@@ -1015,9 +1015,7 @@ impl Window {
                 as usize;
 
             let weak_window = window.weak();
-            let window_handle = Window {
-                id: window_id,
-            };
+            let window_handle = Window { id: window_id };
             let window_inner = Rc::new(RefCell::new(WindowInner {
                 window,
                 view,
@@ -1055,7 +1053,10 @@ impl Window {
     fn with_window_inner<R>(&self, f: impl FnOnce(&WindowInner) -> R) -> Option<R> {
         let conn = Connection::get()?;
         let handle = conn.window_by_id(self.id)?;
-        let inner = handle.borrow();
+        let inner = match handle.try_borrow() {
+            Ok(inner) => inner,
+            Err(_) => return None,
+        };
         Some(f(&inner))
     }
 
@@ -3030,7 +3031,11 @@ impl WindowView {
             replacement_range
         );
         // Filter out dead key placeholder text; use empty string so dead key composing works
-        let s = if is_dead_key_placeholder_text(s) { "" } else { s };
+        let s = if is_dead_key_placeholder_text(s) {
+            ""
+        } else {
+            s
+        };
         if let Some(myself) = Self::get_this(this) {
             let mut inner = myself.inner.borrow_mut();
             inner.ime_text = s.to_string();
