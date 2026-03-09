@@ -6,31 +6,104 @@ use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragra
 use super::{App, Mode};
 use crate::tui_core::theme::{accent, bg, muted, panel, primary, text_fg};
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum MainLayoutMode {
+    HeaderOnly,
+    HeaderAndFooter,
+    Expanded,
+    Compact,
+}
+
 pub(super) fn ui(frame: &mut ratatui::Frame, app: &mut App) {
     let full = frame.area();
     if full.width < 2 || full.height < 2 {
         return;
     }
 
-    let area = Rect::new(full.x, full.y, full.width - 1, full.height - 1);
+    // Keep one column on the right to avoid edge-wrap artifacts, while using
+    // full height so the footer can stick to the bottom.
+    let area = Rect::new(full.x, full.y, full.width - 1, full.height);
 
     frame.render_widget(Clear, area);
     frame.render_widget(Block::default().style(Style::default().bg(bg())), area);
 
-    let chunks = Layout::vertical([
-        Constraint::Length(2), // header
-        Constraint::Fill(1),   // content
-    ])
-    .split(area);
+    let content_rows = rendered_field_row_count(app);
+    match resolve_main_layout(area.height, content_rows) {
+        MainLayoutMode::HeaderOnly => {
+            let chunks = Layout::vertical([Constraint::Length(2)]).split(area);
+            render_header(frame, chunks[0]);
+        }
+        MainLayoutMode::HeaderAndFooter => {
+            let chunks =
+                Layout::vertical([Constraint::Length(2), Constraint::Length(1)]).split(area);
+            render_header(frame, chunks[0]);
+            render_footer(frame, chunks[1]);
+        }
+        MainLayoutMode::Expanded => {
+            let chunks = Layout::vertical([
+                Constraint::Length(2),            // header
+                Constraint::Length(content_rows), // content
+                Constraint::Fill(1),              // flexible gap
+                Constraint::Length(1),            // spacer above footer
+                Constraint::Length(1),            // footer (stick to bottom)
+            ])
+            .split(area);
 
-    render_header(frame, chunks[0]);
-    render_fields(frame, chunks[1], app);
+            render_header(frame, chunks[0]);
+            render_fields(frame, chunks[1], app);
+            render_footer(frame, chunks[4]);
+        }
+        MainLayoutMode::Compact => {
+            let chunks = Layout::vertical([
+                Constraint::Length(2), // header
+                Constraint::Fill(1),   // content
+                Constraint::Length(1), // spacer above footer
+                Constraint::Length(1), // footer (stick to bottom)
+            ])
+            .split(area);
+
+            render_header(frame, chunks[0]);
+            render_fields(frame, chunks[1], app);
+            render_footer(frame, chunks[3]);
+        }
+    }
 
     if app.mode == Mode::Selecting {
         render_selector(frame, area, app);
     } else if app.mode == Mode::Editing {
         render_editor(frame, area, app);
     }
+}
+
+fn resolve_main_layout(area_height: u16, content_rows: u16) -> MainLayoutMode {
+    let remaining_height = area_height.saturating_sub(2);
+    if remaining_height == 0 {
+        MainLayoutMode::HeaderOnly
+    } else if remaining_height == 1 {
+        MainLayoutMode::HeaderAndFooter
+    } else if content_rows + 2 <= remaining_height {
+        MainLayoutMode::Expanded
+    } else {
+        MainLayoutMode::Compact
+    }
+}
+
+fn rendered_field_row_count(app: &App) -> u16 {
+    let mut rows = app.fields.len() as u16;
+    let mut sections = 0u16;
+    let mut last_section: Option<&str> = None;
+
+    for field in &app.fields {
+        if last_section != Some(field.section) {
+            sections += 1;
+            if last_section.is_some() {
+                rows += 1;
+            }
+            last_section = Some(field.section);
+        }
+    }
+
+    rows + sections
 }
 
 fn render_header(frame: &mut ratatui::Frame, area: Rect) {
@@ -51,8 +124,26 @@ fn render_fields(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     let mut selected_flat: Option<usize> = None;
     let mut flat = 0usize;
     let key_width = 24usize;
+    let mut current_section: Option<&str> = None;
 
     for (idx, field) in app.fields.iter().enumerate() {
+        if current_section != Some(field.section) {
+            if current_section.is_some() {
+                items.push(ListItem::new(Line::from("")));
+                flat += 1;
+            }
+
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled("  ", Style::default()),
+                Span::styled(
+                    field.section,
+                    Style::default().fg(muted()).add_modifier(Modifier::BOLD),
+                ),
+            ])));
+            flat += 1;
+            current_section = Some(field.section);
+        }
+
         let is_selected = idx == app.selected;
         if is_selected {
             selected_flat = Some(flat);
@@ -105,21 +196,41 @@ fn render_fields(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         flat += 1;
     }
 
-    items.push(ListItem::new(Line::from("")));
-    items.push(ListItem::new(Line::from(vec![
-        Span::styled("    ", Style::default()),
-        Span::styled("ESC", Style::default().fg(primary())),
-        Span::styled(" save and apply changes", Style::default().fg(muted())),
-        Span::styled("  ·  ", Style::default().fg(muted())),
-        Span::styled("E", Style::default().fg(primary())),
-        Span::styled(" open full config", Style::default().fg(muted())),
-    ])));
-
     let mut state = ListState::default();
     state.select(selected_flat);
 
     let list = List::new(items).highlight_style(Style::default());
     frame.render_stateful_widget(list, area, &mut state);
+}
+
+fn render_footer(frame: &mut ratatui::Frame, area: Rect) {
+    let line = if area.width >= 44 {
+        Line::from(vec![
+            Span::styled("  ", Style::default()),
+            Span::styled("ESC", Style::default().fg(primary())),
+            Span::styled(" save and apply changes", Style::default().fg(muted())),
+            Span::styled("  ·  ", Style::default().fg(muted())),
+            Span::styled("E", Style::default().fg(primary())),
+            Span::styled(" open full config", Style::default().fg(muted())),
+        ])
+    } else if area.width >= 30 {
+        Line::from(vec![
+            Span::styled("  ", Style::default()),
+            Span::styled("ESC", Style::default().fg(primary())),
+            Span::styled(" apply", Style::default().fg(muted())),
+            Span::styled("  ·  ", Style::default().fg(muted())),
+            Span::styled("E", Style::default().fg(primary())),
+            Span::styled(" config", Style::default().fg(muted())),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled("  ", Style::default()),
+            Span::styled("ESC", Style::default().fg(primary())),
+            Span::styled(" apply", Style::default().fg(muted())),
+        ])
+    };
+
+    frame.render_widget(Paragraph::new(line), area);
 }
 
 fn render_selector(frame: &mut ratatui::Frame, area: Rect, app: &App) {
@@ -268,4 +379,26 @@ fn render_editor(frame: &mut ratatui::Frame, area: Rect, app: &App) {
 
     let input = Paragraph::new(vec![line]).wrap(ratatui::widgets::Wrap { trim: false });
     frame.render_widget(input, content_area);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{resolve_main_layout, MainLayoutMode};
+
+    #[test]
+    fn keeps_spacer_in_compact_layout() {
+        assert_eq!(resolve_main_layout(8, 8), MainLayoutMode::Compact);
+    }
+
+    #[test]
+    fn requires_room_for_footer_and_spacer_before_expanding() {
+        assert_eq!(resolve_main_layout(8, 4), MainLayoutMode::Expanded);
+        assert_eq!(resolve_main_layout(8, 5), MainLayoutMode::Compact);
+    }
+
+    #[test]
+    fn handles_tiny_terminal_heights() {
+        assert_eq!(resolve_main_layout(2, 1), MainLayoutMode::HeaderOnly);
+        assert_eq!(resolve_main_layout(3, 1), MainLayoutMode::HeaderAndFooter);
+    }
 }
