@@ -394,15 +394,15 @@ mod libssh_impl {
         }
     }
 
-    impl Into<libssh_rs::SetAttributes> for Metadata {
-        fn into(self) -> libssh_rs::SetAttributes {
-            let size = self.size;
-            let uid_gid = match (self.uid, self.gid) {
+    impl From<Metadata> for libssh_rs::SetAttributes {
+        fn from(value: Metadata) -> Self {
+            let size = value.size;
+            let uid_gid = match (value.uid, value.gid) {
                 (Some(uid), Some(gid)) => Some((uid, gid)),
                 _ => None,
             };
-            let permissions = self.permissions.map(FilePermissions::to_unix_mode);
-            let atime_mtime = match (self.accessed, self.modified) {
+            let permissions = value.permissions.map(FilePermissions::to_unix_mode);
+            let atime_mtime = match (value.accessed, value.modified) {
                 (Some(a), Some(m)) => {
                     let a = unix_to_sys(a);
                     let m = unix_to_sys(m);
