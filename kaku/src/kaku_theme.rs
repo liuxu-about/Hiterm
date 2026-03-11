@@ -70,10 +70,40 @@ fn color_distance(a: SrgbaTuple, b: SrgbaTuple) -> f32 {
 }
 
 fn has_enough_separation(bg: SrgbaTuple, color: SrgbaTuple) -> bool {
-    color_distance(bg, color) >= 0.18 || (luminance(bg) - luminance(color)).abs() >= 0.12
+    // Stricter thresholds ensure readable contrast in both light and dark modes.
+    // Requires both sufficient color distance AND luminance difference.
+    color_distance(bg, color) >= 0.22 && (luminance(bg) - luminance(color)).abs() >= 0.15
 }
 
-fn pick_visible(bg: SrgbaTuple, candidates: &[SrgbaTuple]) -> SrgbaTuple {
+fn visible_fallback_anchor(bg: SrgbaTuple, text: SrgbaTuple) -> SrgbaTuple {
+    let text = opaque(text);
+    if has_enough_separation(bg, text) {
+        return text;
+    }
+
+    if is_light_color(bg) {
+        rgb("#000000")
+    } else {
+        rgb("#FFFFFF")
+    }
+}
+
+fn nudge_toward_separation(
+    bg: SrgbaTuple,
+    candidate: SrgbaTuple,
+    anchor: SrgbaTuple,
+) -> SrgbaTuple {
+    for amount in [0.25, 0.4, 0.55, 0.7, 0.85, 1.0] {
+        let adjusted = blend(candidate, anchor, amount);
+        if has_enough_separation(bg, adjusted) {
+            return adjusted;
+        }
+    }
+
+    anchor
+}
+
+fn pick_visible(bg: SrgbaTuple, text: SrgbaTuple, candidates: &[SrgbaTuple]) -> SrgbaTuple {
     for candidate in candidates {
         let candidate = opaque(*candidate);
         if has_enough_separation(bg, candidate) {
@@ -82,7 +112,10 @@ fn pick_visible(bg: SrgbaTuple, candidates: &[SrgbaTuple]) -> SrgbaTuple {
     }
 
     let fallback = opaque(candidates[0]);
-    blend(bg, fallback, if is_light_color(bg) { 0.55 } else { 0.45 })
+    // Push the fallback toward a known readable anchor instead of blending it
+    // back into the background, which only reduces separation further.
+    let anchor = visible_fallback_anchor(bg, text);
+    nudge_toward_separation(bg, fallback, anchor)
 }
 
 fn pick_muted(bg: SrgbaTuple, text: SrgbaTuple, candidate: SrgbaTuple) -> SrgbaTuple {
@@ -298,10 +331,12 @@ fn theme_from_config(config: &ConfigHandle) -> CachedTheme {
 
     let primary = pick_visible(
         bg,
+        text,
         &[palette.colors.0[13], palette.colors.0[5], palette.cursor_bg],
     );
     let secondary = pick_visible(
         bg,
+        text,
         &[
             palette.colors.0[10],
             palette.colors.0[6],
@@ -310,6 +345,7 @@ fn theme_from_config(config: &ConfigHandle) -> CachedTheme {
     );
     let accent = pick_visible(
         bg,
+        text,
         &[
             palette.colors.0[11],
             palette.colors.0[3],
@@ -318,6 +354,7 @@ fn theme_from_config(config: &ConfigHandle) -> CachedTheme {
     );
     let error = pick_visible(
         bg,
+        text,
         &[
             palette.colors.0[9],
             palette.colors.0[1],
@@ -385,9 +422,10 @@ pub fn current_theme_palette() -> ThemePalette {
 #[cfg(test)]
 mod tests {
     use super::{
-        appearance_sensitive_theme, cached_theme, color_scheme_selection_from_content,
-        dark_palette, is_current_theme_cache_hit, parse_color_scheme_selection_line,
-        ColorSchemeSelection,
+        appearance_sensitive_theme, cached_theme, color_distance,
+        color_scheme_selection_from_content, dark_palette, has_enough_separation,
+        is_current_theme_cache_hit, luminance, parse_color_scheme_selection_line, pick_visible,
+        rgb, ColorSchemeSelection,
     };
 
     #[test]
@@ -472,5 +510,65 @@ config.color_scheme = some_runtime_value
         let theme = appearance_sensitive_theme(dark_palette(), true);
         assert!(is_current_theme_cache_hit(7, 7, theme, Some(true)));
         assert!(!is_current_theme_cache_hit(7, 7, theme, Some(false)));
+    }
+
+    #[test]
+    fn pick_visible_keeps_accessible_candidate() {
+        let bg = rgb("#15141B");
+        let text = rgb("#EDECEE");
+        let candidate = rgb("#A277FF");
+
+        assert_eq!(pick_visible(bg, text, &[candidate]), candidate);
+    }
+
+    #[test]
+    fn pick_visible_pushes_dark_theme_fallback_toward_readable_text() {
+        let bg = rgb("#15141B");
+        let text = rgb("#EDECEE");
+        let fallback = rgb("#23212E");
+
+        assert!(!has_enough_separation(bg, fallback));
+
+        let adjusted = pick_visible(bg, text, &[fallback]);
+
+        assert!(has_enough_separation(bg, adjusted));
+        assert!(color_distance(bg, adjusted) > color_distance(bg, fallback));
+        assert!(
+            (luminance(bg) - luminance(adjusted)).abs()
+                > (luminance(bg) - luminance(fallback)).abs()
+        );
+    }
+
+    #[test]
+    fn pick_visible_pushes_light_theme_fallback_toward_readable_text() {
+        let bg = rgb("#FFFCF0");
+        let text = rgb("#403E3C");
+        let fallback = rgb("#E7E0CB");
+
+        assert!(!has_enough_separation(bg, fallback));
+
+        let adjusted = pick_visible(bg, text, &[fallback]);
+
+        assert!(has_enough_separation(bg, adjusted));
+        assert!(color_distance(bg, adjusted) > color_distance(bg, fallback));
+        assert!(
+            (luminance(bg) - luminance(adjusted)).abs()
+                > (luminance(bg) - luminance(fallback)).abs()
+        );
+    }
+
+    #[test]
+    fn pick_visible_uses_extreme_anchor_when_text_is_not_readable() {
+        let bg = rgb("#333333");
+        let text = rgb("#3D3D3D");
+        let fallback = rgb("#404060");
+
+        assert!(!has_enough_separation(bg, fallback));
+        assert!(!has_enough_separation(bg, text));
+
+        let adjusted = pick_visible(bg, text, &[fallback]);
+
+        assert!(has_enough_separation(bg, adjusted));
+        assert!(luminance(adjusted) > luminance(fallback));
     }
 }
