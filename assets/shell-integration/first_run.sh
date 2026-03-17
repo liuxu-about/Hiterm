@@ -24,57 +24,25 @@ CURRENT_CONFIG_VERSION="$(read_bundled_config_version "$SCRIPT_DIR")"
 # when optional setup steps fail on user machines.
 trap persist_config_version EXIT
 
-# Resource resolution helpers
-detect_kaku_target_shell() {
-	if [[ -n "${KAKU_TARGET_SHELL:-}" ]]; then
-		printf '%s\n' "$KAKU_TARGET_SHELL"
-		return
-	fi
+# Resources directory resolution
+if [[ -f "$SCRIPT_DIR/setup_zsh.sh" ]]; then
+	RESOURCES_DIR="$SCRIPT_DIR"
+elif [[ -f "/Applications/Kaku.app/Contents/Resources/setup_zsh.sh" ]]; then
+	RESOURCES_DIR="/Applications/Kaku.app/Contents/Resources"
+elif [[ -f "$HOME/Applications/Kaku.app/Contents/Resources/setup_zsh.sh" ]]; then
+	RESOURCES_DIR="$HOME/Applications/Kaku.app/Contents/Resources"
+else
+	# Fallback for dev environment
+	RESOURCES_DIR="$SCRIPT_DIR"
+fi
 
-	if [[ -n "${SHELL:-}" ]]; then
-		printf '%s\n' "$SHELL"
-		return
-	fi
-
-	printf '%s\n' "/bin/zsh"
-}
-
-detect_kaku_setup_script() {
-	local shell_path
-	shell_path="$(detect_kaku_target_shell)"
-	case "$shell_path" in
-		*fish|fish)
-			printf 'setup_fish.sh'
-			;;
-		*)
-			printf 'setup_zsh.sh'
-			;;
-	esac
-}
-
-resolve_resources_dir() {
-	if [[ -d "$SCRIPT_DIR" ]]; then
-		if [[ -f "$SCRIPT_DIR/setup_fish.sh" || -f "$SCRIPT_DIR/setup_zsh.sh" ]]; then
-			printf '%s\n' "$SCRIPT_DIR"
-			return
-		fi
-	fi
-
-	if [[ -f "/Applications/Kaku.app/Contents/Resources/setup_fish.sh" || -f "/Applications/Kaku.app/Contents/Resources/setup_zsh.sh" ]]; then
-		printf '%s\n' "/Applications/Kaku.app/Contents/Resources"
-		return
-	fi
-
-	if [[ -f "$HOME/Applications/Kaku.app/Contents/Resources/setup_fish.sh" || -f "$HOME/Applications/Kaku.app/Contents/Resources/setup_zsh.sh" ]]; then
-		printf '%s\n' "$HOME/Applications/Kaku.app/Contents/Resources"
-		return
-	fi
-
-	printf '%s\n' "$SCRIPT_DIR"
-}
-
-RESOURCES_DIR="$(resolve_resources_dir)"
-SETUP_SCRIPT="$RESOURCES_DIR/$(detect_kaku_setup_script)"
+# Route to the correct setup script based on the login shell
+_login_shell="$(basename "${SHELL:-/bin/zsh}")"
+if [[ "$_login_shell" == "fish" ]]; then
+	SETUP_SCRIPT="$RESOURCES_DIR/setup_fish.sh"
+else
+	SETUP_SCRIPT="$RESOURCES_DIR/setup_zsh.sh"
+fi
 TOOLS_SCRIPT="$RESOURCES_DIR/install_cli_tools.sh"
 
 resolve_kaku_cli() {
@@ -117,26 +85,28 @@ echo "A fast, out-of-the-box terminal built for AI coding."
 echo "--------------------------------------------------------"
 echo "Would you like to install Kaku's enhanced shell features?"
 echo "This includes:"
-if [[ "$(detect_kaku_setup_script)" == "setup_fish.sh" ]]; then
-	echo "  - Smart Directory Jump"
-	echo "  - Fish-friendly completion and autosuggestions defaults"
+if [[ "$_login_shell" == "fish" ]]; then
+echo "  - Starship prompt (if installed)"
+echo "  - Zoxide integration (if installed)"
+echo "  - OSC 7/133/1337 sequences for AI fix hooks"
+echo "  - Kaku Yazi theme sync"
+echo "  - Optional CLI tools via Homebrew: Starship, Delta, Lazygit, Yazi"
+echo ""
+echo "Shell config model (fish):"
+echo "  - Kaku writes managed config to ~/.config/kaku/fish/kaku.fish"
+echo "  - ~/.config/fish/conf.d/kaku.fish sources it automatically"
 else
-	echo "  - z - Smart Directory Jumper"
-	echo "  - zsh-completions - Rich Tab Completions"
-	echo "  - Zsh Syntax Highlighting"
-	echo "  - Zsh Autosuggestions"
-fi
+echo "  - z - Smart Directory Jumper"
+echo "  - zsh-completions - Rich Tab Completions"
+echo "  - Zsh Syntax Highlighting"
+echo "  - Zsh Autosuggestions"
 echo "  - Kaku Theme"
 echo "  - Optional CLI tools via Homebrew: Starship, Delta, Lazygit, Yazi"
 echo "  - If Homebrew is missing, Kaku can offer to install it"
 echo ""
-echo "Shell config model:"
-if [[ "$(detect_kaku_setup_script)" == "setup_fish.sh" ]]; then
-	echo "  - Kaku writes managed shell config to ~/.config/kaku/fish/kaku.fish"
-	echo "  - ~/.config/fish/conf.d/kaku.fish sources it automatically"
-else
-	echo "  - Kaku writes managed shell config to ~/.config/kaku/zsh/kaku.zsh"
-	echo "  - .zshrc gets one PATH line plus one source line for the managed Kaku shell config"
+echo "Shell config model (zsh):"
+echo "  - Kaku writes managed shell config to ~/.config/kaku/zsh/kaku.zsh"
+echo "  - .zshrc gets one PATH line plus one source line for the managed Kaku shell config"
 fi
 echo "  - You can roll back anytime with: kaku reset"
 echo "--------------------------------------------------------"
