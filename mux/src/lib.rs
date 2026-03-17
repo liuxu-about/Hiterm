@@ -1257,10 +1257,11 @@ impl Mux {
     }
 
     pub fn get_window(&self, window_id: WindowId) -> Option<MappedRwLockReadGuard<'_, Window>> {
-        if !self.windows.read().contains_key(&window_id) {
+        let guard = self.windows.read();
+        if !guard.contains_key(&window_id) {
             return None;
         }
-        Some(RwLockReadGuard::map(self.windows.read(), |windows| {
+        Some(RwLockReadGuard::map(guard, |windows| {
             windows.get(&window_id).unwrap()
         }))
     }
@@ -1269,10 +1270,17 @@ impl Mux {
         &self,
         window_id: WindowId,
     ) -> Option<MappedRwLockWriteGuard<'_, Window>> {
+        // Use a read guard first to check existence, then upgrade to write lock.
+        // Re-check inside the write lock to avoid a TOCTOU race where the window
+        // is removed between the read check and the write lock acquisition.
         if !self.windows.read().contains_key(&window_id) {
             return None;
         }
-        Some(RwLockWriteGuard::map(self.windows.write(), |windows| {
+        let guard = self.windows.write();
+        if !guard.contains_key(&window_id) {
+            return None;
+        }
+        Some(RwLockWriteGuard::map(guard, |windows| {
             windows.get_mut(&window_id).unwrap()
         }))
     }
