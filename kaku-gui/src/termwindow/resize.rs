@@ -1485,12 +1485,8 @@ mod tests {
         // padding_bottom=2 (BOTTOM_TAB_VISIBLE_MIN_GAP), padding_top=36
         // bottom_gap = 2 + 15 = 17 > BOTTOM_TAB_VISIBLE_MIN_GAP(2)
         // shift = 17 - 2 = 15 → padding_top increases by 15, bottom strip eliminated
-        let (top, shifted) = rebalance_top_padding_for_bottom_gap(
-            36,
-            2,
-            15,
-            super::BOTTOM_TAB_VISIBLE_MIN_GAP,
-        );
+        let (top, shifted) =
+            rebalance_top_padding_for_bottom_gap(36, 2, 15, super::BOTTOM_TAB_VISIBLE_MIN_GAP);
         assert_eq!(shifted, 15);
         assert_eq!(top, 51);
     }

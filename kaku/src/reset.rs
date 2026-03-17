@@ -143,7 +143,11 @@ mod imp {
         } else {
             "~/.config/kaku/zsh/"
         };
-        let restart_cmd = if is_fish { "exec fish -l" } else { "exec zsh -l" };
+        let restart_cmd = if is_fish {
+            "exec fish -l"
+        } else {
+            "exec zsh -l"
+        };
 
         println!("\nShell restart required.");
         println!("Tools preserved in {}\n", tools_dir);
@@ -164,7 +168,10 @@ mod imp {
                 let err = std::process::Command::new(&shell).arg("-l").exec();
                 bail!("failed to restart shell: {}", err);
             } else {
-                println!("\nRun '{}' when ready. Restore with 'kaku init'", restart_cmd);
+                println!(
+                    "\nRun '{}' when ready. Restore with 'kaku init'",
+                    restart_cmd
+                );
             }
         } else {
             println!("Run '{}' to restart. Restore with 'kaku init'", restart_cmd);
@@ -310,11 +317,7 @@ mod imp {
 
         // Remove managed fish init file
         let fish_init = config_home().join("fish").join("kaku.fish");
-        remove_file_if_exists(
-            fish_init,
-            "removed ~/.config/kaku/fish/kaku.fish",
-            report,
-        )?;
+        remove_file_if_exists(fish_init, "removed ~/.config/kaku/fish/kaku.fish", report)?;
 
         // Remove fish wrapper bin
         let fish_wrapper = config_home().join("fish").join("bin").join("kaku");
