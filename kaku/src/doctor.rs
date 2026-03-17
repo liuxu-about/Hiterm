@@ -256,7 +256,11 @@ impl ShellKind {
 fn detect_shell_kind() -> ShellKind {
     match std::env::var("SHELL") {
         Err(_) => ShellKind::Unknown,
-        Ok(s) => match Path::new(&s).file_name().and_then(OsStr::to_str).unwrap_or("") {
+        Ok(s) => match Path::new(&s)
+            .file_name()
+            .and_then(OsStr::to_str)
+            .unwrap_or("")
+        {
             "zsh" => ShellKind::Zsh,
             "fish" => ShellKind::Fish,
             "" => ShellKind::Unknown,
