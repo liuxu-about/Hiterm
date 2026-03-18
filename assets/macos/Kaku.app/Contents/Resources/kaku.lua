@@ -2562,15 +2562,15 @@ wezterm.on('format-tab-title', function(tab, tabs, _, effective_config, hover, m
     has_bell = false
   end
 
-  -- Bell-based prefix indicator: show ● only when a BEL was received,
-  -- and honor the standard bell_tab_indicator toggle from user config.
+  -- Bell-based suffix indicator: show a small dot after the title when a BEL
+  -- was received, and honor the standard bell_tab_indicator toggle.
   if has_bell and effective_config.bell_tab_indicator ~= false then
     return {
       { Attribute = { Intensity = intensity } },
-      { Foreground = { Color = KAKU_ORANGE } },
-      { Text = ' ● ' },
       { Foreground = { Color = fg } },
-      { Text = text .. ' ' },
+      { Text = ' ' .. text .. ' ' },
+      { Foreground = { Color = KAKU_PURPLE } },
+      { Text = '● ' },
     }
   end
 
