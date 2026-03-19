@@ -35,6 +35,7 @@ pub enum TabBarItem {
 pub struct TabEntry {
     pub item: TabBarItem,
     pub title: Line,
+    pub progress: Progress,
     x: usize,
     width: usize,
 }
@@ -248,16 +249,18 @@ fn build_default_title(
         match pane.progress {
             Progress::None => {}
             Progress::Percentage(pct) | Progress::Error(pct) => {
-                let graphic = format!("{} ", pct_to_glyph(pct));
-                len += unicode_column_width(&graphic, None);
-                let color = if matches!(pane.progress, Progress::Percentage(_)) {
-                    FormatItem::Foreground(FormatColor::AnsiColor(AnsiColor::Green))
-                } else {
-                    FormatItem::Foreground(FormatColor::AnsiColor(AnsiColor::Red))
-                };
-                items.push(color);
-                items.push(FormatItem::Text(graphic));
-                items.push(FormatItem::Foreground(FormatColor::Default));
+                if !config.use_fancy_tab_bar {
+                    let graphic = format!("{}", pct_to_glyph(pct));
+                    len += unicode_column_width(&graphic, None);
+                    let color = if matches!(pane.progress, Progress::Percentage(_)) {
+                        FormatItem::Foreground(FormatColor::AnsiColor(AnsiColor::Green))
+                    } else {
+                        FormatItem::Foreground(FormatColor::AnsiColor(AnsiColor::Red))
+                    };
+                    items.push(color);
+                    items.push(FormatItem::Text(graphic));
+                    items.push(FormatItem::Foreground(FormatColor::Default));
+                }
             }
             Progress::Indeterminate => {
                 // TODO: Decide what to do here to indicate this
@@ -438,6 +441,7 @@ impl TabBarState {
             items: vec![TabEntry {
                 item: TabBarItem::None,
                 title: Line::from_text(" ", &CellAttributes::blank(), 1, None),
+                progress: Progress::None,
                 x: 1,
                 width: 1,
             }],
@@ -531,6 +535,7 @@ impl TabBarState {
             items.push(TabEntry {
                 item: TabBarItem::WindowButton(*button),
                 title: title.to_owned(),
+                progress: Progress::None,
                 x: *x,
                 width,
             });
@@ -666,6 +671,7 @@ impl TabBarState {
             items.push(TabEntry {
                 item: TabBarItem::LeftStatus,
                 title: left_status_line.clone(),
+                progress: Progress::None,
                 x,
                 width: left_status_line.len(),
             });
@@ -719,6 +725,10 @@ impl TabBarState {
             items.push(TabEntry {
                 item: TabBarItem::Tab { tab_idx, active },
                 title,
+                progress: tab_info[tab_idx]
+                    .active_pane
+                    .as_ref()
+                    .map_or(Progress::None, |p| p.progress.clone()),
                 x: tab_start_idx,
                 width,
             });
@@ -741,6 +751,7 @@ impl TabBarState {
             items.push(TabEntry {
                 item: TabBarItem::NewTabButton,
                 title: new_tab_button.clone(),
+                progress: Progress::None,
                 x: button_start,
                 width,
             });
@@ -803,6 +814,7 @@ impl TabBarState {
         items.push(TabEntry {
             item: TabBarItem::RightStatus,
             title: right_status_line.clone(),
+            progress: Progress::None,
             x,
             width: status_space_available,
         });

@@ -951,8 +951,20 @@ pub fn grapheme_column_width(s: &str, version: Option<&UnicodeVersion>) -> usize
         // Lookup the grapheme to see if the presentation of
         // the grapheme forces the width. We can bypass
         // the WcWidth classification if that is true.
+        //
+        // For characters with default Text presentation (like ⚠ U+26A0),
+        // a FE0F variation selector requests emoji display but does NOT
+        // change the column width. System wcwidth() returns 1 for the
+        // base character regardless of FE0F, and shells (zsh, bash) use
+        // wcwidth() for cursor positioning. Returning width 2 here while
+        // the shell assumes width 1 causes cursor misalignment and
+        // garbled display during line redraws.
         match Presentation::for_grapheme(s) {
-            (_, Some(Presentation::Emoji)) => return 2,
+            (Presentation::Emoji, Some(Presentation::Emoji)) => return 2,
+            (Presentation::Text, Some(Presentation::Emoji)) => {
+                // Fall through to per-char sum so the width matches
+                // the system wcwidth (base=1, FE0F=0 → total 1).
+            }
             (_, Some(Presentation::Text)) => return 1,
             (Presentation::Emoji, None) => return 2,
             (Presentation::Text, None) => {}
@@ -1138,7 +1150,9 @@ mod test {
             Graphemes::new(copyright_emoji_presentation).collect::<Vec<_>>(),
             vec![copyright_emoji_presentation.to_string()]
         );
-        assert_eq!(unicode_column_width(copyright_emoji_presentation, None), 2);
+        // Text-default characters with FE0F variation selector return width 1
+        // to match system wcwidth behavior and avoid cursor misalignment in shells.
+        assert_eq!(unicode_column_width(copyright_emoji_presentation, None), 1);
         assert_eq!(
             unicode_column_width(copyright_emoji_presentation, Some(&UnicodeVersion::new(9))),
             1
@@ -1173,6 +1187,21 @@ mod test {
             Graphemes::new(raised_fist).collect::<Vec<_>>(),
             vec![raised_fist.to_string()]
         );
+
+        // Text-default emoji with FE0F: width matches system wcwidth (1),
+        // not Unicode emoji width (2), to avoid cursor misalignment in shells.
+        let warning = "\u{26a0}";
+        let warning_emoji = "\u{26a0}\u{fe0f}";
+        assert_eq!(
+            Presentation::for_grapheme(warning_emoji),
+            (Presentation::Text, Some(Presentation::Emoji))
+        );
+        assert_eq!(unicode_column_width(warning, None), 1);
+        assert_eq!(unicode_column_width(warning_emoji, None), 1);
+
+        // Emoji-default characters still get width 2 with FE0F
+        let raised_fist_emoji = "\u{270a}\u{fe0f}";
+        assert_eq!(unicode_column_width(raised_fist_emoji, None), 2);
     }
 
     #[test]

@@ -172,6 +172,12 @@ fn run_confirmation_impl(message: &str, term: &mut TermWizTerminal) -> anyhow::R
                 return Ok(true);
             }
             InputEvent::Key(KeyEvent {
+                key: KeyCode::Enter,
+                ..
+            }) => {
+                return Ok(true);
+            }
+            InputEvent::Key(KeyEvent {
                 key: KeyCode::Char('n' | 'N'),
                 ..
             })
