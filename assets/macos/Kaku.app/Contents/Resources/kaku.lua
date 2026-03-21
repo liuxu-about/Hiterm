@@ -2520,8 +2520,9 @@ wezterm.on('format-tab-title', function(tab, tabs, _, effective_config, hover, m
   local text = tab.tab_title or ''
   if text == '' then
     local parent, current = tab_path_parts(tab)
+    local basename_only = effective_config and effective_config.tab_title_show_basename_only
     text = current
-    if parent ~= '' and current ~= '' then
+    if not basename_only and parent ~= '' and current ~= '' then
       text = parent .. '/' .. current
     end
   end
