@@ -86,6 +86,7 @@ detect_signing_identity() {
 		if ! is_developer_id_application_identity "$KAKU_SIGNING_IDENTITY"; then
 			echo "Warning: KAKU_SIGNING_IDENTITY is not a Developer ID Application certificate: $KAKU_SIGNING_IDENTITY" >&2
 			echo "Notarization requires Developer ID Application signing." >&2
+			return 1
 		fi
 		return 0
 	fi
