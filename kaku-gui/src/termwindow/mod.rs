@@ -4776,12 +4776,11 @@ impl TermWindow {
             Some(pos) if pos >= dims.physical_top => None,
             Some(pos) if pos < dims.scrollback_top => {
                 // The viewport position has been pruned from scrollback.
-                // This typically happens during rapid output when scrollback_top
-                // advances past the user's scroll position.  Snap back to the
-                // bottom (follow output) instead of clamping to scrollback_top,
-                // which would pin the viewport at the very top of the buffer
-                // and cause a jarring "jump to top" visual effect.
-                None
+                // Clamp to the oldest available row so the user stays in history
+                // rather than being snapped to the bottom.  The stable_range
+                // fallback in screen.rs ensures the render shows valid content
+                // even if the clamped position briefly races ahead of the render.
+                Some(dims.scrollback_top)
             }
             Some(pos) => Some(pos),
             None => None,
@@ -5508,12 +5507,12 @@ mod tests {
     }
 
     #[test]
-    fn normalize_viewport_snaps_to_bottom_when_pruned() {
+    fn normalize_viewport_clamps_to_scrollback_top_when_pruned() {
         // When viewport is below scrollback_top (pruned by scrollback rotation),
-        // snap to None (follow bottom) instead of clamping to scrollback_top
+        // clamp to scrollback_top so the user stays in history.
         assert_eq!(
             TermWindow::normalize_viewport(Some(90), dims(150, 100)),
-            None
+            Some(100)
         );
     }
 
@@ -5535,9 +5534,10 @@ mod tests {
             TermWindow::normalize_viewport(Some(120), dims(140, 100)),
             Some(120)
         );
+        // When scrollback_top advances past the viewport, clamp to scrollback_top.
         assert_eq!(
             TermWindow::normalize_viewport(Some(120), dims(150, 121)),
-            None
+            Some(121)
         );
     }
 
