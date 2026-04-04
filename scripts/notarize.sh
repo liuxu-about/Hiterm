@@ -145,31 +145,70 @@ fi
 
 is_transient_notary_failure() {
 	local output="$1"
+	local exit_code="${2:-0}"
+	# Transient Apple server errors
 	[[ "$output" == *"statusCode: Optional(500)"* ]] ||
 		[[ "$output" == *"statusCode\": 500"* ]] ||
 		[[ "$output" == *"code = \"UNEXPECTED_ERROR\""* ]] ||
-		[[ "$output" == *"title = \"Uncaught server exception\""* ]]
+		[[ "$output" == *"title = \"Uncaught server exception\""* ]] ||
+		# SIGBUS (exit 138) / stack overflow in notarytool on macOS 26 beta: retry
+		[[ "$exit_code" == "138" ]] ||
+		# Network reset mid-upload: retry
+		[[ "$output" == *"Connection reset by peer"* ]]
+}
+
+# notarytool crashes with SIGBUS (stack overflow) on macOS 26 beta.
+# Wrap in a Python thread with 64 MB stack to work around the issue.
+_notarytool_submit() {
+	python3 - "$APPLE_ID" "$TEAM_ID" "$PASSWORD" "$SUBMISSION_PATH" <<'PYEOF'
+import threading, subprocess, sys, os
+
+apple_id, team_id, password, path = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+
+result_holder = [None]
+
+def run():
+    result_holder[0] = subprocess.run(
+        ["xcrun", "notarytool", "submit", path,
+         "--apple-id", apple_id,
+         "--team-id", team_id,
+         "--password", password,
+         "--wait"],
+        capture_output=True, text=True
+    )
+
+threading.stack_size(64 * 1024 * 1024)
+t = threading.Thread(target=run)
+t.start()
+t.join()
+
+r = result_holder[0]
+if r is None:
+    sys.exit(138)
+print(r.stdout, end="")
+print(r.stderr, end="", file=sys.stderr)
+sys.exit(r.returncode)
+PYEOF
 }
 
 submit_for_notarization() {
 	local attempt=1
 	local delay="$NOTARY_SUBMIT_RETRY_DELAY"
+	local exit_code
 
 	while true; do
-		if SUBMIT_OUTPUT=$(xcrun notarytool submit "$SUBMISSION_PATH" \
-			--apple-id "$APPLE_ID" \
-			--team-id "$TEAM_ID" \
-			--password "$PASSWORD" \
-			--wait 2>&1); then
+		SUBMIT_OUTPUT=$(_notarytool_submit 2>&1)
+		exit_code=$?
+
+		if [[ "$exit_code" == "0" ]]; then
 			return 0
 		fi
 
-		if (( attempt >= NOTARY_SUBMIT_MAX_ATTEMPTS )) || ! is_transient_notary_failure "$SUBMIT_OUTPUT"; then
+		if (( attempt >= NOTARY_SUBMIT_MAX_ATTEMPTS )) || ! is_transient_notary_failure "$SUBMIT_OUTPUT" "$exit_code"; then
 			return 1
 		fi
 
-		echo "Apple notarization service returned a transient 500 error (attempt ${attempt}/${NOTARY_SUBMIT_MAX_ATTEMPTS})."
-		echo "Retrying in ${delay}s..."
+		echo "Transient notarization error (attempt ${attempt}/${NOTARY_SUBMIT_MAX_ATTEMPTS}, exit ${exit_code}), retrying in ${delay}s..."
 		sleep "$delay"
 
 		attempt=$((attempt + 1))
