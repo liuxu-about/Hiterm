@@ -455,7 +455,7 @@ impl crate::TermWindow {
         for item in shaped.iter() {
             let cluster = &item.cluster;
             let glyph_info = &item.glyph_info;
-            let images = cluster.attrs.images().unwrap_or_else(|| vec![]);
+            let images = cluster.attrs.images().unwrap_or_default();
             let valign_adjust = match cluster.attrs.vertical_align() {
                 termwiz::cell::VerticalAlign::BaseLine => 0.,
                 termwiz::cell::VerticalAlign::SuperScript => {
