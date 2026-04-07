@@ -128,7 +128,7 @@ Big thanks to all contributors who helped build Kaku. Go follow them! ❤️
 
 - If Kaku helped you, star the repo or [share it](https://twitter.com/intent/tweet?url=https://github.com/tw93/Kaku&text=Kaku%20-%20A%20fast%20terminal%20built%20for%20AI%20coding.) with friends.
 - Got ideas or found bugs? Open an issue/PR or check [CONTRIBUTING.md](CONTRIBUTING.md) for details.
-- Like Kaku? <a href="https://miaoyan.app/cats.html?name=Kaku" target="_blank">Buy Tw93 a Coke</a> to support the project.
+- I have two cats, TangYuan and Coke. If you think Kaku delights your life, you can feed them <a href="https://miaoyan.app/cats.html?name=Kaku" target="_blank">some canned food 🥩</a>.
 
 <a href="https://miaoyan.app/cats.html?name=Kaku"><img src="https://rawcdn.githack.com/tw93/MiaoYan/vercel/assets/sponsors.svg" width="1000" loading="lazy" /></a>
 
