@@ -3,18 +3,18 @@ mod ui;
 use crate::assistant_config;
 use crate::utils::open_path_in_editor;
 use anyhow::Context;
+use crossterm::ExecutableCommand;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use crossterm::ExecutableCommand;
-use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
+use std::convert::TryFrom;
 use std::io;
 use std::path::{Path, PathBuf};
 
-const KAKU_AUTO_COLOR_SCHEME_EXPR: &str =
-    "(wezterm.gui and wezterm.gui.get_appearance() or 'Dark'):find('Dark') and 'Kaku Dark' or 'Kaku Light'";
+const KAKU_AUTO_COLOR_SCHEME_EXPR: &str = "(wezterm.gui and wezterm.gui.get_appearance() or 'Dark'):find('Dark') and 'Kaku Dark' or 'Kaku Light'";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum NormalModeAction {
@@ -724,7 +724,11 @@ impl App {
                 _ => {}
             }
         }
-        parts.push(key.to_ascii_uppercase());
+        if key == " " {
+            parts.push("Space".to_string());
+        } else {
+            parts.push(key.to_ascii_uppercase());
+        }
         Some(parts.join("+"))
     }
 
@@ -738,7 +742,15 @@ impl App {
             return None;
         }
 
-        let key = parts.last()?.to_ascii_uppercase();
+        let key_token = parts.last()?;
+        let key = if key_token.eq_ignore_ascii_case("space") {
+            " ".to_string()
+        } else {
+            key_token.to_ascii_uppercase()
+        };
+        if config::DeferredKeyCode::try_from(key.as_str()).is_err() {
+            return None;
+        }
         let mut mods: Vec<&str> = Vec::new();
         for token in &parts[..parts.len() - 1] {
             match token.to_ascii_uppercase().as_str() {
@@ -1420,8 +1432,8 @@ fn signal_config_changed() {
 #[cfg(test)]
 mod tests {
     use super::{
-        ensure_editable_config_exists, normal_mode_action, App, Mode, NormalModeAction,
-        KAKU_AUTO_COLOR_SCHEME_EXPR,
+        App, KAKU_AUTO_COLOR_SCHEME_EXPR, Mode, NormalModeAction, ensure_editable_config_exists,
+        normal_mode_action,
     };
     use crossterm::event::KeyCode;
     use std::path::PathBuf;
@@ -1782,6 +1794,61 @@ mod tests {
         app.confirm_edit();
 
         assert_eq!(app.fields[idx].value, "0.9");
+    }
+
+    #[test]
+    fn hotkey_space_serializes_to_literal_space_key() {
+        assert_eq!(
+            App::hotkey_to_lua("Alt+Space"),
+            Some("{ key = ' ', mods = 'ALT' }".into())
+        );
+        assert_eq!(
+            App::hotkey_to_lua("Alt+SPACE"),
+            Some("{ key = ' ', mods = 'ALT' }".into())
+        );
+    }
+
+    #[test]
+    fn hotkey_space_round_trips_between_display_and_lua() {
+        let raw = App::hotkey_to_lua("Ctrl+Alt+Cmd+Space").expect("serialize hotkey");
+
+        assert_eq!(raw, "{ key = ' ', mods = 'CTRL|ALT|SUPER' }");
+        assert_eq!(
+            App::normalize_value("macos_global_hotkey", &raw),
+            Some("Ctrl+Alt+Cmd+Space".into())
+        );
+    }
+
+    #[test]
+    fn hotkey_table_with_literal_space_displays_space_token() {
+        assert_eq!(
+            App::normalize_value("macos_global_hotkey", "{ key = ' ', mods = 'ALT|SHIFT' }"),
+            Some("Alt+Shift+Space".into())
+        );
+    }
+
+    #[test]
+    fn invalid_hotkey_key_name_is_rejected() {
+        assert_eq!(App::hotkey_to_lua("Alt+Foo"), None);
+    }
+
+    #[test]
+    fn invalid_hotkey_edit_reverts_to_original_value() {
+        let mut app = test_app();
+        let idx = app
+            .fields
+            .iter()
+            .position(|f| f.lua_key == "macos_global_hotkey")
+            .expect("macos_global_hotkey field to exist");
+        app.selected = idx;
+        app.fields[idx].value = "Ctrl+Alt+Cmd+K".into();
+
+        app.start_edit();
+        app.edit_buffer = "Alt+Foo".into();
+        app.edit_cursor = app.edit_buffer.chars().count();
+        app.confirm_edit();
+
+        assert_eq!(app.fields[idx].value, "Ctrl+Alt+Cmd+K");
     }
 
     #[test]
@@ -2157,7 +2224,9 @@ mod tests {
 
         // TL=On + Shadow=Off → INTEGRATED_BUTTONS|RESIZE|MACOS_FORCE_DISABLE_SHADOW
         assert!(
-            content.contains("config.window_decorations = 'INTEGRATED_BUTTONS|RESIZE|MACOS_FORCE_DISABLE_SHADOW'"),
+            content.contains(
+                "config.window_decorations = 'INTEGRATED_BUTTONS|RESIZE|MACOS_FORCE_DISABLE_SHADOW'"
+            ),
             "shadow should stay off when only TL was toggled, got:\n{}",
             content
         );
