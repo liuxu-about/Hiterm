@@ -1403,7 +1403,7 @@ local function ctrl_ai_generate_spinner(pane, pane_state, clear)
   if not pane then
     return
   end
-  local frames = { "◐", "◓", "◑", "◒" }
+  local frames = { "◌", "◎", "◉", "●", "◉", "◎" }
   local n = #frames
   if not pane_state.spinner_line_active then
     local frame = frames[(pane_state.spinner_frame % n) + 1]
