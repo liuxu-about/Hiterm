@@ -46,7 +46,6 @@ wezterm-client.workspace = true
 wezterm-gui-subcommands.workspace = true
 wezterm-term.workspace = true
 wezterm-version.workspace = true
-tui-skeleton = "0.3.0"
 
 [target."cfg(unix)".dependencies]
 termios.workspace = true

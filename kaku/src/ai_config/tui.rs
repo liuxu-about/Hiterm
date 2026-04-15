@@ -5273,28 +5273,11 @@ pub fn run() -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend).context("create terminal")?;
 
-    // Animate the skeleton loading screen while App::new() runs on a
-    // background thread (reads config files + spawns usage-fetch thread).
-    let (app_tx, app_rx) = mpsc::sync_channel::<App>(1);
-    std::thread::spawn(move || {
-        let _ = app_tx.send(App::new());
-    });
-    let start = Instant::now();
-    let mut app = loop {
-        let elapsed_ms = start.elapsed().as_millis() as u64;
-        terminal
-            .draw(|frame| ui::loading_ui(frame, elapsed_ms))
-            .context("draw loading screen")?;
-        match app_rx.try_recv() {
-            Ok(a) => break a,
-            Err(mpsc::TryRecvError::Empty) => {
-                std::thread::sleep(Duration::from_millis(50));
-            }
-            Err(mpsc::TryRecvError::Disconnected) => {
-                anyhow::bail!("App initialization thread disconnected");
-            }
-        }
-    };
+    terminal
+        .draw(ui::loading_ui)
+        .context("draw loading screen")?;
+
+    let mut app = App::new();
     let result = run_loop(&mut terminal, &mut app);
 
     terminal.show_cursor().context("show cursor")?;

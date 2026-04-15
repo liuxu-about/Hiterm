@@ -164,6 +164,40 @@ local function resolve_kaku_color_scheme(scheme)
   return scheme
 end
 
+-- Auto-sync Claude Code theme with Kaku color scheme.
+-- Only runs when ~/.claude.json exists (Claude Code installed).
+-- Escape hatch: KAKU_CLAUDE_SYNC=0 in env to disable.
+local kaku_last_synced_cc_theme = nil
+
+local function sync_claude_code_theme(is_light)
+  if os.getenv('KAKU_CLAUDE_SYNC') == '0' then return end
+  local target = is_light and 'light-ansi' or 'dark-ansi'
+  if kaku_last_synced_cc_theme == target then return end
+  local home = os.getenv('HOME')
+  if not home or home == '' then return end
+  kaku_last_synced_cc_theme = target
+  wezterm.run_child_process({
+    'python3', '-c',
+    [[
+import json, os, pathlib, sys
+p = pathlib.Path(os.environ['HOME']) / '.claude.json'
+if not p.exists():
+    sys.exit(0)
+try:
+    d = json.loads(p.read_text())
+    if d.get('theme') == sys.argv[1]:
+        sys.exit(0)
+    d['theme'] = sys.argv[1]
+    tmp = p.with_suffix('.json.tmp')
+    tmp.write_text(json.dumps(d))
+    tmp.replace(p)
+except Exception:
+    pass
+]],
+    target,
+  })
+end
+
 -- Two-tier display detection.
 -- low resolution screens use smaller spacing and 15px font.
 -- high resolution screens use default spacing and 17px font.
@@ -3387,6 +3421,7 @@ wezterm.on('window-config-reloaded', function(window, pane)
   local overrides = window:get_config_overrides() or {}
   local scheme = resolve_kaku_color_scheme(overrides.color_scheme or config.color_scheme)
   local is_light = scheme == 'Kaku Light'
+  sync_claude_code_theme(is_light)
   local overrides_changed = false
 
   if user_has_custom_font or user_has_custom_font_rules then
@@ -3680,6 +3715,8 @@ local kaku_light = {
     ['#575653'] = '#F2F0EB',  -- ANSI 7 (white)
     ['#585754'] = '#F2F0EB',  -- Claude Code true color
     ['#225FA6'] = '#F2F0EB',  -- Claude Code blue header background
+    ['#205EA6'] = '#F2F0EB',  -- ANSI 4 (blue bg): Claude Code selection row
+    ['#1C6C66'] = '#F2F0EB',  -- ANSI 6 (cyan bg): Claude Code branch pill
   },
 }
 
