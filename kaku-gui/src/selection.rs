@@ -248,6 +248,11 @@ impl SelectionRange {
                 {
                     DoubleClickRange::RangeWithWrap(click_range)
                     | DoubleClickRange::Range(click_range) => {
+                        if click_range.end <= click_range.start {
+                            // Empty word range: no word at this position or line is empty.
+                            // Fall back to a degenerate selection at the click point.
+                            return Self { start, end: start };
+                        }
                         let (start_y, start_x) =
                             logical.logical_x_to_physical_coord(click_range.start);
                         let (end_y, end_x) =
