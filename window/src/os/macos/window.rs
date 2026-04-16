@@ -1808,18 +1808,27 @@ impl WindowInner {
             // radius so compositor-clipped corners don't leave transparent arcs.
             // On macOS 26+ NSThemeFrame.layer.cornerRadius returns 0 because
             // rounding is handled by the compositor, so fall back to 10pt.
+            // MACOS_FORCE_SQUARE_CORNERS opts out entirely: required on macOS 26
+            // where the compositor leaves the NSWindow occupancy rectangular, so
+            // tiled neighbor apps would otherwise poke into the clipped arcs.
+            let force_square = self
+                .config
+                .window_decorations
+                .contains(WindowDecorations::MACOS_FORCE_SQUARE_CORNERS);
             if !APP_TERMINATING.load(Ordering::Relaxed) {
                 let layer: id = msg_send![*self.view, layer];
                 if !layer.is_null() {
                     let content_view: id = msg_send![*self.window, contentView];
                     let frame_view: id = msg_send![content_view, superview];
                     let frame_layer: id = msg_send![frame_view, layer];
-                    let mut corner_radius: CGFloat = if !frame_layer.is_null() {
+                    let mut corner_radius: CGFloat = if force_square {
+                        0.0
+                    } else if !frame_layer.is_null() {
                         msg_send![frame_layer, cornerRadius]
                     } else {
                         0.0
                     };
-                    if corner_radius == 0.0 && macos_version_major() >= 26 {
+                    if !force_square && corner_radius == 0.0 && macos_version_major() >= 26 {
                         corner_radius = 10.0;
                     }
                     log::trace!(
@@ -5049,9 +5058,18 @@ impl WindowView {
 
     extern "C" fn make_backing_layer(view: &mut Object, _: Sel) -> id {
         log::trace!("make_backing_layer");
-        let use_metal_backing_layer = Self::get_this(view)
-            .map(|this| this.inner.borrow().config.front_end == config::FrontEndSelection::WebGpu)
-            .unwrap_or(false);
+        let (use_metal_backing_layer, force_square) = Self::get_this(view)
+            .map(|this| {
+                let inner = this.inner.borrow();
+                (
+                    inner.config.front_end == config::FrontEndSelection::WebGpu,
+                    inner
+                        .config
+                        .window_decorations
+                        .contains(WindowDecorations::MACOS_FORCE_SQUARE_CORNERS),
+                )
+            })
+            .unwrap_or((false, false));
         let class = if use_metal_backing_layer {
             class!(CAMetalLayer)
         } else {
@@ -5069,8 +5087,10 @@ impl WindowView {
             // don't leave transparent arcs.  The radius set here will be
             // refreshed later by update_window_shadow, but we need an
             // initial value because that function may have already run
-            // before AppKit calls make_backing_layer.
-            if macos_version_major() >= 26 {
+            // before AppKit calls make_backing_layer. MACOS_FORCE_SQUARE_CORNERS
+            // opts out so tiled neighbor apps on macOS 26 can't poke into
+            // the clipped arcs.
+            if macos_version_major() >= 26 && !force_square {
                 let corner_radius: CGFloat = 10.0;
                 let () = msg_send![layer, setCornerRadius: corner_radius];
                 let () = msg_send![layer, setMasksToBounds: YES];
