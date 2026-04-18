@@ -648,8 +648,26 @@ impl CommandDef {
     /// and remove them at the end.
     #[cfg(target_os = "macos")]
     pub fn recreate_menubar(config: &ConfigHandle) {
+        use std::sync::Once;
         use window::os::macos::menu::*;
         use window::{Connection, ConnectionOps};
+
+        // AppKit always injects "Spotlight for Help" into some menu. Per
+        // NSApplication.h: "If a non-nil menu is set as the Help menu,
+        // Spotlight for Help will be installed in it; otherwise AppKit
+        // will install Spotlight for Help into a menu of its choosing."
+        // On macOS 26 the injected NSMenuItem's lifetime is mis-handled,
+        // PAC-faulting during key-equivalent routing. Redirect to an
+        // orphan menu that is never attached to the menubar so nothing
+        // walks it during sendEvent:.
+        static HELP_SINK_ONCE: Once = Once::new();
+        HELP_SINK_ONCE.call_once(|| {
+            let help_sink = Menu::new_with_title("");
+            help_sink.assign_as_help_menu();
+            // NSApp's setHelpMenu: retains (strong property); forgetting the
+            // Rust StrongPtr keeps refcount safely high for process lifetime.
+            std::mem::forget(help_sink);
+        });
 
         let inputmap = InputMap::new(config);
 
