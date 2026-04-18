@@ -34,10 +34,22 @@ pub fn register_if_configured() {
     let client = AiClient::new(config);
     let handler: AiHandler = Arc::new(move |req: AiRequest| {
         let client = client.clone();
-        std::thread::Builder::new()
+        let in_flight = req.in_flight.clone();
+        let tx = req.tx.clone();
+        let conversation_id = req.conversation_id.clone();
+        if let Err(err) = std::thread::Builder::new()
             .name("kaku-remote-ai".to_string())
             .spawn(move || run_chat(client, req))
-            .ok();
+        {
+            // The dispatcher already incremented in_flight; release it here so a
+            // spawn failure does not permanently burn a session slot.
+            log::warn!("kaku-remote AI: failed to spawn handler thread: {err}");
+            in_flight.fetch_sub(1, Ordering::AcqRel);
+            let _ = tx.send(AiEvent::AiError {
+                conversation_id,
+                message: "internal_error".to_string(),
+            });
+        }
     });
     set_ai_handler(handler);
     log::info!("kaku-remote AI: handler registered");
