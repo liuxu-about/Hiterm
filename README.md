@@ -14,8 +14,6 @@
 
 <p align="center">
   <img src="assets/kaku.jpg" alt="Kaku Screenshot" width="1000" />
-  <br/>
-  Kaku is a deeply customized fork of <a href="https://github.com/wez/wezterm">WezTerm</a>, designed for an out-of-the-box experience.
 </p>
 
 ## Why
