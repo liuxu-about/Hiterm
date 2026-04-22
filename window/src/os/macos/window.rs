@@ -4813,25 +4813,14 @@ impl WindowView {
             if this.is_closing.get() {
                 return;
             }
-            let window_to_persist = {
-                let mut inner = match this.inner.try_borrow_mut() {
-                    Ok(inner) => inner,
-                    Err(_) => return,
-                };
+            // Force a final non-live resize pass so TermWindow receives
+            // WindowEvent::Resized with live_resizing=false and flushes the
+            // deferred PTY size updates from resize_visual().
+            if let Ok(mut inner) = this.inner.try_borrow_mut() {
                 inner.live_resizing = false;
-                if APP_TERMINATING.load(Ordering::Relaxed) {
-                    None
-                } else {
-                    inner.window.as_ref().map(|window| window.load())
-                }
-            };
-
-            if let Some(window) = window_to_persist {
-                if !window.is_null() {
-                    let _ = persist_window_size_and_position(*window);
-                }
             }
         }
+        Self::did_resize(this, _sel, _notification);
     }
 
     extern "C" fn did_resize(this: &mut Object, _sel: Sel, _notification: id) {

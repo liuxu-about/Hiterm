@@ -781,7 +781,7 @@ local ai_fix_api_base_url = "https://api.vivgrid.com/v1"
 local ai_fix_api_key = nil
 local ai_fix_model = "DeepSeek-V3.2"
 local ai_fix_custom_headers = {}
-local ai_fix_timeout_secs = 12
+local ai_fix_timeout_secs = 30
 local ai_fix_debug_enabled = false
 local ai_fix_state_by_pane = {}
 local ai_fix_poll_interval_secs = 0.2
@@ -809,6 +809,12 @@ local function refresh_ai_fix_settings()
   ai_fix_api_key = read_ai_setting("api_key", ai_fix_api_key)
   ai_fix_model = read_ai_setting("model", ai_fix_model)
   ai_fix_custom_headers = read_ai_custom_headers("custom_headers")
+  local timeout_str = read_ai_setting("timeout_secs", tostring(ai_fix_timeout_secs))
+  local timeout_num = tonumber(timeout_str)
+  if timeout_num and timeout_num > 0 then
+    ai_fix_timeout_secs = timeout_num
+    ai_fix_poll_deadline_secs = ai_fix_timeout_secs + 4
+  end
 end
 
 local function detect_git_branch(path)
@@ -1303,7 +1309,9 @@ local function inject_ai_status(pane, message)
   end
 
   local summary = normalize_ai_summary(message or "", "Checking this error now.")
-  local line = "\27[38;5;141m╰─ Kaku Assistant\27[0m  \27[38;5;244m" .. summary .. "\27[0m"
+  local is_light = resolve_appearance_color_scheme() == 'Kaku Light'
+  local label_color = is_light and "\27[38;2;32;94;166m" or "\27[38;5;141m"
+  local line = label_color .. "╰─ Kaku Assistant\27[0m  \27[38;5;244m" .. summary .. "\27[0m"
   local output = "\r\n" .. line .. "\r\n\r\n"
   pcall(function()
     pane:inject_output(output)
