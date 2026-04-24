@@ -2511,10 +2511,6 @@ const fn linear_ease() -> EasingFunction {
     EasingFunction::Linear
 }
 
-const fn default_one_cell() -> Dimension {
-    Dimension::Cells(1.)
-}
-
 const fn default_half_cell() -> Dimension {
     Dimension::Cells(0.5)
 }

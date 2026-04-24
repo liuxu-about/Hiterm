@@ -620,6 +620,7 @@ pub fn execute(
         }
         "fs_write" => {
             let path = resolve(args["path"].as_str().context("missing path")?, cwd)?;
+            reject_if_sensitive(&path)?;
             let content = args["content"].as_str().context("missing content")?;
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent)?;
@@ -629,6 +630,7 @@ pub fn execute(
         }
         "fs_patch" => {
             let path = resolve(args["path"].as_str().context("missing path")?, cwd)?;
+            reject_if_sensitive(&path)?;
             let old_text = args["old_text"].as_str().context("missing old_text")?;
             let new_text = args["new_text"].as_str().context("missing new_text")?;
             let original = std::fs::read_to_string(&path)

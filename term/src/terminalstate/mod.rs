@@ -672,6 +672,7 @@ impl TerminalState {
 
     pub fn set_config(&mut self, config: Arc<dyn TerminalConfiguration>) {
         self.config = config;
+        self.palette.take();
     }
 
     pub fn get_config(&self) -> Arc<dyn TerminalConfiguration> {

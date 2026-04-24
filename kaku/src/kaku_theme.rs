@@ -272,16 +272,21 @@ fn color_scheme_selection_from_content(content: &str) -> Option<ColorSchemeSelec
         .last()
 }
 
-/// Returns true when the user config explicitly assigns `config.color_scheme`
-/// to an appearance-based expression (Auto), using the same line-oriented
-/// assignment semantics as `kaku.lua`.
+/// Returns true when the user's color scheme intent is Auto.
+/// This covers two cases:
+///   1. User config explicitly assigns an appearance-based expression (get_appearance).
+///   2. User config has no color_scheme assignment at all, meaning the bundled
+///      default (Auto) is in effect.
 fn config_file_has_auto_color_scheme(_config: &ConfigHandle) -> bool {
     let path = config::effective_config_file_path();
     let content = match std::fs::read_to_string(&path) {
         Ok(c) => c,
         Err(_) => return false,
     };
-    color_scheme_selection_from_content(&content) == Some(ColorSchemeSelection::Auto)
+    match color_scheme_selection_from_content(&content) {
+        Some(ColorSchemeSelection::Auto) | None => true,
+        _ => false,
+    }
 }
 
 /// Detects whether macOS is currently running in Dark Mode by reading the

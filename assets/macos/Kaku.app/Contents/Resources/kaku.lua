@@ -3704,8 +3704,8 @@ local kaku_light = {
   brights = {
     '#6F6E69', -- base-600 (comments)
     '#C03E35', -- red-500
-    '#768D21', -- green-500
-    '#AD8301', -- yellow-600 (deepened from bright for contrast)
+    '#66790D', -- green-600 (deepened for light-theme contrast ~5.3:1)
+    '#8E6B02', -- yellow-700 (matches ansi yellow, contrast ~5.1:1)
     '#3171B2', -- blue-500
     '#B74583', -- magenta-500
     '#2F968D', -- cyan-500
@@ -3751,13 +3751,15 @@ local kaku_light = {
     },
   },
 
-  -- Override Claude Code quote background for better contrast
+  -- Override Claude Code backgrounds for better contrast on cream
   color_overrides = {
-    ['#575653'] = '#F2F0EB',  -- ANSI 7 (white)
-    ['#585754'] = '#F2F0EB',  -- Claude Code true color
+    ['#575653'] = '#F2F0EB',  -- ANSI 7 (white): quote background
+    ['#585754'] = '#F2F0EB',  -- Claude Code true color variant
     ['#225FA6'] = '#F2F0EB',  -- Claude Code blue header background
-    ['#205EA6'] = '#F2F0EB',  -- ANSI 4 (blue bg): Claude Code selection row
-    ['#1C6C66'] = '#F2F0EB',  -- ANSI 6 (cyan bg): Claude Code branch pill
+    ['#205EA6'] = '#F2F0EB',  -- ANSI 4 (blue bg): selection row
+    ['#1C6C66'] = '#F2F0EB',  -- ANSI 6 (cyan bg): branch pill
+    ['#536907'] = '#F2F0EB',  -- ANSI 2 (green bg): progress bar blocks
+    ['#8E6B02'] = '#F2F0EB',  -- ANSI 3 (yellow bg): agent label background
   },
 }
 
@@ -3768,25 +3770,28 @@ config.color_schemes['Kaku Light'] = kaku_light
 config.color_schemes['Kaku Theme'] = kaku_theme
 config.color_scheme = resolve_kaku_color_scheme(config.color_scheme)
 
+config.set_environment_variables = config.set_environment_variables or {}
+config.set_environment_variables['COLORFGBG'] = (config.color_scheme == 'Kaku Light') and '0;15' or '15;0'
+
 -- ===== Window Frame (theme-aware) =====
 get_window_frame_colors = function(scheme)
   scheme = resolve_kaku_color_scheme(scheme)
   if scheme == 'Kaku Light' then
     return {
-      active_titlebar_bg = '#F6F1E3',
-      inactive_titlebar_bg = '#F1EBDD',
+      active_titlebar_bg = '#FFFCF0',
+      inactive_titlebar_bg = '#F8F5EA',
       active_titlebar_fg = '#100F0F',
       inactive_titlebar_fg = '#575653',
-      active_titlebar_border_bottom = '#D8CEB8',
-      inactive_titlebar_border_bottom = '#E3DAC8',
+      active_titlebar_border_bottom = '#E8E1D0',
+      inactive_titlebar_border_bottom = '#EDE6D6',
       border_left_width = 1,
       border_right_width = 1,
       border_top_height = 1,
       border_bottom_height = 1,
-      border_left_color = '#DDD3BF',
-      border_right_color = '#DDD3BF',
-      border_top_color = '#DDD3BF',
-      border_bottom_color = '#DDD3BF',
+      border_left_color = '#E8E1D0',
+      border_right_color = '#E8E1D0',
+      border_top_color = '#FFFCF0',
+      border_bottom_color = '#E8E1D0',
     }
   else
     return {
