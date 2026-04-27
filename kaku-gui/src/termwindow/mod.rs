@@ -1111,6 +1111,7 @@ impl TermWindow {
     }
 
     fn close_requested(&mut self, _window: &Window) {
+        let _ = crate::session_restore::save_window_snapshot(self.mux_window_id);
         #[cfg(target_os = "macos")]
         {
             // On macOS, hide the window instead of destroying it so that tabs,
@@ -4197,6 +4198,8 @@ impl TermWindow {
                         ..SpawnCommand::default()
                     };
                     self.spawn_command(&spawn, SpawnWhere::NewTab);
+                } else {
+                    crate::session_restore::restore_previous_window_from_menu();
                 }
             }
             Nop | DisableDefaultAssignment => {}
@@ -5694,6 +5697,10 @@ impl TermWindow {
     /// the active tab for the window, but if the window has a tab-wide
     /// overlay (such as the launcher / tab navigator),
     /// then that will be returned instead.  Otherwise, if the pane has
+    pub fn get_terminal_size(&self) -> TerminalSize {
+        self.terminal_size
+    }
+
     /// an active overlay (such as search or copy mode) then that will
     /// be returned.
     pub fn get_active_pane_or_overlay(&self) -> Option<Arc<dyn Pane>> {

@@ -472,12 +472,24 @@ impl GuiFrontEnd {
                 }
                 MuxNotification::TabTitleChanged { .. } => {}
                 MuxNotification::WindowTitleChanged { .. } => {}
-                MuxNotification::TabResized(_) => {}
-                MuxNotification::TabAddedToWindow { .. } => {}
+                MuxNotification::TabResized(tab_id) => {
+                    let mux = Mux::get();
+                    if let Some(window_id) = mux.window_containing_tab(tab_id) {
+                        crate::session_restore::request_save_window_snapshot(window_id);
+                    }
+                }
+                MuxNotification::TabAddedToWindow { window_id, .. } => {
+                    crate::session_restore::request_save_window_snapshot(window_id);
+                }
                 MuxNotification::PaneRemoved(_) => {}
                 MuxNotification::WindowInvalidated(_) => {}
                 MuxNotification::PaneOutput(_) => {}
-                MuxNotification::PaneAdded(_) => {}
+                MuxNotification::PaneAdded(pane_id) => {
+                    let mux = Mux::get();
+                    if let Some((_, window_id, _)) = mux.resolve_pane_id(pane_id) {
+                        crate::session_restore::request_save_window_snapshot(window_id);
+                    }
+                }
                 MuxNotification::Alert {
                     pane_id,
                     alert:
@@ -1145,6 +1157,13 @@ impl GuiFrontEnd {
             }
         }
         None
+    }
+
+    pub fn focused_mux_window_id(&self) -> Option<MuxWindowId> {
+        let mux = Mux::get();
+        mux.resolve_focused_pane(&self.client_id)
+            .map(|(_, window_id, _, _)| window_id)
+            .or_else(|| self.gui_windows().first().map(|w| w.mux_window_id))
     }
 }
 
