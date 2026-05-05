@@ -400,40 +400,10 @@ impl super::TermWindow {
         // Keep modal focus exclusive: forward all mouse events to it and stop
         // routing into pane/tab UI while active.
         if let Some(modal) = self.get_modal() {
+            let (kind, button) = wmek_to_tmek_and_button(&event);
             let modal_event = wezterm_term::MouseEvent {
-                kind: match event.kind {
-                    WMEK::Move => TMEK::Move,
-                    WMEK::VertWheel(_) | WMEK::HorzWheel(_) | WMEK::Press(_) => TMEK::Press,
-                    WMEK::Release(_) => TMEK::Release,
-                },
-                button: match event.kind {
-                    WMEK::Release(ref press) | WMEK::Press(ref press) => mouse_press_to_tmb(press),
-                    WMEK::Move => {
-                        if event.mouse_buttons == WMB::LEFT {
-                            TMB::Left
-                        } else if event.mouse_buttons == WMB::RIGHT {
-                            TMB::Right
-                        } else if event.mouse_buttons == WMB::MIDDLE {
-                            TMB::Middle
-                        } else {
-                            TMB::None
-                        }
-                    }
-                    WMEK::VertWheel(amount) => {
-                        if amount > 0 {
-                            TMB::WheelUp(amount as usize)
-                        } else {
-                            TMB::WheelDown((-amount) as usize)
-                        }
-                    }
-                    WMEK::HorzWheel(amount) => {
-                        if amount > 0 {
-                            TMB::WheelLeft(amount as usize)
-                        } else {
-                            TMB::WheelRight((-amount) as usize)
-                        }
-                    }
-                },
+                kind,
+                button,
                 x,
                 y,
                 x_pixel_offset,
@@ -1692,40 +1662,10 @@ impl super::TermWindow {
             }
         }
 
+        let (kind, button) = wmek_to_tmek_and_button(&event);
         let mouse_event = wezterm_term::MouseEvent {
-            kind: match event.kind {
-                WMEK::Move => TMEK::Move,
-                WMEK::VertWheel(_) | WMEK::HorzWheel(_) | WMEK::Press(_) => TMEK::Press,
-                WMEK::Release(_) => TMEK::Release,
-            },
-            button: match event.kind {
-                WMEK::Release(ref press) | WMEK::Press(ref press) => mouse_press_to_tmb(press),
-                WMEK::Move => {
-                    if event.mouse_buttons == WMB::LEFT {
-                        TMB::Left
-                    } else if event.mouse_buttons == WMB::RIGHT {
-                        TMB::Right
-                    } else if event.mouse_buttons == WMB::MIDDLE {
-                        TMB::Middle
-                    } else {
-                        TMB::None
-                    }
-                }
-                WMEK::VertWheel(amount) => {
-                    if amount > 0 {
-                        TMB::WheelUp(amount as usize)
-                    } else {
-                        TMB::WheelDown((-amount) as usize)
-                    }
-                }
-                WMEK::HorzWheel(amount) => {
-                    if amount > 0 {
-                        TMB::WheelLeft(amount as usize)
-                    } else {
-                        TMB::WheelRight((-amount) as usize)
-                    }
-                }
-            },
+            kind,
+            button,
             x: column,
             y: row,
             x_pixel_offset,
@@ -1757,6 +1697,47 @@ fn mouse_press_to_tmb(press: &MousePress) -> TMB {
         MousePress::Right => TMB::Right,
         MousePress::Middle => TMB::Middle,
     }
+}
+
+/// Maps a window-layer `MouseEvent` into the `(kind, button)` pair expected by
+/// `wezterm_term::MouseEvent`. The same mapping was previously inlined in two
+/// places (the modal forwarding path and the regular pane path), so updating
+/// one without the other risked behavior drift.
+fn wmek_to_tmek_and_button(event: &MouseEvent) -> (TMEK, TMB) {
+    let kind = match event.kind {
+        WMEK::Move => TMEK::Move,
+        WMEK::VertWheel(_) | WMEK::HorzWheel(_) | WMEK::Press(_) => TMEK::Press,
+        WMEK::Release(_) => TMEK::Release,
+    };
+    let button = match event.kind {
+        WMEK::Release(ref press) | WMEK::Press(ref press) => mouse_press_to_tmb(press),
+        WMEK::Move => {
+            if event.mouse_buttons == WMB::LEFT {
+                TMB::Left
+            } else if event.mouse_buttons == WMB::RIGHT {
+                TMB::Right
+            } else if event.mouse_buttons == WMB::MIDDLE {
+                TMB::Middle
+            } else {
+                TMB::None
+            }
+        }
+        WMEK::VertWheel(amount) => {
+            if amount > 0 {
+                TMB::WheelUp(amount as usize)
+            } else {
+                TMB::WheelDown((-amount) as usize)
+            }
+        }
+        WMEK::HorzWheel(amount) => {
+            if amount > 0 {
+                TMB::WheelLeft(amount as usize)
+            } else {
+                TMB::WheelRight((-amount) as usize)
+            }
+        }
+    };
+    (kind, button)
 }
 
 #[cfg(test)]
