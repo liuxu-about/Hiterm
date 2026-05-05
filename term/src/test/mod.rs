@@ -1023,6 +1023,59 @@ fn test_resize_wrap() {
     );
 }
 
+/// Regression for cursor reflow corruption fix (#301 / #309): when a wrapped
+/// line is resized **wider** by exactly the right amount, the cursor would
+/// otherwise land in column 0 of a continuation row that no longer exists.
+/// The fix in `Screen::rewrap_lines` pulls the cursor back to the end of the
+/// prior physical row in that case (and to the original cursor_x when
+/// resizing narrower). Asserts cursor position, not just visible text.
+#[test]
+fn test_resize_wrap_cursor_lands_at_column_zero() {
+    const LINES: usize = 6;
+    let mut term = TestTerm::new(LINES, 4, 0);
+
+    // Fill row 0 exactly with 4 chars, then wrap "ab" onto row 1 — the
+    // logical cursor x is now 6, sitting at row 1 col 2.
+    term.print("1234ab");
+    term.assert_cursor_pos(
+        2,
+        1,
+        Some("baseline before resize: cursor on continuation row"),
+        None,
+    );
+
+    // Widen to 6 cols: 6 fits exactly on a single row.
+    // Without the fix the cursor would round-trip to (0, 1) — i.e. below the
+    // now-single-row content. The fix snaps it to the end of the merged row.
+    term.resize(TerminalSize {
+        rows: LINES,
+        cols: 6,
+        ..Default::default()
+    });
+    assert_visible_contents(&term, file!(), line!(), &["1234ab", "", "", "", "", ""]);
+    term.assert_cursor_pos(
+        6,
+        0,
+        Some("after widen to exact fit, cursor sticks to end of merged line"),
+        None,
+    );
+
+    // Narrow back to 4 cols: line wraps to "1234" + "ab" and the cursor must
+    // end up after "ab" again, not stranded at column 0 of an empty row.
+    term.resize(TerminalSize {
+        rows: LINES,
+        cols: 4,
+        ..Default::default()
+    });
+    assert_visible_contents(&term, file!(), line!(), &["1234", "ab", "", "", "", ""]);
+    term.assert_cursor_pos(
+        2,
+        1,
+        Some("after narrow back, cursor returns to end of continuation row"),
+        None,
+    );
+}
+
 #[test]
 fn test_resize_wrap_issue_971() {
     const LINES: usize = 4;
