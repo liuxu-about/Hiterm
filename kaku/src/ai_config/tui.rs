@@ -7221,7 +7221,8 @@ provider = "managed:kimi-code"
         )
         .expect("write temp config");
 
-        save_kaku_assistant_field_to_path(&path, "Chat Model", "-").expect("save cleared chat model");
+        save_kaku_assistant_field_to_path(&path, "Chat Model", "-")
+            .expect("save cleared chat model");
         let saved = std::fs::read_to_string(&path).expect("read saved");
         assert!(
             !saved.lines().any(|l| {
@@ -7231,7 +7232,10 @@ provider = "managed:kimi-code"
             "chat_model must be absent after clearing with '-': {}",
             saved
         );
-        assert!(saved.contains("model = \"gpt-5.4-mini\""), "model must be preserved");
+        assert!(
+            saved.contains("model = \"gpt-5.4-mini\""),
+            "model must be preserved"
+        );
     }
 
     #[test]
