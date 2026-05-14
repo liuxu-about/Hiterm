@@ -6,6 +6,35 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 source "$SCRIPT_DIR/common.sh"
 
+fail() {
+	echo "yazi_theme: $*" >&2
+	exit 1
+}
+
+assert_file_contains() {
+	local needle="$1"
+	local file="$2"
+	if ! grep -Fq "$needle" "$file"; then
+		echo "yazi_theme: expected $file to contain:" >&2
+		echo "  $needle" >&2
+		echo "yazi_theme: actual file content:" >&2
+		sed -n '1,160p' "$file" >&2
+		fail "missing expected content"
+	fi
+}
+
+assert_file_not_contains() {
+	local needle="$1"
+	local file="$2"
+	if grep -Fq "$needle" "$file"; then
+		echo "yazi_theme: expected $file to omit:" >&2
+		echo "  $needle" >&2
+		echo "yazi_theme: actual file content:" >&2
+		sed -n '1,160p' "$file" >&2
+		fail "unexpected content"
+	fi
+}
+
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/kaku-yazi-theme.XXXXXX")"
 cleanup() {
 	rm -rf "$tmp_dir"
@@ -53,11 +82,11 @@ wrapper_new="$home_new/.config/kaku/zsh/bin/yazi"
 [[ -f "$dark_new" ]]
 [[ -f "$light_new" ]]
 [[ -x "$wrapper_new" ]]
-grep -Fq '[flavor]' "$theme_new"
-grep -Fq "dark = \"$expected_flavor\"" "$theme_new"
-grep -Fq "light = \"$expected_flavor\"" "$theme_new"
-grep -Fq '{ url = "*/", fg = "#8cc2ff" }' "$dark_new"
-grep -Fq '{ url = "*/", fg = "#205ea6" }' "$light_new"
+assert_file_contains '[flavor]' "$theme_new"
+assert_file_contains "dark = \"$expected_flavor\"" "$theme_new"
+assert_file_contains "light = \"$expected_flavor\"" "$theme_new"
+assert_file_contains '{ url = "*/", fg = "#90c9e6" }' "$dark_new"
+assert_file_contains '{ url = "*/", fg = "#205ea6" }' "$light_new"
 
 home_legacy="$tmp_dir/home-legacy"
 mkdir -p "$home_legacy/.config/yazi"
@@ -73,8 +102,8 @@ EOF
 run_setup "$home_legacy"
 
 theme_legacy="$home_legacy/.config/yazi/theme.toml"
-grep -Fq '[flavor]' "$theme_legacy"
-! grep -Fq 'border_style = { fg = "#555555" }' "$theme_legacy"
+assert_file_contains '[flavor]' "$theme_legacy"
+assert_file_not_contains 'border_style = { fg = "#555555" }' "$theme_legacy"
 
 home_static="$tmp_dir/home-static"
 mkdir -p "$home_static/.config/yazi"
@@ -100,11 +129,11 @@ EOF
 run_setup "$home_static"
 
 theme_static="$home_static/.config/yazi/theme.toml"
-grep -Fq '[flavor]' "$theme_static"
-! grep -Fq '# Kaku-aligned theme for Yazi 26.x' "$theme_static"
-! grep -Fq 'overall = { bg = "#15141b" }' "$theme_static"
-grep -Fq "dark = \"$expected_flavor\"" "$theme_static"
-grep -Fq "light = \"$expected_flavor\"" "$theme_static"
+assert_file_contains '[flavor]' "$theme_static"
+assert_file_not_contains '# Kaku-aligned theme for Yazi 26.x' "$theme_static"
+assert_file_not_contains 'overall = { bg = "#15141b" }' "$theme_static"
+assert_file_contains "dark = \"$expected_flavor\"" "$theme_static"
+assert_file_contains "light = \"$expected_flavor\"" "$theme_static"
 
 home_auto="$tmp_dir/home-auto"
 mkdir -p "$home_auto/.config/kaku"
@@ -119,8 +148,8 @@ run_setup "$home_auto"
 
 theme_auto="$home_auto/.config/yazi/theme.toml"
 auto_flavor="$(expected_auto_flavor)"
-grep -Fq "dark = \"$auto_flavor\"" "$theme_auto"
-grep -Fq "light = \"$auto_flavor\"" "$theme_auto"
+assert_file_contains "dark = \"$auto_flavor\"" "$theme_auto"
+assert_file_contains "light = \"$auto_flavor\"" "$theme_auto"
 
 home_light="$tmp_dir/home-light"
 mkdir -p "$home_light/.config/kaku"
@@ -148,7 +177,7 @@ output="$(
   "$wrapper_light" --version
 )"
 [[ "$output" == "real-yazi --version" ]]
-grep -Fq 'dark = "kaku-light"' "$theme_light"
-grep -Fq 'light = "kaku-light"' "$theme_light"
+assert_file_contains 'dark = "kaku-light"' "$theme_light"
+assert_file_contains 'light = "kaku-light"' "$theme_light"
 
 echo "yazi_theme smoke test passed"

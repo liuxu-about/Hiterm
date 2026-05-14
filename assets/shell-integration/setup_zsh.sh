@@ -1144,14 +1144,22 @@ if ! (( \${+functions[_main_complete]} )) || ! (( \${+_comps} )); then
     fi
 fi
 
+_kaku_has_jump_provider() {
+    (( \${+functions[z]} )) \
+        || (( \${+functions[zshz]} )) \
+        || (( \${+functions[__zoxide_z]} )) \
+        || (( \${+functions[_zoxide_z]} ))
+}
+
 # Load zsh-z (smart directory jumping) if not already provided by user config.
-if [[ -f "\$KAKU_ZSH_DIR/plugins/zsh-z/zsh-z.plugin.zsh" ]] && ! (( \${+functions[zshz]} )); then
+if [[ -f "\$KAKU_ZSH_DIR/plugins/zsh-z/zsh-z.plugin.zsh" ]] && ! _kaku_has_jump_provider; then
     # Default to smart case matching so \`z kaku\` prefers \`Kaku\` over lowercase
     # path entries. Users can still override this in their own shell config.
     : "\${ZSHZ_CASE:=smart}"
     export ZSHZ_CASE
     source "\$KAKU_ZSH_DIR/plugins/zsh-z/zsh-z.plugin.zsh"
 fi
+unset -f _kaku_has_jump_provider 2>/dev/null
 
 # cd + Tab falls back to zsh-z frecency history when filesystem completion
 # has no match. Delegate ranking to zshz --complete so behavior stays aligned

@@ -115,7 +115,42 @@ case "$with_existing_provider" in
     ;;
 esac
 
-# Test 3: when zsh-z plugin file is missing, no errors should occur (graceful degradation)
+# Test 3: when zoxide already owns z, kaku.zsh must not source zsh-z or override z.
+with_zoxide_provider=""
+if ! with_zoxide_provider="$(
+  TERM=xterm-256color \
+  HOME="$HOME" \
+  ZDOTDIR="$ZDOTDIR" \
+  zsh -f -c '
+# Simulate zoxide init zsh having run before Kaku integration.
+typeset -g KAKU_TEST_ZSHZ_SOURCE_COUNT=0
+__zoxide_z() { :; }
+_zoxide_z() { :; }
+z() { __zoxide_z "$@"; }
+source "$HOME/.config/kaku/zsh/kaku.zsh"
+print -r -- "__KAKU_NO_ZSHZ_SOURCE_FOR_ZOXIDE__:${KAKU_TEST_ZSHZ_SOURCE_COUNT}"
+if (( ${+functions[zshz]} )); then
+  print -r -- "__KAKU_ZSHZ_DEFINED_WITH_ZOXIDE__:1"
+else
+  print -r -- "__KAKU_ZSHZ_DEFINED_WITH_ZOXIDE__:0"
+fi
+' 2>&1
+)"; then
+  echo "zshz_jump_provider: zsh with existing zoxide provider exited non-zero:" >&2
+  echo "$with_zoxide_provider" >&2
+  exit 1
+fi
+
+case "$with_zoxide_provider" in
+  *__KAKU_NO_ZSHZ_SOURCE_FOR_ZOXIDE__:0*__KAKU_ZSHZ_DEFINED_WITH_ZOXIDE__:0* ) ;;
+  * )
+    echo "zshz_jump_provider: zsh-z was loaded despite existing zoxide provider:" >&2
+    echo "$with_zoxide_provider" >&2
+    exit 1
+    ;;
+esac
+
+# Test 4: when zsh-z plugin file is missing, no errors should occur (graceful degradation)
 without_zshz=""
 if ! without_zshz="$(
   TERM=xterm-256color \

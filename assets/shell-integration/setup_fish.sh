@@ -809,7 +809,9 @@ function __kaku_ai_query_execute
                 set -g __kaku_ai_waiting 1
                 set -g __kaku_ai_waiting_ts (date +%s)
                 __kaku_set_user_var kaku_ai_query $query
-                # Keep # query visible; Lua sends \x15 to clear it when result arrives
+                # Clear the submitted comment immediately so generated commands
+                # cannot append after the stale "# query" buffer.
+                commandline -r ""
                 commandline -f repaint
                 return
             end
