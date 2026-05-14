@@ -168,6 +168,23 @@ Enabled by default. Disable:
 config.copy_on_select = false
 ```
 
+**Strip leading whitespace on copy**
+
+When copying indented multi-line text (e.g. from a code block), remove the
+shared leading whitespace so the pasted result starts at column 0:
+
+```lua
+config.copy_strip_leading_whitespace = true  -- default: false
+```
+
+**Restore previous session**
+
+Re-open the tabs and panes from your last session on launch:
+
+```lua
+config.restore_previous_session = true  -- default: false
+```
+
 **Working directory inheritance**
 
 ```lua
