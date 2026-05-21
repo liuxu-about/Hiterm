@@ -428,7 +428,7 @@ fn split_visible_reasoning_blocks(content: &str) -> (String, String) {
         let mut best: Option<(usize, &str, &str)> = None;
         for &(open, close) in TAG_PAIRS {
             if let Some(pos) = rest.find(open) {
-                if best.map_or(true, |(bp, _, _)| pos < bp) {
+                if best.is_none_or(|(bp, _, _)| pos < bp) {
                     best = Some((pos, open, close));
                 }
             }

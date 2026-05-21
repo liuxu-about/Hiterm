@@ -988,8 +988,16 @@ mod tests {
             if data.trim() == "[DONE]" {
                 break;
             }
-            let chunk: serde_json::Value = serde_json::from_str(data).unwrap();
-            let choice = &chunk["choices"][0];
+            // Mirror chat_step()'s production resilience: malformed JSON chunks
+            // are skipped rather than panicking. Keeping the two paths in sync
+            // means tests exercise the same parse error policy as live traffic.
+            let chunk: serde_json::Value = match serde_json::from_str(data) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            let Some(choice) = chunk["choices"].get(0) else {
+                continue;
+            };
             let delta = &choice["delta"];
 
             if let Some(text) = reasoning_delta_text(choice, delta) {
@@ -1337,5 +1345,64 @@ mod tests {
         collect(f.flush(), &mut tokens, &mut reasoning);
         assert_eq!(reasoning.join(""), "reason");
         assert_eq!(tokens.join(""), "visible");
+    }
+
+    // ─── SSE rough-input rubustness ──────────────────────────────────────
+    // Real providers occasionally return malformed SSE: HTML error pages
+    // from CDNs, truncated chunks, empty choices arrays, comment frames.
+    // The contract is: parse what we can, skip what we can't, never panic.
+
+    #[test]
+    fn mock_sse_skips_malformed_json_chunks() {
+        let lines = vec![
+            "data: {not json}",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}",
+            "data: [DONE]",
+        ];
+        let (tokens, reasoning) = route_mock_sse_lines(&lines);
+        assert_eq!(tokens, "hi");
+        assert!(reasoning.is_empty());
+    }
+
+    #[test]
+    fn mock_sse_skips_chunks_with_empty_choices() {
+        // Some providers (Anthropic-compat shims, certain proxies) send
+        // keep-alive chunks with empty `choices` arrays. Must not panic on
+        // `choices[0]` indexing.
+        let lines = vec![
+            "data: {\"choices\":[]}",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}",
+            "data: [DONE]",
+        ];
+        let (tokens, _) = route_mock_sse_lines(&lines);
+        assert_eq!(tokens, "ok");
+    }
+
+    #[test]
+    fn mock_sse_ignores_html_error_page() {
+        // CDN / reverse-proxy failure modes occasionally return an HTML
+        // 502/504 with `data:` prefix injected by middleware. We must walk
+        // off the end without crashing or fabricating output.
+        let lines = vec![
+            "data: <html>",
+            "data: <body>502 Bad Gateway</body>",
+            "data: </html>",
+        ];
+        let (tokens, reasoning) = route_mock_sse_lines(&lines);
+        assert!(tokens.is_empty());
+        assert!(reasoning.is_empty());
+    }
+
+    #[test]
+    fn mock_sse_handles_interleaved_done_and_data() {
+        // [DONE] must terminate the stream even if more data lines follow
+        // (some providers leak trailing chunks during connection close).
+        let lines = vec![
+            "data: {\"choices\":[{\"delta\":{\"content\":\"a\"}}]}",
+            "data: [DONE]",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"ignored\"}}]}",
+        ];
+        let (tokens, _) = route_mock_sse_lines(&lines);
+        assert_eq!(tokens, "a");
     }
 }

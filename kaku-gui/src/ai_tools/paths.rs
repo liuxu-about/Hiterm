@@ -198,4 +198,137 @@ mod tests {
         let resolved = resolve(raw, cwd.to_str().unwrap()).unwrap();
         reject_relative_cwd_escape(raw, &resolved, cwd.to_str().unwrap()).unwrap();
     }
+
+    // ─── Sandbox audit additions ─────────────────────────────────────────
+    // The original tests cover the common case (~/.ssh, assistant.toml,
+    // single-level cwd escape). The cases below tighten coverage on attacks
+    // that look subtle: symlink escape, deep parent traversal, multiple
+    // hard-coded sensitive locations not previously exercised.
+
+    #[test]
+    fn reject_if_sensitive_blocks_aws_credentials() {
+        let home = std::env::var("HOME").expect("HOME not set");
+        let aws = PathBuf::from(&home).join(".aws/credentials");
+        let err = reject_if_sensitive(&aws).expect_err("must reject ~/.aws/credentials");
+        assert!(err.to_string().contains("protected secret location"));
+    }
+
+    #[test]
+    fn reject_if_sensitive_blocks_gnupg() {
+        let home = std::env::var("HOME").expect("HOME not set");
+        let gpg = PathBuf::from(&home).join(".gnupg");
+        let err = reject_if_sensitive(&gpg).expect_err("must reject ~/.gnupg");
+        assert!(err.to_string().contains("protected secret location"));
+    }
+
+    #[test]
+    fn reject_if_sensitive_blocks_descendant_of_sensitive_dir() {
+        // ~/.ssh/id_rsa, ~/.ssh/config, etc must all be blocked because
+        // ~/.ssh as a directory is in the blocklist (starts_with semantic).
+        let home = std::env::var("HOME").expect("HOME not set");
+        let key = PathBuf::from(&home).join(".ssh/id_rsa");
+        let err = reject_if_sensitive(&key).expect_err("must reject ~/.ssh/id_rsa");
+        assert!(err.to_string().contains("protected secret location"));
+    }
+
+    #[test]
+    fn reject_if_sensitive_blocks_etc_shadow_via_private_alias() {
+        // macOS exposes /etc/shadow at both /etc/shadow and /private/etc/shadow.
+        // The blocklist includes both. Verify the /private variant explicitly.
+        let path = PathBuf::from("/private/etc/sudoers");
+        let err = reject_if_sensitive(&path).expect_err("must reject /private/etc/sudoers");
+        assert!(err.to_string().contains("protected secret location"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn reject_if_sensitive_follows_symlink_to_blocked_dir() {
+        // Attack shape: a symlink inside the project points to ~/.ssh. If
+        // canonicalize() resolves the symlink before comparing, the blocklist
+        // catches it. If it didn't, exfiltration via fs_read would bypass the
+        // guard. This is exactly what canonicalize() is for.
+        use std::os::unix::fs as unix_fs;
+        let dir = tempfile::tempdir().unwrap();
+        let home = std::env::var("HOME").expect("HOME not set");
+        let target = PathBuf::from(&home).join(".ssh");
+        if !target.exists() {
+            // ~/.ssh might not exist on this machine; skip the realism check
+            // and just assert the lexical match still triggers (covered by
+            // reject_if_sensitive_blocks_ssh).
+            return;
+        }
+        let link = dir.path().join("ssh_link");
+        unix_fs::symlink(&target, &link).unwrap();
+        let err = reject_if_sensitive(&link)
+            .expect_err("symlink to ~/.ssh must be rejected via canonicalize");
+        assert!(err.to_string().contains("protected secret location"));
+    }
+
+    #[test]
+    fn relative_cwd_escape_rejects_deep_parent_traversal() {
+        // ../../../../etc/passwd is the textbook directory-traversal payload.
+        // The lexical fallback must catch it even when none of the intermediate
+        // parents exist on disk.
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().join("project");
+        std::fs::create_dir(&cwd).unwrap();
+        let raw = "../../../../etc/passwd";
+        let resolved = resolve(raw, cwd.to_str().unwrap()).unwrap();
+        let err = reject_relative_cwd_escape(raw, &resolved, cwd.to_str().unwrap())
+            .expect_err("deep ../ chain must be rejected");
+        assert!(err.to_string().contains("outside the working directory"));
+    }
+
+    #[test]
+    fn relative_cwd_escape_rejects_mixed_traversal() {
+        // ./foo/../../escape is a sneakier variant: it climbs out of cwd via
+        // a relative path that visually looks innocent (./foo/...). The
+        // lexical walk must catch the net upward movement.
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().join("project");
+        std::fs::create_dir(&cwd).unwrap();
+        let raw = "./foo/../../escape.txt";
+        let resolved = resolve(raw, cwd.to_str().unwrap()).unwrap();
+        let err = reject_relative_cwd_escape(raw, &resolved, cwd.to_str().unwrap())
+            .expect_err("mixed ./ + ../ traversal must be rejected");
+        assert!(err.to_string().contains("outside the working directory"));
+    }
+
+    #[test]
+    fn relative_cwd_escape_allows_within_cwd_traversal() {
+        // foo/../bar.txt is just bar.txt, no escape. Must not false-positive.
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().join("project");
+        std::fs::create_dir(&cwd).unwrap();
+        let raw = "foo/../bar.txt";
+        let resolved = resolve(raw, cwd.to_str().unwrap()).unwrap();
+        reject_relative_cwd_escape(raw, &resolved, cwd.to_str().unwrap())
+            .expect("in-cwd traversal must be allowed");
+    }
+
+    // ─── Known gap, intentionally not fixed in this test pass ──────────
+    //
+    // `reject_if_sensitive` only blocks well-known absolute paths and the
+    // `~/.ssh`, `~/.aws/credentials`, `~/.gnupg`, `~/.config/kaku/...`
+    // prefixes. It does NOT block file-name patterns like `id_rsa`, `.env`,
+    // `*.pem`, `*.key`. A project-local `.env` containing credentials is
+    // therefore readable by the AI tools.
+    //
+    // Adding name-pattern filtering would be a behavior change with real
+    // false-positive risk (legitimate `.env.example` files are common), so
+    // it's tracked separately rather than slipped in with the audit tests.
+    #[test]
+    fn known_gap_reject_if_sensitive_does_not_block_env_files() {
+        // This test pins the *current* behavior. When a future PR adds
+        // name-pattern blocking, flip this assertion to `is_err()` and
+        // remove the gap note above.
+        let dir = tempfile::tempdir().unwrap();
+        let env_file = dir.path().join(".env");
+        std::fs::write(&env_file, "API_KEY=secret").unwrap();
+        assert!(
+            reject_if_sensitive(&env_file).is_ok(),
+            "current behavior: .env files are NOT blocked. \
+             If this assertion fails, the policy was tightened, update the gap note."
+        );
+    }
 }

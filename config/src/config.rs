@@ -2363,7 +2363,8 @@ mod tests {
         );
         assert!(
             result.is_ok(),
-            "config carrying a deprecated `language` must still load: {result:?}"
+            "config carrying a deprecated `language` must still load: {:?}",
+            result
         );
     }
 }

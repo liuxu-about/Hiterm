@@ -71,7 +71,10 @@ pub(crate) struct TmuxChild {
 
 impl Child for TmuxChild {
     fn try_wait(&mut self) -> std::io::Result<Option<portable_pty::ExitStatus>> {
-        todo!()
+        // Tmux child exit is tracked via the Condvar-based wait() below; a
+        // non-blocking poll is not supported. Returning None lets callers fall
+        // through to wait() instead of panicking.
+        Ok(None)
     }
 
     fn wait(&mut self) -> std::io::Result<portable_pty::ExitStatus> {

@@ -220,6 +220,10 @@ pub(super) fn exec_shell_exec(
     }
 }
 
+// Signature matches the rest of the tool dispatch table in mod.rs which all
+// take `&mut String` even when individual tools only read; keeping it
+// uniform makes the dispatcher symmetric.
+#[allow(clippy::ptr_arg)]
 pub(super) fn exec_shell_bg(args: &serde_json::Value, cwd: &mut String) -> Result<String> {
     let command = args["command"].as_str().context("missing command")?;
     let exec_cwd = args["cwd"]

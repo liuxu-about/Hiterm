@@ -274,6 +274,8 @@ pub(crate) const MAX_AGENT_ROUNDS: usize = 25;
 const SOFT_ROUND_WARN: usize = MAX_AGENT_ROUNDS - 5;
 const MAX_HISTORY_BYTES: usize = 120_000;
 
+#[allow(clippy::too_many_arguments)] // grandfathered; bundling into a struct
+                                     // is tracked separately.
 pub(crate) fn run_agent(
     client: AiClient,
     model: String,

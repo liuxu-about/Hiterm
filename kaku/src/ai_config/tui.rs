@@ -3424,7 +3424,7 @@ fn save_kaku_assistant_field_to_path(
     field_key: &str,
     new_val: &str,
 ) -> anyhow::Result<()> {
-    let raw = match std::fs::read_to_string(&path) {
+    let raw = match std::fs::read_to_string(path) {
         Ok(raw) => raw,
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
             log::debug!(
