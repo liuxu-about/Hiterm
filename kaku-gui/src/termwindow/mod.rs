@@ -4912,6 +4912,7 @@ impl TermWindow {
         if let Some(link) = self.current_highlight.as_ref().cloned() {
             let uri = link.uri().to_string();
             let is_file_uri = uri.starts_with("file://");
+            let is_explicit_file_link = is_file_uri && !link.is_implicit();
             let resolved_target = if is_file_uri {
                 self.resolve_file_path(pane, &uri)
             } else {
@@ -4927,6 +4928,7 @@ impl TermWindow {
                 pane: MuxPane,
                 link: String,
                 resolved_target: Option<FileLinkTarget>,
+                explicit_file_link: bool,
             ) -> anyhow::Result<()> {
                 let default_click = match lua {
                     Some(lua) => {
@@ -4944,13 +4946,16 @@ impl TermWindow {
                     if let Some(target) = resolved_target {
                         if target.path.exists() {
                             log::info!(
-                                "Opening file path: {:?} line={:?} col={:?}",
+                                "Opening file path: {:?} line={:?} col={:?} explicit={}",
                                 target.path,
                                 target.line,
-                                target.col
+                                target.col,
+                                explicit_file_link,
                             );
                             crate::thread_util::spawn_with_pool(move || {
-                                if let Err(err) = TermWindow::open_file_link_target(&target) {
+                                if let Err(err) =
+                                    TermWindow::open_file_link_target(&target, explicit_file_link)
+                                {
                                     log::warn!(
                                         "Failed to open file link target {:?}: {err:#}",
                                         target.path
@@ -4969,7 +4974,14 @@ impl TermWindow {
             }
 
             promise::spawn::spawn(config::with_lua_config_on_main_thread(move |lua| {
-                open_uri(lua, window, pane, uri, resolved_target)
+                open_uri(
+                    lua,
+                    window,
+                    pane,
+                    uri,
+                    resolved_target,
+                    is_explicit_file_link,
+                )
             }))
             .detach();
         }
@@ -4999,7 +5011,15 @@ impl TermWindow {
         Some(FileLinkTarget { path, line, col })
     }
 
-    fn open_file_link_target(target: &FileLinkTarget) -> anyhow::Result<()> {
+    fn open_file_link_target(target: &FileLinkTarget, explicit: bool) -> anyhow::Result<()> {
+        // OSC 8 explicit file:// hyperlinks (e.g. from `eza --hyperlink`) are
+        // routed straight to the macOS default app, matching `/usr/bin/open`
+        // and Ghostty. Issue #421.
+        #[cfg(target_os = "macos")]
+        if explicit && Self::try_open_path_with_default_app(&target.path)? {
+            return Ok(());
+        }
+
         // Documents and media open with the user's macOS default app rather
         // than being forced into VS Code, which would otherwise grab them.
         #[cfg(target_os = "macos")]
