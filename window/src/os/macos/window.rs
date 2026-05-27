@@ -2188,6 +2188,27 @@ impl WindowInner {
         }
     }
 
+    /// Dispatch a KeyAssignment to this window's event stream as if the user
+    /// had pressed its key binding. Used by AppKit-level paths (Dock quit,
+    /// applicationShouldTerminate:) that need to defer to the GUI layer's
+    /// mux-aware handling.
+    pub(crate) fn dispatch_key_assignment(
+        &self,
+        action: config::keyassignment::KeyAssignment,
+    ) -> bool {
+        let view = unsafe { &**self.view };
+        let Some(window_view) = WindowView::get_this(view) else {
+            return false;
+        };
+        let Ok(inner) = window_view.inner.try_borrow() else {
+            return false;
+        };
+        let events = inner.events.clone();
+        drop(inner);
+        events.dispatch(WindowEvent::PerformKeyAssignment(action));
+        true
+    }
+
     /// Prepare a regular window to be shown by the global hotkey from any
     /// active macOS Space (including another app's fullscreen Space).
     pub(crate) fn prepare_for_global_hotkey_show(&mut self) {

@@ -604,14 +604,24 @@ extern "C" fn application_should_terminate(
 ) -> u64 {
     unsafe {
         match config::configuration().window_close_confirmation {
-            // SmartPrompt's process-aware prompt lives in the GUI layer
-            // (it needs Mux, unreachable from here). Dock-quit is a
-            // deliberate action, so terminate without prompting.
-            WindowCloseConfirmation::NeverPrompt | WindowCloseConfirmation::SmartPrompt => {
-                terminate_now(
-                    QuitOrigin::AppKitShouldTerminate,
-                    Some("applicationShouldTerminate"),
-                )
+            WindowCloseConfirmation::NeverPrompt => terminate_now(
+                QuitOrigin::AppKitShouldTerminate,
+                Some("applicationShouldTerminate"),
+            ),
+            // SmartPrompt's process-aware decision lives in the GUI layer
+            // (it needs Mux, unreachable from here). Route the quit through
+            // the frontmost window so it can run the same SmartPrompt logic
+            // used by the keyboard Cmd+Q path; cancel the AppKit terminate
+            // and let the GUI call request_terminate when it's ready.
+            WindowCloseConfirmation::SmartPrompt => {
+                if route_quit_to_frontmost_window() {
+                    NSApplicationTerminateReply::NSTerminateCancel as u64
+                } else {
+                    terminate_now(
+                        QuitOrigin::AppKitShouldTerminate,
+                        Some("smart-prompt-no-window"),
+                    )
+                }
             }
             WindowCloseConfirmation::AlwaysPrompt => {
                 let alert: id = msg_send![class!(NSAlert), alloc];
@@ -652,6 +662,45 @@ extern "C" fn application_should_terminate_after_last_window_closed(
     // Keep app process alive on macOS after the last window closes,
     // so Dock reopen can create a new window without cold-start.
     NO
+}
+
+/// Find the frontmost Kaku window and dispatch QuitApplication to it so the
+/// GUI layer can run its mux-aware SmartPrompt logic (and show the confirm
+/// overlay if a stateful pane is still running). Returns `true` when a
+/// window accepted the dispatch; `false` when there is no window to route
+/// to and the caller should terminate immediately.
+fn route_quit_to_frontmost_window() -> bool {
+    let Some(conn) = Connection::get() else {
+        return false;
+    };
+    let existing: Vec<_> = {
+        let windows = conn.windows.borrow();
+        windows.values().cloned().collect()
+    };
+    if existing.is_empty() {
+        return false;
+    }
+    let target = existing
+        .iter()
+        .find(|w| w.borrow().is_key_window())
+        .cloned()
+        .or_else(|| {
+            existing
+                .iter()
+                .find(|w| w.borrow().is_main_window())
+                .cloned()
+        })
+        .or_else(|| existing.first().cloned());
+    let Some(target) = target else {
+        return false;
+    };
+    let dispatched = target
+        .borrow()
+        .dispatch_key_assignment(config::keyassignment::KeyAssignment::QuitApplication);
+    if !dispatched {
+        log::warn!("route_quit_to_frontmost_window: dispatch failed; falling back to terminate");
+    }
+    dispatched
 }
 
 fn terminate_now(origin: QuitOrigin, detail: Option<&str>) -> u64 {
