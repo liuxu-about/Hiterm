@@ -175,18 +175,10 @@ fn uttype_conforms_to_known_non_text(uttype: cocoa::base::id) -> bool {
 
 #[cfg(target_os = "macos")]
 pub fn open_with_default_app(path: &Path) -> anyhow::Result<bool> {
-    use cocoa::base::{id, nil, YES};
-    use cocoa::foundation::NSString;
-    use objc::{class, msg_send, sel, sel_impl};
-
-    let path_str = path.to_string_lossy();
-    unsafe {
-        let path_ns = NSString::alloc(nil).init_str(&path_str);
-        let url: id = msg_send![class!(NSURL), fileURLWithPath: path_ns];
-        let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
-        let opened: cocoa::base::BOOL = msg_send![workspace, openURL: url];
-        Ok(opened == YES)
-    }
+    let status = std::process::Command::new("/usr/bin/open")
+        .arg(path)
+        .status()?;
+    Ok(status.success())
 }
 
 #[cfg(test)]
