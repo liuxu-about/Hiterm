@@ -4989,10 +4989,20 @@ impl TermWindow {
                                 target.col,
                                 explicit_file_link,
                             );
+                            #[cfg(target_os = "macos")]
+                            let use_default_app = target.path.is_file()
+                                && crate::macos::file_link::should_open_with_default_app(
+                                    &target.path,
+                                );
+                            #[cfg(not(target_os = "macos"))]
+                            let use_default_app = false;
+
                             crate::thread_util::spawn_with_pool(move || {
-                                if let Err(err) =
-                                    TermWindow::open_file_link_target(&target, explicit_file_link)
-                                {
+                                if let Err(err) = TermWindow::open_file_link_target(
+                                    &target,
+                                    explicit_file_link,
+                                    use_default_app,
+                                ) {
                                     log::warn!(
                                         "Failed to open file link target {:?}: {err:#}",
                                         target.path
@@ -5048,22 +5058,18 @@ impl TermWindow {
         Some(FileLinkTarget { path, line, col })
     }
 
-    fn open_file_link_target(target: &FileLinkTarget, explicit: bool) -> anyhow::Result<()> {
-        // OSC 8 explicit file:// hyperlinks (e.g. from `eza --hyperlink`) are
-        // routed straight to the macOS default app, matching `/usr/bin/open`
-        // and Ghostty. Issue #421.
+    fn open_file_link_target(
+        target: &FileLinkTarget,
+        explicit: bool,
+        use_default_app: bool,
+    ) -> anyhow::Result<()> {
         #[cfg(target_os = "macos")]
         if explicit && Self::try_open_path_with_default_app(&target.path)? {
             return Ok(());
         }
 
-        // Documents and media open with the user's macOS default app rather
-        // than being forced into VS Code, which would otherwise grab them.
         #[cfg(target_os = "macos")]
-        if target.path.is_file()
-            && crate::macos::file_link::should_open_with_default_app(&target.path)
-            && Self::try_open_path_with_default_app(&target.path)?
-        {
+        if use_default_app && Self::try_open_path_with_default_app(&target.path)? {
             return Ok(());
         }
 
