@@ -175,26 +175,138 @@ fn parse_iso8601_to_unix(s: &str) -> Option<u64> {
 
 // ─── Codex auth ───────────────────────────────────────────────────────────────
 
-/// Reads the Codex CLI access token from ~/.codex/auth.json.
-///
-/// Codex stores its OAuth tokens here after `codex auth login`. Kaku reads the
-/// token to authenticate against the OpenAI API on the user's behalf.
-pub fn read_codex_access_token() -> Option<String> {
+/// Codex CLI's public OAuth client id (same value Codex itself uses).
+const CODEX_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
+const CODEX_OAUTH_TOKEN_URL: &str = "https://auth.openai.com/oauth/token";
+
+/// Codex OAuth credentials read from ~/.codex/auth.json.
+pub struct CodexAuth {
+    pub access_token: String,
+    /// ChatGPT account id, sent as the `chatgpt-account-id` header on the Codex
+    /// responses backend. Parsed from the JWT id_token; None when unavailable.
+    pub account_id: Option<String>,
+}
+
+fn read_codex_auth_json() -> Option<serde_json::Value> {
     let raw = std::fs::read_to_string(codex_auth_file_path())
         .map_err(|e| log::debug!("codex auth read failed: {e}"))
         .ok()?;
-    let v: serde_json::Value = serde_json::from_str(&raw)
+    serde_json::from_str(&raw)
         .map_err(|e| log::debug!("codex auth parse failed: {e}"))
-        .ok()?;
+        .ok()
+}
 
-    // Codex auth.json has two observed shapes: {"tokens":{"access_token":"..."}}
-    // and {"access_token":"..."}.
+/// Codex auth.json has two observed shapes: {"tokens":{"access_token":"..."}}
+/// and {"access_token":"..."}.
+fn codex_access_token_from(v: &serde_json::Value) -> Option<String> {
     v.get("tokens")
         .and_then(|t| t.get("access_token"))
         .or_else(|| v.get("access_token"))
         .and_then(|t| t.as_str())
         .filter(|t| !t.is_empty())
         .map(String::from)
+}
+
+/// Extracts the ChatGPT account id. Prefers a directly-stored `tokens.account_id`,
+/// otherwise decodes the JWT id_token claims (`chatgpt_account_id`, either
+/// top-level or nested under the `https://api.openai.com/auth` namespace).
+fn codex_account_id_from(v: &serde_json::Value) -> Option<String> {
+    if let Some(id) = v
+        .get("tokens")
+        .and_then(|t| t.get("account_id"))
+        .and_then(|t| t.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        return Some(id.to_string());
+    }
+
+    let id_token = v
+        .get("tokens")
+        .and_then(|t| t.get("id_token"))
+        .or_else(|| v.get("id_token"))
+        .and_then(|t| t.as_str())?;
+    let claims = decode_jwt_claims(id_token)?;
+    claims
+        .get("chatgpt_account_id")
+        .or_else(|| {
+            claims
+                .get("https://api.openai.com/auth")
+                .and_then(|a| a.get("chatgpt_account_id"))
+        })
+        .and_then(|x| x.as_str())
+        .filter(|s| !s.is_empty())
+        .map(String::from)
+}
+
+/// Decodes the claims (payload) segment of a JWT. Does not verify the signature
+/// (we only read the account id, and the token is trusted from Codex's own file).
+fn decode_jwt_claims(jwt: &str) -> Option<serde_json::Value> {
+    use base64::Engine;
+    let payload = jwt.split('.').nth(1)?;
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(payload)
+        .ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+/// Reads the Codex CLI access token (and ChatGPT account id) from
+/// ~/.codex/auth.json. Codex writes these after `codex` login; Kaku reads them
+/// to call the Codex backend on the user's behalf.
+pub fn read_codex_auth() -> Option<CodexAuth> {
+    let v = read_codex_auth_json()?;
+    let access_token = codex_access_token_from(&v)?;
+    let account_id = codex_account_id_from(&v);
+    Some(CodexAuth {
+        access_token,
+        account_id,
+    })
+}
+
+/// Backward-compatible accessor for just the access token.
+pub fn read_codex_access_token() -> Option<String> {
+    read_codex_auth().map(|a| a.access_token)
+}
+
+/// Exchanges the refresh_token in ~/.codex/auth.json for a fresh access token.
+///
+/// Used when the on-disk access token has expired (the responses backend returns
+/// 401). Refreshes in-memory only; Codex CLI owns auth.json and rewrites it on
+/// its own refresh, so Kaku does not persist here to avoid clobbering that file.
+pub fn refresh_codex_access_token(client: &reqwest::blocking::Client) -> Result<String> {
+    let v = read_codex_auth_json().ok_or_else(|| anyhow::anyhow!("Codex: auth.json missing"))?;
+    let refresh_token = v
+        .get("tokens")
+        .and_then(|t| t.get("refresh_token"))
+        .or_else(|| v.get("refresh_token"))
+        .and_then(|t| t.as_str())
+        .filter(|t| !t.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("Codex: no refresh_token; run `codex` to re-login"))?;
+
+    let resp = client
+        .post(CODEX_OAUTH_TOKEN_URL)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("User-Agent", "codex_cli_rs")
+        .form(&[
+            ("grant_type", "refresh_token"),
+            ("refresh_token", refresh_token),
+            ("client_id", CODEX_CLIENT_ID),
+            ("scope", "openid profile email"),
+        ])
+        .send()
+        .context("refresh Codex token")?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().unwrap_or_default();
+        anyhow::bail!("Codex token refresh failed ({status}): {body}");
+    }
+
+    let data: serde_json::Value = resp.json().context("parse Codex refresh response")?;
+    data["access_token"]
+        .as_str()
+        .filter(|t| !t.is_empty())
+        .map(String::from)
+        .ok_or_else(|| anyhow::anyhow!("Codex refresh response missing access_token"))
 }
 
 /// Returns true when the Codex CLI auth file exists and has a token.
@@ -233,5 +345,54 @@ mod tests {
     fn parse_iso8601_invalid() {
         assert_eq!(parse_iso8601_to_unix("not a date"), None);
         assert_eq!(parse_iso8601_to_unix(""), None);
+    }
+
+    fn fake_jwt(payload: serde_json::Value) -> String {
+        use base64::Engine;
+        let enc = |b: &[u8]| base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b);
+        let header = enc(br#"{"alg":"none"}"#);
+        let body = enc(serde_json::to_vec(&payload).unwrap().as_slice());
+        format!("{header}.{body}.sig")
+    }
+
+    #[test]
+    fn codex_access_token_both_shapes() {
+        let nested = serde_json::json!({ "tokens": { "access_token": "tok-a" } });
+        assert_eq!(codex_access_token_from(&nested).as_deref(), Some("tok-a"));
+        let flat = serde_json::json!({ "access_token": "tok-b" });
+        assert_eq!(codex_access_token_from(&flat).as_deref(), Some("tok-b"));
+        let empty = serde_json::json!({ "tokens": { "access_token": "" } });
+        assert_eq!(codex_access_token_from(&empty), None);
+    }
+
+    #[test]
+    fn codex_account_id_direct_field_wins() {
+        let v = serde_json::json!({ "tokens": { "account_id": "acc-direct" } });
+        assert_eq!(codex_account_id_from(&v).as_deref(), Some("acc-direct"));
+    }
+
+    #[test]
+    fn codex_account_id_from_jwt_top_level() {
+        let id_token = fake_jwt(serde_json::json!({ "chatgpt_account_id": "acc-jwt" }));
+        let v = serde_json::json!({ "tokens": { "id_token": id_token } });
+        assert_eq!(codex_account_id_from(&v).as_deref(), Some("acc-jwt"));
+    }
+
+    #[test]
+    fn codex_account_id_from_jwt_namespaced() {
+        let id_token = fake_jwt(serde_json::json!({
+            "https://api.openai.com/auth": { "chatgpt_account_id": "acc-ns" }
+        }));
+        let v = serde_json::json!({ "tokens": { "id_token": id_token } });
+        assert_eq!(codex_account_id_from(&v).as_deref(), Some("acc-ns"));
+    }
+
+    #[test]
+    fn codex_account_id_missing_returns_none() {
+        let id_token = fake_jwt(serde_json::json!({ "email": "x@y.z" }));
+        let v = serde_json::json!({ "tokens": { "id_token": id_token } });
+        assert_eq!(codex_account_id_from(&v), None);
+        let no_token = serde_json::json!({ "tokens": { "access_token": "t" } });
+        assert_eq!(codex_account_id_from(&no_token), None);
     }
 }

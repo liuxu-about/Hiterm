@@ -391,8 +391,14 @@ fn summarize_tool_fields(
             .or_else(|| field_value(fields, "Simple Model"))
             .or_else(|| field_value(fields, "Model"))
             .and_then(compact_summary_value)?;
-        let has_api_key = field_value(fields, "API Key").is_some_and(|value| value != "-");
-        if has_api_key {
+        // codex is "ready" when the CLI is logged in (no API key needed);
+        // api_key auth needs a key present.
+        let ready = if field_value(fields, "Auth Type") == Some("codex") {
+            read_codex_auth_info().is_some()
+        } else {
+            field_value(fields, "API Key").is_some_and(|value| value != "-")
+        };
+        if ready {
             return Some(format!("Ready · {model}"));
         }
         return Some(format!("Setup required · {model}"));
@@ -1619,7 +1625,12 @@ fn load_usage_update(tool: Tool) -> UsageSummaryUpdate {
             };
             let raw = std::fs::read_to_string(&path).unwrap_or_default();
             let cfg = parse_kaku_assistant_config(&raw);
-            let model_options = assistant_model_options_for_config_remote(&cfg);
+            // codex has no api_key/base_url to query; use its CLI model catalog.
+            let model_options = if cfg.auth_type() == "codex" {
+                read_codex_model_options()
+            } else {
+                assistant_model_options_for_config_remote(&cfg)
+            };
             UsageSummaryUpdate {
                 tool,
                 summary: None,
@@ -3175,12 +3186,23 @@ fn extract_kaku_assistant_fields_with_model_options(
     model_options: Vec<String>,
 ) -> Vec<FieldEntry> {
     let cfg = parse_kaku_assistant_config(raw);
+    let auth_type = cfg.auth_type();
+    let is_codex = auth_type == "codex";
 
+    // Auth Type sits right after Enabled because it decides whether Base URL and
+    // API Key are even relevant below.
     let mut fields = vec![
         FieldEntry {
             key: "Enabled".into(),
             value: if cfg.is_enabled() { "On" } else { "Off" }.into(),
             options: vec!["On".into(), "Off".into()],
+            editable: true,
+        },
+        FieldEntry {
+            key: "Auth Type".into(),
+            value: auth_type.to_string(),
+            // api_key = paste a key; codex = reuse the `codex` CLI login.
+            options: vec!["api_key".into(), "codex".into()],
             editable: true,
         },
         FieldEntry {
@@ -3195,30 +3217,36 @@ fn extract_kaku_assistant_fields_with_model_options(
             options: model_options.clone(),
             editable: true,
         },
-        FieldEntry {
+    ];
+
+    // codex talks to a fixed Responses backend and reuses the CLI OAuth login,
+    // so neither Base URL nor API Key applies there.
+    if !is_codex {
+        fields.push(FieldEntry {
             key: "Base URL".into(),
             value: cfg.base_url().to_string(),
             options: vec![],
             editable: true,
-        },
-        FieldEntry {
+        });
+        fields.push(FieldEntry {
             key: "API Key".into(),
             value: mask_key(cfg.api_key()),
             options: vec![],
             editable: true,
-        },
-        FieldEntry {
-            key: "Web Search".into(),
-            value: cfg.web_search_provider().to_string(),
-            options: vec![
-                "none".into(),
-                "brave".into(),
-                "pipellm".into(),
-                "tavily".into(),
-            ],
-            editable: true,
-        },
-    ];
+        });
+    }
+
+    fields.push(FieldEntry {
+        key: "Web Search".into(),
+        value: cfg.web_search_provider().to_string(),
+        options: vec![
+            "none".into(),
+            "brave".into(),
+            "pipellm".into(),
+            "tavily".into(),
+        ],
+        editable: true,
+    });
 
     // Show Search Key entry only when a provider is selected.
     if cfg.web_search_provider() != "none" {
@@ -3235,7 +3263,12 @@ fn extract_kaku_assistant_fields_with_model_options(
 
 fn extract_kaku_assistant_fields(raw: &str) -> Vec<FieldEntry> {
     let cfg = parse_kaku_assistant_config(raw);
-    let model_options = assistant_model_options_for_config(&cfg);
+    // codex's own model catalog (from the CLI cache), not the OpenAI-API list.
+    let model_options = if cfg.auth_type() == "codex" {
+        read_codex_model_options()
+    } else {
+        assistant_model_options_for_config(&cfg)
+    };
     extract_kaku_assistant_fields_with_model_options(raw, model_options)
 }
 
@@ -3482,11 +3515,50 @@ fn save_kaku_assistant_field_to_path(
                 .with_web_search(cfg.web_search_provider(), new_val.trim())
                 .with_chat_model_passthrough(&cfg)
         }
+        "Auth Type" if new_val.trim() == "codex" => {
+            // The OpenAI-API models (e.g. gpt-5.4-mini) are not valid on the Codex
+            // backend, so default both models to a Codex model unless the current
+            // value already is one.
+            let codex_models = read_codex_model_options();
+            let default_model = codex_models
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "gpt-5-codex".to_string());
+            let is_codex_model = |m: &str| codex_models.iter().any(|c| c == m);
+            let model = if is_codex_model(cfg.model()) {
+                cfg.model().to_string()
+            } else {
+                default_model.clone()
+            };
+            let chat_model = if !cfg.chat_model().is_empty() && is_codex_model(cfg.chat_model()) {
+                cfg.chat_model().to_string()
+            } else {
+                default_model
+            };
+            KakuAssistantConfig::new(cfg.is_enabled(), cfg.api_key(), &model, cfg.base_url())
+                .with_custom_headers(cfg.custom_headers().to_vec())
+                .with_chat_model(&chat_model)
+                .with_web_search(cfg.web_search_provider(), cfg.web_search_api_key())
+                .with_chat_model_choices_passthrough(&cfg)
+        }
+        "Auth Type" => {
+            KakuAssistantConfig::new(cfg.is_enabled(), cfg.api_key(), cfg.model(), cfg.base_url())
+                .with_custom_headers(cfg.custom_headers().to_vec())
+                .with_web_search(cfg.web_search_provider(), cfg.web_search_api_key())
+                .with_chat_model_passthrough(&cfg)
+        }
         _ => return Ok(()),
     };
-    // Migrate legacy "gemini_key" to "api_key" so users who had Gemini
-    // configured can escape the broken state through the TUI.
-    updated.auth_type = if cfg.auth_type() == "gemini_key" {
+    // auth_type follows the Auth Type field when that is what changed; otherwise
+    // it round-trips (migrating legacy "gemini_key" to "api_key" so users stuck
+    // on the removed Gemini provider can recover through the TUI).
+    updated.auth_type = if field_key == "Auth Type" {
+        if new_val.trim() == "codex" {
+            "codex".to_string()
+        } else {
+            "api_key".to_string()
+        }
+    } else if cfg.auth_type() == "gemini_key" {
         "api_key".to_string()
     } else {
         cfg.auth_type().to_string()
@@ -7208,6 +7280,51 @@ provider = "managed:kimi-code"
         let saved = std::fs::read_to_string(&path).expect("read saved");
         assert!(saved.contains("model = \"my-model\""));
         assert!(saved.contains("base_url = \"https://my-proxy.example.com/v1\""));
+    }
+
+    #[test]
+    fn kaku_assistant_save_auth_type_codex_round_trip() {
+        let dir = tempdir().expect("tempdir");
+        let path = dir.path().join("assistant.toml");
+        std::fs::write(
+            &path,
+            "enabled = true\napi_key = \"sk-keep\"\nmodel = \"gpt-5.4-mini\"\nbase_url = \"https://api.openai.com/v1\"\n",
+        )
+        .expect("write temp config");
+
+        // Switch auth to codex via the TUI save path.
+        save_kaku_assistant_field_to_path(&path, "Auth Type", "codex").expect("save auth type");
+        let saved = std::fs::read_to_string(&path).expect("read saved");
+        assert!(
+            saved.contains("auth_type = \"codex\""),
+            "auth_type must persist: {}",
+            saved
+        );
+        // api_key stays in the file even though codex hides it in the UI.
+        assert!(saved.contains("api_key = \"sk-keep\""));
+
+        let fields = extract_kaku_assistant_fields(&saved);
+        assert!(fields
+            .iter()
+            .any(|f| f.key == "Auth Type" && f.value == "codex"));
+        assert!(
+            !fields.iter().any(|f| f.key == "API Key"),
+            "API Key field must be hidden under codex auth"
+        );
+        assert!(
+            !fields.iter().any(|f| f.key == "Base URL"),
+            "Base URL field must be hidden under codex auth"
+        );
+        // Auth Type sits right after Enabled.
+        assert_eq!(fields.first().map(|f| f.key.as_str()), Some("Enabled"));
+        assert_eq!(fields.get(1).map(|f| f.key.as_str()), Some("Auth Type"));
+
+        // Switching back to api_key drops the auth_type line and restores the field.
+        save_kaku_assistant_field_to_path(&path, "Auth Type", "api_key").expect("save api_key");
+        let saved2 = std::fs::read_to_string(&path).expect("read saved2");
+        assert!(!saved2.contains("auth_type ="));
+        let fields2 = extract_kaku_assistant_fields(&saved2);
+        assert!(fields2.iter().any(|f| f.key == "API Key"));
     }
 
     #[test]

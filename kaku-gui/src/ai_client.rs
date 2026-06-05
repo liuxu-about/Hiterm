@@ -18,6 +18,9 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 
 const DEFAULT_MODEL: &str = "gpt-5.4-mini";
 const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
+/// Codex (ChatGPT subscription) Responses backend. ChatGPT-login OAuth tokens
+/// are only accepted here, not on /chat/completions.
+const CODEX_RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
 
 /// Configuration loaded from `assistant.toml`.
 #[derive(Clone)]
@@ -511,6 +514,12 @@ impl AiClient {
         on_token: &mut dyn FnMut(&str),
         on_reasoning: &mut dyn FnMut(&str),
     ) -> Result<Vec<ToolCall>> {
+        // Codex (ChatGPT subscription) uses the Responses backend, not
+        // /chat/completions, so it needs an entirely separate transport.
+        if self.config.auth_type == "codex" {
+            return self.chat_step_codex(model, messages, tools, cancelled, on_token, on_reasoning);
+        }
+
         let url = format!("{}/chat/completions", self.config.base_url);
 
         let mut body = serde_json::json!({
@@ -639,6 +648,258 @@ impl AiClient {
             Ok(vec![])
         }
     }
+
+    /// Codex (ChatGPT subscription) chat step over the Responses backend.
+    ///
+    /// Translates chat-format messages and tools into the Responses request
+    /// shape, streams text/reasoning, and assembles streamed `function_call`
+    /// items back into `ToolCall`s for the agent loop to execute.
+    fn chat_step_codex(
+        &self,
+        model: &str,
+        messages: &[ApiMessage],
+        tools: &[serde_json::Value],
+        cancelled: &AtomicBool,
+        on_token: &mut dyn FnMut(&str),
+        on_reasoning: &mut dyn FnMut(&str),
+    ) -> Result<Vec<ToolCall>> {
+        use serde_json::{json, Value};
+
+        let auth = ai_auth::read_codex_auth().ok_or_else(|| {
+            anyhow::anyhow!("Codex: not logged in. Run `codex` to authenticate, then retry.")
+        })?;
+
+        // Translate chat messages -> Responses `input`. System text becomes
+        // `instructions`; assistant tool-call turns and tool results become
+        // `function_call` / `function_call_output` items (NOT plain messages, or
+        // the backend rejects them); everything else is a typed message item.
+        let mut instructions = String::new();
+        let mut input: Vec<Value> = Vec::new();
+        for ApiMessage(m) in messages {
+            let role = m["role"].as_str().unwrap_or("user");
+
+            if role == "tool" {
+                input.push(json!({
+                    "type": "function_call_output",
+                    "call_id": m["tool_call_id"].as_str().unwrap_or(""),
+                    "output": m["content"].as_str().unwrap_or(""),
+                }));
+                continue;
+            }
+
+            if role == "assistant" {
+                if let Some(tool_calls) = m["tool_calls"].as_array() {
+                    for tc in tool_calls {
+                        input.push(json!({
+                            "type": "function_call",
+                            "call_id": tc["id"].as_str().unwrap_or(""),
+                            "name": tc["function"]["name"].as_str().unwrap_or(""),
+                            "arguments": tc["function"]["arguments"].as_str().unwrap_or("{}"),
+                        }));
+                    }
+                    continue;
+                }
+            }
+
+            let content = m["content"].as_str().unwrap_or("");
+            if content.is_empty() {
+                continue;
+            }
+            if role == "system" {
+                if !instructions.is_empty() {
+                    instructions.push_str("\n\n");
+                }
+                instructions.push_str(content);
+                continue;
+            }
+            let content_type = if role == "assistant" {
+                "output_text"
+            } else {
+                "input_text"
+            };
+            input.push(json!({
+                "type": "message",
+                "role": role,
+                "content": [{ "type": content_type, "text": content }],
+            }));
+        }
+
+        // The Responses backend rejects an empty `input` (it returns 400
+        // "input ... must be provided"). One-shot helper calls (web-summary,
+        // /suggest, memory curation) pass a lone system message, which would
+        // otherwise leave input empty; promote it to a user message.
+        if input.is_empty() && !instructions.is_empty() {
+            input.push(json!({
+                "type": "message",
+                "role": "user",
+                "content": [{ "type": "input_text", "text": std::mem::take(&mut instructions) }],
+            }));
+        }
+
+        // Chat-format tools `{type:function, function:{...}}` -> Responses flat
+        // `{type:function, name, description, parameters}`.
+        let responses_tools: Vec<Value> = if self.config.chat_tools_enabled {
+            tools
+                .iter()
+                .filter_map(|t| {
+                    let f = t.get("function")?;
+                    Some(json!({
+                        "type": "function",
+                        "name": f.get("name")?,
+                        "description": f.get("description").cloned().unwrap_or(Value::Null),
+                        "parameters": f
+                            .get("parameters")
+                            .cloned()
+                            .unwrap_or_else(|| json!({ "type": "object", "properties": {} })),
+                    }))
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let mut body = json!({
+            "model": model,
+            "input": input,
+            "stream": true,
+            "store": false,
+            // gpt-5-codex is a reasoning model; without an explicit effort it runs
+            // shallow and gives weak answers. `summary: auto` surfaces the thinking
+            // stream we already parse (response.reasoning_summary_text.delta).
+            "reasoning": { "effort": "medium", "summary": "auto" },
+        });
+        if !instructions.is_empty() {
+            body["instructions"] = Value::String(instructions);
+        }
+        if !responses_tools.is_empty() {
+            body["tools"] = Value::Array(responses_tools);
+            body["tool_choice"] = Value::String("auto".to_string());
+        }
+
+        let build = |token: &str| -> reqwest::blocking::RequestBuilder {
+            let mut req = self
+                .client
+                .post(CODEX_RESPONSES_URL)
+                .header("Content-Type", "application/json")
+                .header("Accept", "text/event-stream")
+                .header("Authorization", format!("Bearer {token}"))
+                .header("OpenAI-Beta", "responses=experimental")
+                .header("originator", "codex_cli_rs")
+                .header("User-Agent", "codex_cli_rs")
+                .json(&body);
+            if let Some(account_id) = auth.account_id.as_deref() {
+                req = req.header("chatgpt-account-id", account_id);
+            }
+            req
+        };
+
+        // Use the on-disk token; on 401 (expired) refresh once and retry.
+        let mut response = build(&auth.access_token)
+            .send()
+            .context("Codex responses request")?;
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            log::debug!("Codex access token rejected (401); refreshing");
+            let fresh = ai_auth::refresh_codex_access_token(&self.client)?;
+            response = build(&fresh).send().context("Codex responses retry")?;
+        }
+        if !response.status().is_success() {
+            let status = response.status();
+            let preview: String = response
+                .text()
+                .unwrap_or_default()
+                .chars()
+                .take(400)
+                .collect();
+            anyhow::bail!("Codex responses error {status}: {preview}");
+        }
+
+        let reader = BufReader::new(response);
+        // Streamed function calls, keyed by the response item id so argument
+        // deltas land on the right call; Vec preserves emission order.
+        let mut calls: Vec<(String, ToolCallBuf)> = Vec::new();
+        for line in reader.lines() {
+            if cancelled.load(Ordering::Relaxed) {
+                break;
+            }
+            let line = line.context("read Codex SSE line")?;
+            let Some(data) = sse_data_payload(&line) else {
+                continue;
+            };
+            if data.trim() == "[DONE]" {
+                break;
+            }
+            let ev = match serde_json::from_str::<serde_json::Value>(data) {
+                Ok(v) => v,
+                Err(e) => {
+                    log::warn!("Failed to parse Codex SSE event: {e}");
+                    continue;
+                }
+            };
+            match ev["type"].as_str() {
+                Some("response.output_text.delta") => {
+                    if let Some(d) = ev["delta"].as_str() {
+                        on_token(d);
+                    }
+                }
+                Some("response.reasoning_summary_text.delta")
+                | Some("response.reasoning_text.delta") => {
+                    if let Some(d) = ev["delta"].as_str() {
+                        on_reasoning(d);
+                    }
+                }
+                // A tool call appears as a function_call output item; its
+                // arguments may arrive whole here or stream via delta events.
+                Some("response.output_item.added") | Some("response.output_item.done") => {
+                    let item = &ev["item"];
+                    if item["type"] == "function_call" {
+                        if let Some(buf) =
+                            upsert_call(&mut calls, item["id"].as_str().unwrap_or(""))
+                        {
+                            if let Some(c) = item["call_id"].as_str().filter(|c| !c.is_empty()) {
+                                buf.id = c.to_string();
+                            }
+                            if let Some(n) = item["name"].as_str().filter(|n| !n.is_empty()) {
+                                buf.name = n.to_string();
+                            }
+                            if let Some(a) = item["arguments"].as_str().filter(|a| !a.is_empty()) {
+                                buf.arguments = a.to_string();
+                            }
+                        }
+                    }
+                }
+                Some("response.function_call_arguments.delta") => {
+                    if let Some(buf) = upsert_call(&mut calls, ev["item_id"].as_str().unwrap_or(""))
+                    {
+                        if let Some(d) = ev["delta"].as_str() {
+                            if buf.arguments.len() < 65_536 {
+                                buf.arguments.push_str(d);
+                            }
+                        }
+                    }
+                }
+                Some("response.completed") => break,
+                Some("response.failed") => {
+                    let msg = ev["response"]["error"]["message"]
+                        .as_str()
+                        .or_else(|| ev["error"]["message"].as_str())
+                        .unwrap_or("unknown error");
+                    anyhow::bail!("Codex responses failed: {msg}");
+                }
+                _ => {}
+            }
+        }
+
+        Ok(calls
+            .into_iter()
+            .map(|(_, b)| b)
+            .filter(|b| !b.name.is_empty())
+            .map(|b| ToolCall {
+                id: b.id,
+                name: b.name,
+                arguments: b.arguments,
+            })
+            .collect())
+    }
 }
 
 /// Send a request up to 3 times with exponential backoff on transient
@@ -708,6 +969,26 @@ struct ToolCallBuf {
     id: String,
     name: String,
     arguments: String,
+}
+
+/// Find (or create) the buffer for a Responses function-call item, keyed by its
+/// streaming item id. Returns None for an empty id so malformed events are
+/// ignored rather than collapsed onto one bogus call.
+fn upsert_call<'a>(
+    calls: &'a mut Vec<(String, ToolCallBuf)>,
+    item_id: &str,
+) -> Option<&'a mut ToolCallBuf> {
+    if item_id.is_empty() {
+        return None;
+    }
+    let pos = match calls.iter().position(|(id, _)| id == item_id) {
+        Some(pos) => pos,
+        None => {
+            calls.push((item_id.to_string(), ToolCallBuf::default()));
+            calls.len() - 1
+        }
+    };
+    Some(&mut calls[pos].1)
 }
 
 fn reasoning_delta_text<'a>(
