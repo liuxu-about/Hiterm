@@ -148,10 +148,11 @@ config.copy_strip_leading_whitespace = true  -- default: false
 
 **Restore previous session**
 
-Re-open the tabs and panes from your last session on launch:
+Re-open the tabs and panes from your last session on launch. Enabled by
+default; set it to `false` to disable saving and restoring the session:
 
 ```lua
-config.restore_previous_session = true  -- default: false
+config.restore_previous_session = false  -- default: true
 ```
 
 **Working directory inheritance**

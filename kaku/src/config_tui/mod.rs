@@ -449,7 +449,7 @@ impl App {
                 key: "Restore Previous Session",
                 lua_key: "restore_previous_session",
                 value: String::new(),
-                default: "Off".into(),
+                default: "On".into(),
                 options: vec!["On", "Off"],
                 skip_write: false,
             },

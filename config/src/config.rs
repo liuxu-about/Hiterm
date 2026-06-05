@@ -141,7 +141,7 @@ pub struct Config {
     #[dynamic(default)]
     pub prefer_to_spawn_tabs: bool,
 
-    #[dynamic(default)]
+    #[dynamic(default = "default_true")]
     pub restore_previous_session: bool,
 
     #[dynamic(default)]

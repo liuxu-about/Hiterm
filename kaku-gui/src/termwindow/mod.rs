@@ -1163,7 +1163,9 @@ impl TermWindow {
         let is_app_quitting = false;
 
         if !is_app_quitting {
-            let _ = crate::session_restore::save_closed_window_snapshot(self.mux_window_id);
+            if self.config.restore_previous_session {
+                let _ = crate::session_restore::save_closed_window_snapshot(self.mux_window_id);
+            }
             crate::session_restore::mark_window_logically_closed(self.mux_window_id);
             crate::session_restore::mark_dirty();
         }

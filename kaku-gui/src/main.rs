@@ -937,8 +937,10 @@ fn main() {
     if let Err(e) = run() {
         terminate_with_error(e);
     }
-    if let Err(err) = session_restore::save_session_snapshot() {
-        log::warn!("failed to save session snapshot on exit: {err:#}");
+    if config::configuration().restore_previous_session {
+        if let Err(err) = session_restore::save_session_snapshot() {
+            log::warn!("failed to save session snapshot on exit: {err:#}");
+        }
     }
     Mux::shutdown();
     frontend::shutdown();
