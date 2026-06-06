@@ -1,6 +1,5 @@
 mod ui;
 
-use crate::assistant_config;
 use crate::utils::open_path_in_editor;
 use anyhow::Context;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
@@ -479,18 +478,6 @@ impl App {
     }
 
     fn load_config(&mut self) {
-        if let Some(field) = self
-            .fields
-            .iter_mut()
-            .find(|field| field.lua_key == "__assistant_enabled__")
-        {
-            field.value = match assistant_config::read_enabled() {
-                Ok(true) => "On".into(),
-                Ok(false) => "Off".into(),
-                Err(_) => field.default.clone(),
-            };
-        }
-
         let config_path = self.config_path();
         if !config_path.exists() {
             return;
@@ -856,33 +843,11 @@ impl App {
                     _ => None,
                 }
             }
-            "hide_tab_bar_if_only_one_tab" => {
-                if raw == "true" {
-                    Some("Auto".into())
-                } else if raw == "false" {
-                    Some("Always".into())
-                } else {
-                    None
-                }
-            }
             "tab_bar_at_bottom" => {
                 if raw == "true" {
                     Some("Bottom".into())
                 } else if raw == "false" {
                     Some("Top".into())
-                } else {
-                    None
-                }
-            }
-            "harfbuzz_features" => {
-                let stripped = raw.replace([' ', '\'', '"'], "");
-                if stripped == "{calt=0,clig=0,liga=0}" {
-                    Some("Off".into())
-                } else if stripped == "{}"
-                    || stripped.is_empty()
-                    || stripped.eq_ignore_ascii_case("nil")
-                {
-                    Some("On".into())
                 } else {
                     None
                 }
@@ -1113,16 +1078,10 @@ impl App {
         ensure_editable_config_exists(Some(&self.config_path))?;
 
         let config_path = self.config_path();
-        let original_content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        let mut content = original_content.clone();
-        let assistant_enabled = self
-            .fields
-            .iter()
-            .find(|field| field.lua_key == "__assistant_enabled__")
-            .map(|field| self.display_value(field) == "On");
+        let mut content = std::fs::read_to_string(&config_path).unwrap_or_default();
 
         for field in &self.fields {
-            if field.lua_key == "__assistant_enabled__" || field.lua_key.starts_with("__wdeco_") {
+            if field.lua_key.starts_with("__wdeco_") {
                 continue;
             }
 
@@ -1192,73 +1151,7 @@ impl App {
         }
         std::fs::rename(&temp_path, &real_path)?;
 
-        if let Some(enabled) = assistant_enabled {
-            if let Err(err) = assistant_config::write_enabled(enabled) {
-                if let Err(rollback_err) =
-                    crate::utils::write_atomic(&real_path, original_content.as_bytes())
-                {
-                    return Err(err.context(format!(
-                        "assistant setting save failed and Lua rollback also failed: {}",
-                        rollback_err
-                    )));
-                }
-                return Err(err);
-            }
-        }
-
         Ok(())
-    }
-
-    #[allow(dead_code)]
-    fn remove_lua_config(&self, content: &str, lua_key: &str) -> String {
-        let pattern = format!("config.{}", lua_key);
-        let lines: Vec<&str> = content.lines().collect();
-        let mut result: Vec<&str> = Vec::new();
-        let mut i = 0;
-
-        while i < lines.len() {
-            let line = lines[i];
-            let trimmed = line.trim();
-
-            // Keep comment lines
-            if trimmed.starts_with("--") {
-                result.push(line);
-                i += 1;
-                continue;
-            }
-
-            // Check if this line starts our target config
-            if trimmed.starts_with(&pattern) {
-                let after_pattern = &trimmed[pattern.len()..];
-                if after_pattern.starts_with(|c: char| c.is_whitespace() || c == '=') {
-                    // Found the config line to remove
-                    // Check if value contains an unclosed brace (multi-line table)
-                    if let Some(eq_pos) = trimmed.find('=') {
-                        let value_part = trimmed[eq_pos + 1..].trim();
-                        let mut brace_depth = Self::count_brace_depth(value_part);
-
-                        // Skip additional lines if brace is unclosed
-                        while brace_depth > 0 && i + 1 < lines.len() {
-                            i += 1;
-                            brace_depth += Self::count_brace_depth(lines[i]);
-                        }
-                    }
-                    i += 1;
-                    continue;
-                }
-            }
-
-            result.push(line);
-            i += 1;
-        }
-
-        // POSIX: text files end with a newline. join() strips the trailing one
-        // that lines() removed, so we restore it here.
-        if result.is_empty() {
-            String::new()
-        } else {
-            result.join("\n") + "\n"
-        }
     }
 
     fn count_brace_depth(s: &str) -> i32 {
@@ -1421,8 +1314,7 @@ impl App {
             "font_size"
             | "line_height"
             | "window_background_opacity"
-            | "macos_window_background_blur"
-            | "split_pane_gap" => field.value.clone(),
+            | "macos_window_background_blur" => field.value.clone(),
             "copy_on_select"
             | "enable_scroll_bar"
             | "bell_tab_indicator"
@@ -1448,13 +1340,6 @@ impl App {
                     _ => "'SmartPrompt'".into(),
                 }
             }
-            "hide_tab_bar_if_only_one_tab" => {
-                if field.value == "Auto" {
-                    "true".into()
-                } else {
-                    "false".into()
-                }
-            }
             "tab_bar_at_bottom" => {
                 let effective = if field.value.is_empty() {
                     &field.default
@@ -1465,13 +1350,6 @@ impl App {
                     "true".into()
                 } else {
                     "false".into()
-                }
-            }
-            "harfbuzz_features" => {
-                if field.value == "On" {
-                    "{}".into()
-                } else {
-                    "{ 'calt=0', 'clig=0', 'liga=0' }".into()
                 }
             }
             "smart_tab_mode" => {
