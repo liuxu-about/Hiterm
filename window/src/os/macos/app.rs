@@ -1412,7 +1412,10 @@ fn parse_id_from_url(url: &Url, path_segment: Option<&str>, query_key: &str) -> 
 }
 
 fn parse_url_action(url: &Url) -> Option<UrlAction> {
-    if url.scheme() != "kaku" {
+    // Info.plist registers `hiterm`; `kaku` is kept for anything still
+    // emitting the pre-rename scheme (it only reaches us if some bundle
+    // still claims it with Launch Services, but accepting it is free).
+    if url.scheme() != "kaku" && url.scheme() != "hiterm" {
         return None;
     }
 
