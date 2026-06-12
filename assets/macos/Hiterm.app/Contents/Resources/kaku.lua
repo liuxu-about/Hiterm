@@ -240,10 +240,12 @@ end
 local low_resolution_screen = is_low_resolution_screen()
 
 local function get_default_padding()
+  -- Tab bar lives at the top now, so only a small gap is needed below it;
+  -- give the bottom a little breathing room since no bar sits there anymore.
   if low_resolution_screen then
-    return { left = '26px', right = '26px', top = '26px', bottom = '0px' }
+    return { left = '26px', right = '26px', top = '10px', bottom = '8px' }
   end
-  return { left = '40px', right = '40px', top = '40px', bottom = '0px' }
+  return { left = '40px', right = '40px', top = '14px', bottom = '12px' }
 end
 
 -- get_fullscreen_padding and get_yazi_fullscreen_padding have been removed.
@@ -4053,13 +4055,16 @@ config.smart_tab_mode = 'suggestion_first'
 config.check_for_updates = false
 
 -- ===== Tab Bar =====
+-- Ghostty-style: fancy tab bar at the top, sharing the row with the native
+-- traffic-light buttons (INTEGRATED_BUTTONS). The bar must stay visible even
+-- with a single tab, otherwise the native buttons float over terminal content.
 config.enable_tab_bar = true
-config.tab_bar_at_bottom = true
-config.use_fancy_tab_bar = false
+config.tab_bar_at_bottom = false
+config.use_fancy_tab_bar = true
 config.tab_max_width = 32
-config.hide_tab_bar_if_only_one_tab = true
+config.hide_tab_bar_if_only_one_tab = false
 config.show_tab_index_in_tab_bar = false
-config.show_new_tab_button_in_tab_bar = false
+config.show_new_tab_button_in_tab_bar = true
 
 -- Compute padding after tab-bar placement is finalized so startup layout
 -- matches the runtime override path.
