@@ -273,16 +273,55 @@ impl crate::TermWindow {
             }
         };
 
+        let window_buttons_at_left = self
+            .config
+            .window_decorations
+            .contains(window::WindowDecorations::INTEGRATED_BUTTONS)
+            && (self.config.integrated_title_button_alignment
+                == IntegratedTitleButtonAlignment::Left
+                || self.config.integrated_title_button_style
+                    == IntegratedTitleButtonStyle::MacOsNative);
+
+        let is_fullscreen = self.layout_is_effective_fullscreen();
+        let cell_w = metrics.cell_size.width as f32;
+        let left_padding_px = if is_fullscreen {
+            self.content_left_inset()
+        } else if window_buttons_at_left {
+            if self.config.integrated_title_button_style == IntegratedTitleButtonStyle::MacOsNative
+            {
+                // The native traffic lights span ~68pt from the window edge;
+                // reserve 78pt in physical pixels so tabs clear them at any
+                // backing scale (dpi is 72 * scale on macOS).
+                78.0 * self.dimensions.dpi as f32 / 72.0
+            } else {
+                0.0
+            }
+        } else {
+            0.5 * cell_w
+        };
+        let left_padding = Dimension::Pixels(left_padding_px);
+
         let num_tabs: f32 = items
             .iter()
             .map(|item| match item.item {
-                TabBarItem::NewTabButton | TabBarItem::Tab { .. } => 1.,
+                TabBarItem::Tab { .. } => 1.,
                 _ => 0.,
             })
             .sum();
-        let max_tab_width = ((self.dimensions.pixel_width as f32 / num_tabs.max(1.0))
-            - (1.5 * metrics.cell_size.width as f32))
+        // Budget the row so the tabs can never run under the right-hand
+        // controls. Outside each tab's max_width sit its 0.25+0.25 cell
+        // margins; the + button occupies its glyph plus 1 cell padding,
+        // 1 cell margin and 2px border; the right-floated group adds a
+        // 0.5 cell bar padding.
+        let per_tab_margin = 0.5 * cell_w;
+        let new_tab_button_px = (metrics.cell_size.height as f32 / 2.0) + (2.0 * cell_w) + 2.0;
+        let right_padding_px = 0.5 * cell_w;
+        let avail = (self.dimensions.pixel_width as f32
+            - left_padding_px
+            - new_tab_button_px
+            - right_padding_px)
             .max(0.);
+        let max_tab_width = ((avail / num_tabs.max(1.0)) - per_tab_margin).max(0.);
 
         for item in items {
             match item.item {
@@ -300,6 +339,22 @@ impl crate::TermWindow {
                 TabBarItem::Tab { tab_idx, active } => {
                     let mut elem = item_to_elem(item);
                     elem.max_width = Some(Dimension::Pixels(max_tab_width));
+                    // Right-floated decorations (close button, ⌘N hint) are
+                    // placed inside the same content box as the title, so
+                    // the title must stop short of them or they overdraw
+                    // its tail. Reserve their width and cap the title via
+                    // an inner wrapper element.
+                    let mut float_reserve_px = 0.0;
+                    if self.config.show_close_tab_button_in_tabs {
+                        float_reserve_px += (metrics.cell_size.height as f32 / 2.0) + 0.25 * cell_w;
+                    }
+                    if tab_idx < 9 {
+                        // "⌘N" glyphs plus the hint's 0.75 cell left margin.
+                        float_reserve_px += 2.75 * cell_w;
+                    }
+                    // Padding (1 cell + 8px) and border (2px) also live
+                    // inside max_width; the title gets what remains.
+                    let title_max_px = (max_tab_width - cell_w - 10.0 - float_reserve_px).max(0.);
                     elem.content = match elem.content {
                         ElementContent::Text(_) => unreachable!(),
                         ElementContent::Poly { .. } => unreachable!(),
@@ -339,13 +394,18 @@ impl crate::TermWindow {
                                 });
                                 kids.insert(0, dot);
                             }
+                            let title = Element::new(&font, ElementContent::Children(kids))
+                                .vertical_align(VerticalAlign::Middle)
+                                .max_width(Some(Dimension::Pixels(title_max_px)));
+                            let mut outer = vec![title];
                             if self.config.show_close_tab_button_in_tabs {
-                                kids.push(make_x_button(&font, &metrics, &colors, tab_idx, active));
+                                outer
+                                    .push(make_x_button(&font, &metrics, &colors, tab_idx, active));
                             }
                             if tab_idx < 9 {
-                                kids.push(make_cmd_hint(&font, &colors, tab_idx, active));
+                                outer.push(make_cmd_hint(&font, &colors, tab_idx, active));
                             }
-                            ElementContent::Children(kids)
+                            ElementContent::Children(outer)
                         }
                     };
                     left_eles.push(elem);
@@ -363,32 +423,6 @@ impl crate::TermWindow {
             );
         }
 
-        let window_buttons_at_left = self
-            .config
-            .window_decorations
-            .contains(window::WindowDecorations::INTEGRATED_BUTTONS)
-            && (self.config.integrated_title_button_alignment
-                == IntegratedTitleButtonAlignment::Left
-                || self.config.integrated_title_button_style
-                    == IntegratedTitleButtonStyle::MacOsNative);
-
-        let is_fullscreen = self.layout_is_effective_fullscreen();
-        let left_padding = if is_fullscreen {
-            Dimension::Pixels(self.content_left_inset())
-        } else if window_buttons_at_left {
-            if self.config.integrated_title_button_style == IntegratedTitleButtonStyle::MacOsNative
-            {
-                // The native traffic lights span ~68pt from the window edge;
-                // reserve 78pt in physical pixels so tabs clear them at any
-                // backing scale (dpi is 72 * scale on macOS).
-                Dimension::Pixels(78.0 * self.dimensions.dpi as f32 / 72.0)
-            } else {
-                Dimension::Pixels(0.0)
-            }
-        } else {
-            Dimension::Cells(0.5)
-        };
-
         children.push(
             Element::new(&font, ElementContent::Children(left_eles))
                 .vertical_align(VerticalAlign::Middle)
@@ -403,7 +437,14 @@ impl crate::TermWindow {
         );
         children.push(
             Element::new(&font, ElementContent::Children(right_eles))
+                .vertical_align(VerticalAlign::Middle)
                 .colors(bar_colors.clone())
+                .padding(BoxDimension {
+                    left: Dimension::Cells(0.),
+                    right: Dimension::Cells(0.5),
+                    top: Dimension::Cells(0.),
+                    bottom: Dimension::Cells(0.),
+                })
                 .float(Float::Right),
         );
 
