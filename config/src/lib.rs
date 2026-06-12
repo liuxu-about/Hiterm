@@ -621,10 +621,11 @@ pub fn migrate_legacy_kaku_dirs() {
     let old_file = config_dir.join("kaku.lua");
     let new_file = config_dir.join("hiterm.lua");
     if let Ok(meta) = std::fs::symlink_metadata(&old_file) {
-        if !meta.file_type().is_symlink() && !new_file.exists() {
-            if std::fs::rename(&old_file, &new_file).is_ok() {
-                let _ = std::os::unix::fs::symlink(&new_file, &old_file);
-            }
+        if !meta.file_type().is_symlink()
+            && !new_file.exists()
+            && std::fs::rename(&old_file, &new_file).is_ok()
+        {
+            let _ = std::os::unix::fs::symlink(&new_file, &old_file);
         }
     }
 }
