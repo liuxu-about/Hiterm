@@ -5,7 +5,7 @@ Kaku is a macOS-native terminal emulator derived from WezTerm and shaped around 
 ## Repository Map
 
 - `kaku/` - CLI entry points, command flows, and user-facing configuration commands.
-- `kaku-gui/` - GUI, rendering, window lifecycle, input, mouse handling, AI chat, and the `k` helper binary.
+- `hiterm-gui/` - GUI, rendering, window lifecycle, input, mouse handling, AI chat, and the `k` helper binary.
 - `mux/` - tabs, panes, domains, and client/server state.
 - `term/` - terminal emulation and screen buffer behavior.
 - `termwiz/` - terminal UI primitives.
@@ -48,7 +48,7 @@ make app
 - The marketing and docs site lives on the `vercel` branch (linked worktree at `~/www/kaku-site`), not on `main`. It follows the Kami design system (`references/design.md` Section 11); verify changes with screenshots at 375px / 1280px and deploy by pushing the `vercel` branch (Vercel serves kaku.fun).
 - Keep private credentials, local keychain paths, and machine-specific release notes out of public repository docs.
 - **Do not propose UI i18n / multi-language menus / a `config.language` setting.** The `rust-i18n` based Chinese UI localization (PR #362, commit `f6cfb4b`) was reverted on 2026-05-18; `language` remains in the config schema as a deprecated field for backward compat only. UI strings (`tab.empty_pane`, menus, confirm dialogs, config TUI copy) stay as English literal strings. New UI surfaces should not introduce translation keys, locale-aware formatting, or "what if a user wants Chinese" abstractions. If a user requests a non-English UI, route to the assistant config / AI chat surface; those already accept non-English content.
-- **Do not pre-bake provider abstractions in `kaku/src/ai_config/`.** The `mod provider_adapter` trait scaffolding for the 9 AI providers (KakuAssistant, ClaudeCode, Codex, Copilot, Kimi, Antigravity, Gemini, FactoryDroid, OpenClaw) was deleted on 2026-05-26 after sitting at zero implementations for half a year. When provider work is actually needed, start with a single concrete migration (one PR moves KakuAssistant's four functions from `tui.rs` to `providers/kaku_assistant.rs`); do not spec out a trait, a `ProviderKind` enum, or stub modules ahead of time. Save Copilot for last because its OAuth flow is the real abstraction stress test.
+- **Do not pre-bake provider abstractions in `hiterm/src/ai_config/`.** The `mod provider_adapter` trait scaffolding for the 9 AI providers (KakuAssistant, ClaudeCode, Codex, Copilot, Kimi, Antigravity, Gemini, FactoryDroid, OpenClaw) was deleted on 2026-05-26 after sitting at zero implementations for half a year. When provider work is actually needed, start with a single concrete migration (one PR moves KakuAssistant's four functions from `tui.rs` to `providers/kaku_assistant.rs`); do not spec out a trait, a `ProviderKind` enum, or stub modules ahead of time. Save Copilot for last because its OAuth flow is the real abstraction stress test.
 
 ## Maintainer Follow-up
 
@@ -63,16 +63,16 @@ make app
 When scope is incomplete, inspect in this order:
 
 1. User-provided repro, failing command, or failing test.
-2. Entry point for the behavior, usually `kaku/src/main.rs`, `kaku/src/cli/`, or `kaku-gui/src/main.rs`.
+2. Entry point for the behavior, usually `hiterm/src/main.rs`, `hiterm/src/cli/`, or `hiterm-gui/src/main.rs`.
 3. Owning subsystem document and target crate.
 4. Immediate cross-crate boundary used by the call path.
 5. Narrow tests, fixtures, snapshots, or scripts that reproduce the behavior.
 
 For AI-facing behavior, inspect in this order:
 
-1. CLI and assistant configuration under `kaku/src/ai_config/`, `kaku/src/assistant_config.rs`, and `config/src/proxy.rs`.
-2. GUI AI state and transport under `kaku-gui/src/ai_*`, `kaku-gui/src/ai_chat_engine/`, and `kaku-gui/src/cli_chat/`.
-3. Overlay UI under `kaku-gui/src/overlay/ai_chat/`.
+1. CLI and assistant configuration under `hiterm/src/ai_config/`, `hiterm/src/assistant_config.rs`, and `config/src/proxy.rs`.
+2. GUI AI state and transport under `hiterm-gui/src/ai_*`, `hiterm-gui/src/ai_chat_engine/`, and `hiterm-gui/src/cli_chat/`.
+3. Overlay UI under `hiterm-gui/src/overlay/ai_chat/`.
 4. Shared helpers in `crates/kaku-ai-utils/`.
 
 For `Ctrl+letter` not working in a raw-mode TUI (the most common shape: `Ctrl+C` / `Ctrl+R` works in plain shell but not inside a TUI overlay), inspect in this order:
@@ -85,7 +85,7 @@ For `Ctrl+letter` not working in a raw-mode TUI (the most common shape: `Ctrl+C`
 
 | Subsystem | Guide | Scope |
 |---|---|---|
-| GUI | `kaku-gui/AGENTS.md` | Rendering, window lifecycle, input, mouse |
+| GUI | `hiterm-gui/AGENTS.md` | Rendering, window lifecycle, input, mouse |
 | Mux | `mux/AGENTS.md` | Tabs, panes, domains, client/server |
 | Terminal | `term/AGENTS.md` | VT emulation, screen buffer |
 | Config | `config/AGENTS.md` | Lua loading, schema, config reload |
@@ -105,7 +105,7 @@ For `Ctrl+letter` not working in a raw-mode TUI (the most common shape: `Ctrl+C`
 | Release note change | `./scripts/check_release_notes.sh` |
 | Release-adjacent change | `make fmt && make check && make test`, then `make app` |
 
-For GUI or rendering issues, read `kaku-gui/AGENTS.md` first and verify with `make app`, not only `make dev`.
+For GUI or rendering issues, read `hiterm-gui/AGENTS.md` first and verify with `make app`, not only `make dev`.
 
 ## Current Risk Areas
 

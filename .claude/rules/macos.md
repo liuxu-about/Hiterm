@@ -39,7 +39,7 @@ macOS 26 上 NSMenu 的 keyEquivalent modifier 匹配并不严格相等。给 me
 - `termwiz/src/input.rs` 的 `encode` 对 `is_down=false` 直接返回空字符串，PTY 上一个字节都不会到。
 - 普通 shell `cat -v` 测试看到 `^C` 不代表 raw-mode 也工作；启动时机和 cooked vs raw 都会让 menu 拦截表现不一致。**必须**在 raw-mode TUI (claude / codex / vim / htop) 里实测。
 
-兜底：任何"模仿系统快捷键"的 menu 项宁可 `keys: vec![]` 不设快捷键，让用户从菜单点。`kaku-gui/src/commands.rs` 1000 行附近的 keyEquivalent 装配逻辑应该统一从 `candidate[0]` 取 modifiers，不要走 `forced_equiv_mods` 这种特例化路径。
+兜底：任何"模仿系统快捷键"的 menu 项宁可 `keys: vec![]` 不设快捷键，让用户从菜单点。`hiterm-gui/src/commands.rs` 1000 行附近的 keyEquivalent 装配逻辑应该统一从 `candidate[0]` 取 modifiers，不要走 `forced_equiv_mods` 这种特例化路径。
 
 参考历史：`a14b26d` 之后的 CenterWindow 修复（删掉给 Window > Center 装 `Fn+Ctrl+C` keyEquivalent 的特例，因为 macOS 26 把它当 plain Ctrl+C 拦了，导致 raw-mode 下 Ctrl+C 不退 claude/codex）。
 
