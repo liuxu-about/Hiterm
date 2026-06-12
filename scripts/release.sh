@@ -20,8 +20,8 @@ set -euo pipefail
 #   SKIP_TESTS               - Set to 1 to skip tests (default: 0)
 #
 # Resume flags (skip earlier stages after a mid-release failure):
-#   --notarize-only  Skip build; notarize existing dist/Kaku.app, upload, tap.
-#   --upload-only    Skip build + notarize; upload existing dist/Kaku.dmg + tap.
+#   --notarize-only  Skip build; notarize existing dist/Hiterm.app, upload, tap.
+#   --upload-only    Skip build + notarize; upload existing dist/Hiterm.dmg + tap.
 #   --tap-only       Only re-dispatch the Homebrew tap update.
 #
 # Dry-run flag (validates pre-flight, then exits without building or publishing):
@@ -36,7 +36,7 @@ cd "$REPO_ROOT"
 # shellcheck source=lib/preflight.sh
 source "$REPO_ROOT/scripts/lib/preflight.sh"
 
-APP_NAME="Kaku"
+APP_NAME="Hiterm"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/dist}"
 PROFILE="${PROFILE:-release-opt}"
 BUILD_ARCH="${BUILD_ARCH:-universal}"
@@ -363,7 +363,7 @@ create_github_release() {
             "${release_edit_args[@]}"
         gh release upload "$tag" \
             -R "$GITHUB_REPO" \
-            "$OUT_DIR/Kaku.dmg" \
+            "$OUT_DIR/Hiterm.dmg" \
             "$OUT_DIR/kaku_for_update.zip" \
             "$OUT_DIR/kaku_for_update.zip.sha256" \
             --clobber
@@ -371,7 +371,7 @@ create_github_release() {
         if [[ "$notes_arg" == "--notes-file" ]]; then
             gh release create "$tag" \
                 -R "$GITHUB_REPO" \
-                "$OUT_DIR/Kaku.dmg" \
+                "$OUT_DIR/Hiterm.dmg" \
                 "$OUT_DIR/kaku_for_update.zip" \
                 "$OUT_DIR/kaku_for_update.zip.sha256" \
                 --title "$release_title" \
@@ -379,7 +379,7 @@ create_github_release() {
         else
             gh release create "$tag" \
                 -R "$GITHUB_REPO" \
-                "$OUT_DIR/Kaku.dmg" \
+                "$OUT_DIR/Hiterm.dmg" \
                 "$OUT_DIR/kaku_for_update.zip" \
                 "$OUT_DIR/kaku_for_update.zip.sha256" \
                 --title "$release_title" \
@@ -419,7 +419,7 @@ update_homebrew_tap() {
         return 0
     fi
 
-    dmg_sha256=$(shasum -a 256 "$OUT_DIR/Kaku.dmg" | awk '{print $1}')
+    dmg_sha256=$(shasum -a 256 "$OUT_DIR/Hiterm.dmg" | awk '{print $1}')
 
     log_info "Dispatching Homebrew tap update..."
 
@@ -516,7 +516,7 @@ main() {
     if [[ "$DRY_RUN" == "1" ]]; then
         log_warn "[DRY-RUN] All pre-flight checks passed."
         log_warn "[DRY-RUN] Would build → notarize → tag V${version} → upload → tap dispatch"
-        log_warn "[DRY-RUN] Expected artifacts: $OUT_DIR/Kaku.dmg, $OUT_DIR/kaku_for_update.zip, $OUT_DIR/kaku_for_update.zip.sha256"
+        log_warn "[DRY-RUN] Expected artifacts: $OUT_DIR/Hiterm.dmg, $OUT_DIR/kaku_for_update.zip, $OUT_DIR/kaku_for_update.zip.sha256"
         log_warn "[DRY-RUN] GitHub repo: $GITHUB_REPO"
         log_warn "[DRY-RUN] Homebrew tap: $HOMEBREW_TAP_REPO"
         log_warn "[DRY-RUN] Unset DRY_RUN (or drop --dry-run) to run for real."
@@ -528,8 +528,8 @@ main() {
         time_stage "build" build_release
     else
         log_warn "Skipping build (resume flag)"
-        if [[ ! -f "$OUT_DIR/Kaku.dmg" ]]; then
-            die "Resume requires prior build; $OUT_DIR/Kaku.dmg not found."
+        if [[ ! -f "$OUT_DIR/Hiterm.dmg" ]]; then
+            die "Resume requires prior build; $OUT_DIR/Hiterm.dmg not found."
         fi
         detect_signing_identity
     fi
@@ -552,7 +552,7 @@ main() {
 
     log_info "Release $version complete!"
     log_info "Artifacts:"
-    log_info "  - $OUT_DIR/Kaku.dmg"
+    log_info "  - $OUT_DIR/Hiterm.dmg"
     log_info "  - $OUT_DIR/kaku_for_update.zip"
     log_info "  - $OUT_DIR/kaku_for_update.zip.sha256"
     log_info ""

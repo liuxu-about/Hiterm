@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/measure_startup_kaku.sh
 #
-# Measure Kaku.app cold-start time and emit a JSON report compatible with
+# Measure Hiterm.app cold-start time and emit a JSON report compatible with
 # scripts/check_startup_budget.sh. Local-only helper: the budget gate is
 # intentionally not wired into CI yet (no committed baseline). Reported
 # numbers are hyperfine means, not P95.
@@ -23,7 +23,7 @@ set -euo pipefail
 RUNS="${RUNS:-5}"
 WARMUP="${WARMUP:-2}"
 WAIT_TIMEOUT_SEC="${WAIT_TIMEOUT_SEC:-15}"
-APP_PATH="${APP_PATH:-dist/Kaku.app}"
+APP_PATH="${APP_PATH:-dist/Hiterm.app}"
 
 if ! command -v hyperfine >/dev/null 2>&1; then
   echo '{"error":"hyperfine not installed (brew install hyperfine)"}' >&2

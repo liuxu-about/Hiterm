@@ -22,8 +22,8 @@ EOF
 
 STRICT=0
 FORCE_KILL_EXISTING=0
-BINARY="/Applications/Kaku.app/Contents/MacOS/kaku-gui"
-BASE_CONFIG="/Applications/Kaku.app/Contents/Resources/kaku.lua"
+BINARY="/Applications/Hiterm.app/Contents/MacOS/kaku-gui"
+BASE_CONFIG="/Applications/Hiterm.app/Contents/Resources/kaku.lua"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

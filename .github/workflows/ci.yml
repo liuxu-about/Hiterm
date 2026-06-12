@@ -166,7 +166,7 @@ jobs:
 
       - name: Guard silent write flush ok
         run: |
-          if grep -R -nE "write!\(.*\)\.ok\(\)|write_all\(.*\)\.ok\(\)|write_fmt\(.*\)\.ok\(\)|\.flush\(\)\.ok\(\)" --include='*.rs' term kaku kaku-gui mux; then
+          if grep -R -nE "write!\(.*\)\.ok\(\)|write_all\(.*\)\.ok\(\)|write_fmt\(.*\)\.ok\(\)|\.flush\(\)\.ok\(\)" --include='*.rs' term hiterm hiterm-gui mux; then
             echo "ERROR: write/flush must not silently ignore errors in core crates"
             exit 1
           fi
@@ -317,7 +317,7 @@ jobs:
 
       - name: Verify bundled shell plugins are pinned
         run: |
-          test -d dist/Kaku.app
-          test "$(cat dist/Kaku.app/Contents/Resources/vendor/zsh-autosuggestions/.kaku-vendor-ref)" = "85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5"
-          test "$(cat dist/Kaku.app/Contents/Resources/vendor/fast-syntax-highlighting/.kaku-vendor-ref)" = "3d574ccf48804b10dca52625df13da5edae7f553"
-          test "$(cat dist/Kaku.app/Contents/Resources/vendor/zsh-completions/.kaku-vendor-ref)" = "84615f3d0b0e943d5b1de862c9552e572c8e70bb"
+          test -d dist/Hiterm.app
+          test "$(cat dist/Hiterm.app/Contents/Resources/vendor/zsh-autosuggestions/.kaku-vendor-ref)" = "85919cd1ffa7d2d5412f6d3fe437ebdbeeec4fc5"
+          test "$(cat dist/Hiterm.app/Contents/Resources/vendor/fast-syntax-highlighting/.kaku-vendor-ref)" = "3d574ccf48804b10dca52625df13da5edae7f553"
+          test "$(cat dist/Hiterm.app/Contents/Resources/vendor/zsh-completions/.kaku-vendor-ref)" = "84615f3d0b0e943d5b1de862c9552e572c8e70bb"

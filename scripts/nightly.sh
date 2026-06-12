@@ -13,7 +13,7 @@
 #
 # Usage:
 #   ./scripts/nightly.sh                     # build + notarize + publish
-#   ./scripts/nightly.sh --upload-only       # skip build/notarize; re-publish existing dist/Kaku.dmg
+#   ./scripts/nightly.sh --upload-only       # skip build/notarize; re-publish existing dist/Hiterm.dmg
 #   ./scripts/nightly.sh --features=remote    # enable optional cargo features
 #
 # Requirements (same credentials as scripts/release.sh):
@@ -34,7 +34,7 @@ GITHUB_REPO="${GITHUB_REPO:-tw93/Kaku}"
 NIGHTLY_TAG="${NIGHTLY_TAG:-nightly}"
 PROFILE="${PROFILE:-release-opt}"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/dist}"
-DMG_PATH="$OUT_DIR/Kaku.dmg"
+DMG_PATH="$OUT_DIR/Hiterm.dmg"
 DMG_ASSET_NAME="Kaku-nightly.dmg"
 DMG_ASSET_PATH="$OUT_DIR/$DMG_ASSET_NAME"
 UPLOAD_ONLY=0
@@ -112,7 +112,7 @@ if [[ "$UPLOAD_ONLY" -eq 0 ]]; then
     BUILD_STATUS=${PIPESTATUS[0]}
     set -e
     [[ "$BUILD_STATUS" -ne 0 ]] && die "build.sh failed with exit code $BUILD_STATUS"
-    log "Build complete: $OUT_DIR/Kaku.app + $DMG_PATH"
+    log "Build complete: $OUT_DIR/Hiterm.app + $DMG_PATH"
 
     log "Notarizing and stapling..."
     OUT_DIR="$OUT_DIR" ./scripts/notarize.sh
