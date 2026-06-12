@@ -50,3 +50,7 @@
 22	即使你在 .zshrc 里自行加载了 fast-syntax-highlighting 或 zsh-syntax-highlighting，深色主题下 # 注释颜色也会保持可读
 23	Tab now accepts the grey autosuggestion by default when one is shown, and still falls back to completion otherwise; set smart_tab_mode = 'completion_first' to keep the old completion-first behavior
 23	Tab 现在默认接受灰色自动建议：有建议时按 Tab 直接采纳，没有时仍回退到补全；想保留旧的补全优先行为可设 smart_tab_mode = 'completion_first'
+24	Zsh shell integration now marks prompt/input/output with OSC 133 so restored sessions do not duplicate stale prompt lines after resize
+24	Zsh shell integration 现在会用 OSC 133 标记提示符、输入和输出，恢复会话后调整窗口或字号不再把旧提示符行重复显示出来
+24	The bundled `k` AI-chat shell command was removed; the shell no longer defines a `k` function
+24	移除了内置的 `k` AI 对话命令，shell 里不再定义 `k` 函数
