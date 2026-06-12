@@ -1041,6 +1041,19 @@ mod tests {
     }
 
     #[test]
+    fn bundled_kaku_lua_defaults_to_opaque_window_background() {
+        let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+        let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
+
+        assert!(
+            content.contains("config.window_background_opacity = 1.0")
+                && content.contains("config.macos_window_background_blur = 0"),
+            "bundled kaku.lua should default to a solid, non-blurred window background"
+        );
+    }
+
+    #[test]
     fn bundled_kaku_lua_enables_minimum_text_contrast() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");

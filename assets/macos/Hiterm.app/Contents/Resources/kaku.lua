@@ -3753,12 +3753,13 @@ wezterm.on('update-right-status', function(window, pane)
 end)
 
 -- ===== Font =====
--- Use slightly heavier font weight for light theme to improve readability.
--- Light theme: Medium base, SemiBold for bold.
--- Dark theme: Regular base, Medium for bold.
-local function build_font_config(is_light)
-  local base_weight = is_light and 'Medium' or 'Regular'
-  local bold_weight = is_light and 'SemiBold' or 'Medium'
+-- Use Medium as the base weight in both themes. CoreText applies stem
+-- darkening that makes native apps' light-on-dark text look heavier; our
+-- FreeType + linear-blend pipeline doesn't, so Regular reads thin next to
+-- Terminal.app. Medium compensates.
+local function build_font_config(_is_light)
+  local base_weight = 'Medium'
+  local bold_weight = 'SemiBold'
 
   local font = wezterm.font_with_fallback({
     { family = 'JetBrains Mono', weight = base_weight },
@@ -4028,9 +4029,10 @@ config.initial_rows = 22
 config.window_decorations = "INTEGRATED_BUTTONS|RESIZE"
 -- Window frame colors will be set after color_scheme is determined
 
--- Ghostty-style glass: translucent window over a system-blurred backdrop.
-config.window_background_opacity = 0.88
-config.macos_window_background_blur = 24
+-- Use a solid window background by default. Users can opt into transparency
+-- with window_background_opacity and macos_window_background_blur overrides.
+config.window_background_opacity = 1.0
+config.macos_window_background_blur = 0
 config.text_background_opacity = 1.0
 -- Keep low-contrast text from third-party TUIs readable without rewriting
 -- their chosen palette colors.
@@ -4116,13 +4118,13 @@ config.color_schemes['Kaku Dark'] = {
 
   split = KAKU.SURFACE_ACTIVE,
 
-  -- Tab bar colors (alpha-aware: the bar itself is translucent glass)
+  -- Tab bar colors
   tab_bar = {
-    background = 'rgba(21,20,27,0.55)',
-    inactive_tab_edge = 'rgba(0,0,0,0)',
+    background = KAKU.BLACK,
+    inactive_tab_edge = KAKU.BLACK,
 
     active_tab = {
-      bg_color = 'rgba(48,45,70,0.92)',
+      bg_color = KAKU.SURFACE_ACTIVE,
       fg_color = KAKU.WHITE,
       intensity = 'Bold',
       underline = 'None',
@@ -4131,24 +4133,24 @@ config.color_schemes['Kaku Dark'] = {
     },
 
     inactive_tab = {
-      bg_color = 'rgba(0,0,0,0)',
+      bg_color = KAKU.BLACK,
       fg_color = KAKU.GRAY,
       intensity = 'Normal',
     },
 
     inactive_tab_hover = {
-      bg_color = 'rgba(255,255,255,0.07)',
+      bg_color = KAKU.SURFACE,
       fg_color = KAKU.WHITE,
       italic = false,
     },
 
     new_tab = {
-      bg_color = 'rgba(0,0,0,0)',
+      bg_color = KAKU.BLACK,
       fg_color = KAKU.GRAY,
     },
 
     new_tab_hover = {
-      bg_color = 'rgba(255,255,255,0.07)',
+      bg_color = KAKU.SURFACE,
       fg_color = KAKU.WHITE,
     },
   },
@@ -4210,11 +4212,11 @@ config.color_schemes['Kaku Light'] = {
   split = '#DDDBCF',
 
   tab_bar = {
-    background = 'rgba(255,252,240,0.60)',
-    inactive_tab_edge = 'rgba(0,0,0,0)',
+    background = '#FFFCF0',
+    inactive_tab_edge = '#FFFCF0',
 
     active_tab = {
-      bg_color = 'rgba(232,230,219,0.92)',
+      bg_color = '#E8E6DB',
       fg_color = '#100F0F',
       intensity = 'Bold',
       underline = 'None',
@@ -4223,24 +4225,24 @@ config.color_schemes['Kaku Light'] = {
     },
 
     inactive_tab = {
-      bg_color = 'rgba(0,0,0,0)',
+      bg_color = '#FFFCF0',
       fg_color = '#4A4946',
       intensity = 'Normal',
     },
 
     inactive_tab_hover = {
-      bg_color = 'rgba(0,0,0,0.06)',
+      bg_color = '#F2F0EB',
       fg_color = '#100F0F',
       italic = false,
     },
 
     new_tab = {
-      bg_color = 'rgba(0,0,0,0)',
+      bg_color = '#FFFCF0',
       fg_color = '#4A4946',
     },
 
     new_tab_hover = {
-      bg_color = 'rgba(0,0,0,0.06)',
+      bg_color = '#F2F0EB',
       fg_color = '#100F0F',
     },
   },
@@ -4278,8 +4280,8 @@ get_window_frame_colors = function(scheme)
   scheme = resolve_kaku_color_scheme(scheme)
   if scheme == 'Kaku Light' then
     return {
-      active_titlebar_bg = 'rgba(255,252,240,0.60)',
-      inactive_titlebar_bg = 'rgba(248,245,234,0.45)',
+      active_titlebar_bg = '#FFFCF0',
+      inactive_titlebar_bg = '#F8F5EA',
       active_titlebar_fg = '#100F0F',
       inactive_titlebar_fg = '#575653',
       active_titlebar_border_bottom = '#E8E1D0',
@@ -4295,13 +4297,12 @@ get_window_frame_colors = function(scheme)
     }
   else
     return {
-      -- Translucent so the CGS backdrop blur shows through the tab bar.
-      active_titlebar_bg = 'rgba(21,20,27,0.55)',
-      inactive_titlebar_bg = 'rgba(21,20,27,0.40)',
+      active_titlebar_bg = KAKU.BLACK,
+      inactive_titlebar_bg = KAKU.BLACK,
       active_titlebar_fg = KAKU.WHITE,
       inactive_titlebar_fg = KAKU.GRAY,
-      active_titlebar_border_bottom = 'rgba(0,0,0,0)',
-      inactive_titlebar_border_bottom = 'rgba(0,0,0,0)',
+      active_titlebar_border_bottom = KAKU.BLACK,
+      inactive_titlebar_border_bottom = KAKU.BLACK,
       border_left_width = 0,
       border_right_width = 0,
       border_top_height = 0,
