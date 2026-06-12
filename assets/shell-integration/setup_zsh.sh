@@ -849,6 +849,47 @@ setopt EXTENDED_HISTORY          # Include timestamps in saved history
 setopt interactive_comments
 bindkey -e
 
+# OSC 133 semantic prompt markers.
+# These let Kaku distinguish prompt/input chrome from command output for
+# selection, prompt navigation, and session-restore scrollback capture.
+typeset -g _kaku_semantic_precmd_executing=""
+_kaku_semantic_precmd() {
+    local ret="\$?"
+
+    if [[ "\$PS1" != *\$'\e]133;P;k=i\a'* ]]; then
+        _kaku_semantic_save_ps1="\$PS1"
+        _kaku_semantic_save_ps2="\$PS2"
+        PS1=\$'%{\e]133;P;k=i\a%}'"\$PS1"\$'%{\e]133;B\a%}'
+        PS2=\$'%{\e]133;P;k=s\a%}'"\$PS2"\$'%{\e]133;B\a%}'
+        _kaku_semantic_check_ps1="\$PS1"
+    fi
+
+    if [[ "\${_kaku_semantic_precmd_executing}" != "" ]]; then
+        printf "\033]133;D;%s;aid=%s\007" "\$ret" "\$\$"
+    fi
+
+    printf "\033]133;A;cl=m;aid=%s\007" "\$\$"
+    _kaku_semantic_precmd_executing=0
+}
+
+_kaku_semantic_preexec() {
+    if [[ -n "\${_kaku_semantic_save_ps1+1}" && "\${_kaku_semantic_check_ps1-}" == "\${PS1}" ]]; then
+        PS1="\$_kaku_semantic_save_ps1"
+        PS2="\$_kaku_semantic_save_ps2"
+        unset _kaku_semantic_save_ps1 _kaku_semantic_save_ps2 _kaku_semantic_check_ps1
+    fi
+
+    printf "\033]133;C;\007"
+    _kaku_semantic_precmd_executing=1
+}
+
+if [[ \${preexec_functions[(Ie)_kaku_semantic_preexec]} -eq 0 ]]; then
+    preexec_functions+=(_kaku_semantic_preexec)
+fi
+if [[ \${precmd_functions[(Ie)_kaku_semantic_precmd]} -eq 0 ]]; then
+    precmd_functions+=(_kaku_semantic_precmd)
+fi
+
 # Prefix history search on Up/Down (e.g. type "curl" then press Up)
 # This is shell behavior, not terminal behavior, so Kaku configures it here.
 # Skip if an external history navigator (atuin, mcfly, etc.) already owns the
@@ -1099,26 +1140,6 @@ alias glgp='git log --stat -p'
         builtin cd -- "\$cwd"
     fi
     rm -f -- "\$tmp"
-}
-
-# k - AI chat CLI bundled with Kaku.
-'k'() {
-    emulate -L zsh
-    local k_cmd
-    for _candidate in \
-        "\${KAKU_ZSH_DIR:+\$KAKU_ZSH_DIR/../../MacOS/k}" \
-        "\$HOME/Applications/Kaku.app/Contents/MacOS/k" \
-        "/Applications/Kaku.app/Contents/MacOS/k"; do
-        if [[ -x "\$_candidate" ]]; then
-            k_cmd="\$_candidate"
-            break
-        fi
-    done
-    if [[ -z "\$k_cmd" ]]; then
-        echo "k: Kaku app not found. Install Kaku from https://github.com/tw93/Kaku"
-        return 127
-    fi
-    "\$k_cmd" "\$@"
 }
 
 # Load Plugins (Performance Optimized)

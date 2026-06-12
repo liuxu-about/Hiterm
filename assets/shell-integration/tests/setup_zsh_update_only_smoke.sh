@@ -58,6 +58,9 @@ fi
 if grep -Fq "fg=244" "$tmp_home/.config/kaku/zsh/kaku.zsh"; then
   fail "generated kaku.zsh still contains old comment color fg=244"
 fi
+if ! grep -Fq "_kaku_semantic_precmd" "$tmp_home/.config/kaku/zsh/kaku.zsh"; then
+  fail "generated kaku.zsh did not install OSC 133 semantic prompt hooks"
+fi
 
 # The generated file is sourced by the user's real zsh, so it must parse under
 # zsh. A corrupted heredoc (e.g. an unescaped backtick that bash expanded at
