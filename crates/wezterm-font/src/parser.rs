@@ -878,13 +878,72 @@ pub fn best_matching_font(
     Ok(ParsedFont::best_match(font_attr, pixel_size, font_info))
 }
 
+struct DiskFontCacheEntry {
+    modified: Option<std::time::SystemTime>,
+    len: u64,
+    faces: Vec<ParsedFont>,
+}
+
+fn disk_font_cache(
+) -> &'static Mutex<std::collections::HashMap<(std::path::PathBuf, FontOrigin), DiskFontCacheEntry>>
+{
+    static CACHE: std::sync::OnceLock<
+        Mutex<std::collections::HashMap<(std::path::PathBuf, FontOrigin), DiskFontCacheEntry>>,
+    > = std::sync::OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
+}
+
 pub(crate) fn parse_and_collect_font_info(
     source: &FontDataSource,
     font_info: &mut Vec<ParsedFont>,
     origin: FontOrigin,
 ) -> anyhow::Result<()> {
+    // Enumerating the faces of an on-disk font with FreeType re-reads the
+    // file and parses its name tables for every contained face, which costs
+    // hundreds of milliseconds for the large system .ttc collections on
+    // macOS (PingFang, Apple Color Emoji). The result depends only on the
+    // file contents, so cache it per path and validate with (mtime, len);
+    // otherwise every font-size change re-parses the same files because
+    // change_scaling drops the resolved-font cache.
+    if let FontDataSource::OnDisk(path) = source {
+        if let Ok(meta) = std::fs::metadata(path) {
+            let modified = meta.modified().ok();
+            let len = meta.len();
+            let key = (path.clone(), origin.clone());
+
+            if let Some(entry) = disk_font_cache().lock().unwrap().get(&key) {
+                if entry.modified == modified && entry.len == len {
+                    font_info.extend_from_slice(&entry.faces);
+                    return Ok(());
+                }
+            }
+
+            let faces = parse_font_info(source, &origin)?;
+            font_info.extend_from_slice(&faces);
+            disk_font_cache().lock().unwrap().insert(
+                key,
+                DiskFontCacheEntry {
+                    modified,
+                    len,
+                    faces,
+                },
+            );
+            return Ok(());
+        }
+    }
+
+    let faces = parse_font_info(source, &origin)?;
+    font_info.extend(faces);
+    Ok(())
+}
+
+fn parse_font_info(
+    source: &FontDataSource,
+    origin: &FontOrigin,
+) -> anyhow::Result<Vec<ParsedFont>> {
     let lib = crate::ftwrap::Library::new()?;
     let num_faces = lib.query_num_faces(&source)?;
+    let mut font_info = vec![];
 
     fn load_one(
         lib: &crate::ftwrap::Library,
@@ -914,10 +973,10 @@ pub(crate) fn parse_and_collect_font_info(
     }
 
     for index in 0..num_faces {
-        if let Err(err) = load_one(&lib, &source, index, font_info, &origin) {
+        if let Err(err) = load_one(&lib, &source, index, &mut font_info, origin) {
             log::trace!("error while parsing {:?} index {}: {}", source, index, err);
         }
     }
 
-    Ok(())
+    Ok(font_info)
 }
