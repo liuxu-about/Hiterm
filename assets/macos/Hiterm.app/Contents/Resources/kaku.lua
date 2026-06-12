@@ -240,12 +240,12 @@ end
 local low_resolution_screen = is_low_resolution_screen()
 
 local function get_default_padding()
-  -- Tab bar lives at the top now, so only a small gap is needed below it;
-  -- give the bottom a little breathing room since no bar sits there anymore.
+  -- Tab bar lives at the top now; keep a comfortable gap below it and a
+  -- little breathing room at the bottom since no bar sits there anymore.
   if low_resolution_screen then
-    return { left = '26px', right = '26px', top = '10px', bottom = '8px' }
+    return { left = '26px', right = '26px', top = '20px', bottom = '12px' }
   end
-  return { left = '40px', right = '40px', top = '14px', bottom = '12px' }
+  return { left = '40px', right = '40px', top = '30px', bottom = '16px' }
 end
 
 -- get_fullscreen_padding and get_yazi_fullscreen_padding have been removed.

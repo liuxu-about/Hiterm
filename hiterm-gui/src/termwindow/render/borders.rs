@@ -9,12 +9,17 @@ const INTEGRATED_BUTTONS_TOP_INSET: usize = 16;
 pub(crate) fn integrated_buttons_top_inset(
     config: &ConfigHandle,
     is_fullscreen: bool,
-    _top_tab_bar_visible: bool,
+    top_tab_bar_visible: bool,
 ) -> usize {
     if !is_fullscreen
         && config
             .window_decorations
             .contains(::window::WindowDecorations::INTEGRATED_BUTTONS)
+        // A visible fancy tab bar at the top hosts the native buttons in its
+        // own row, so the content needs no extra inset; without it (or with
+        // the retro bar, which reserves no button space) the buttons float
+        // over the top of the window and the inset keeps content clear.
+        && !(top_tab_bar_visible && config.use_fancy_tab_bar)
     {
         INTEGRATED_BUTTONS_TOP_INSET
     } else {
