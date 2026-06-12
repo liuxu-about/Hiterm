@@ -179,7 +179,7 @@ impl crate::TermWindow {
                     text: new_tab.fg_color.to_linear().into(),
                 })
                 .hover_colors(Some(ElementColors {
-                    border: BorderColor::new(LinearRgba::TRANSPARENT),
+                    border: BorderColor::new(new_tab_hover.bg_color.to_linear()),
                     bg: new_tab_hover.bg_color.to_linear().into(),
                     text: new_tab_hover.fg_color.to_linear().into(),
                 })),
@@ -201,11 +201,13 @@ impl crate::TermWindow {
                     .border(BoxDimension::new(Dimension::Pixels(1.)))
                     .border_corners(Some(pill_corners()))
                     .colors(ElementColors {
+                        // The corner polys are filled quarter-ovals drawn in
+                        // the border color; it must match the fill or the
+                        // corners render as visible blocks.
                         border: BorderColor::new(
-                            fg_color
-                                .unwrap_or_else(|| active_tab.fg_color.into())
-                                .to_linear()
-                                .mul_alpha(0.15),
+                            bg_color
+                                .unwrap_or_else(|| active_tab.bg_color.into())
+                                .to_linear(),
                         ),
                         bg: bg_color
                             .unwrap_or_else(|| active_tab.bg_color.into())
@@ -235,11 +237,12 @@ impl crate::TermWindow {
                     .border_corners(Some(pill_corners()))
                     .colors({
                         let inactive_tab = colors.inactive_tab();
+                        let bg = bg_color
+                            .map(|c| c.to_linear())
+                            .unwrap_or(LinearRgba::TRANSPARENT);
                         ElementColors {
-                            border: BorderColor::new(LinearRgba::TRANSPARENT),
-                            bg: bg_color
-                                .map(|c| c.to_linear().into())
-                                .unwrap_or_else(|| LinearRgba::TRANSPARENT.into()),
+                            border: BorderColor::new(bg),
+                            bg: bg.into(),
                             text: fg_color
                                 .unwrap_or_else(|| inactive_tab.fg_color.into())
                                 .to_linear()
@@ -248,12 +251,13 @@ impl crate::TermWindow {
                     })
                     .hover_colors({
                         let inactive_tab_hover = colors.inactive_tab_hover();
+                        let bg = bg_color
+                            .unwrap_or_else(|| inactive_tab_hover.bg_color.into())
+                            .to_linear();
                         Some(ElementColors {
-                            border: BorderColor::new(LinearRgba::TRANSPARENT),
-                            bg: bg_color
-                                .unwrap_or_else(|| inactive_tab_hover.bg_color.into())
-                                .to_linear()
-                                .into(),
+                            // Match border to bg so the corner fills shape a pill.
+                            border: BorderColor::new(bg),
+                            bg: bg.into(),
                             text: fg_color
                                 .unwrap_or_else(|| inactive_tab_hover.fg_color.into())
                                 .to_linear()

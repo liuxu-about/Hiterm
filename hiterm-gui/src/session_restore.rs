@@ -291,11 +291,29 @@ fn capture_pane_content(
     if start >= end {
         return None;
     }
-    let (_top, lines) = pane.get_lines(start..end);
+    let (_top, mut lines) = pane.get_lines(start..end);
+    trim_blank_edges(&mut lines);
     if lines.is_empty() {
         return None;
     }
     Some((lines, dims.cols, dims.viewport_rows))
+}
+
+/// Drop blank rows from both ends of captured pane content. The viewport
+/// capture includes everything down to the bottom of the screen, and
+/// injecting those blanks on restore pushes the fresh prompt to the bottom
+/// of an otherwise empty window; leading blanks similarly waste the top.
+fn trim_blank_edges(lines: &mut Vec<wezterm_term::Line>) {
+    while lines.last().map(|l| l.is_whitespace()).unwrap_or(false) {
+        lines.pop();
+    }
+    let leading = lines
+        .iter()
+        .position(|l| !l.is_whitespace())
+        .unwrap_or(lines.len());
+    if leading > 0 {
+        lines.drain(..leading);
+    }
 }
 
 /// Atomic write for bincode payloads, mirroring `write_json_atomic`.
@@ -925,12 +943,18 @@ async fn spawn_panes_for_tab(
         // scrollback so the structural restore is never blocked.
         if let (Some(dir), Some(content_ref)) = (content_dir, entry.content_ref.as_ref()) {
             if let Some(payload) = load_pane_payload(dir, content_ref) {
-                let lines = if payload.cols != entry.size.cols {
+                let mut lines = if payload.cols != entry.size.cols {
                     reflow_lines(payload.lines, entry.size.cols)
                 } else {
                     payload.lines
                 };
-                if let Err(e) = pane.inject_scrollback(lines) {
+                // Snapshots written before blank edges were trimmed at
+                // capture time may still carry them; trim again so restore
+                // never pads the fresh prompt down the screen.
+                trim_blank_edges(&mut lines);
+                if lines.is_empty() {
+                    // Nothing worth surfacing above the new prompt.
+                } else if let Err(e) = pane.inject_scrollback(lines) {
                     log::warn!("inject scrollback for pane {}: {e:#}", entry.pane_id);
                 }
             }
