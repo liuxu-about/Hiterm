@@ -201,7 +201,8 @@ impl SavedPaneEntry {
         // failure (capture returns None, write fails) drops back to
         // `content_ref: None` so the structural snapshot still saves.
         let content_ref = content_dir.and_then(|dir| {
-            let (lines, cols, rows) = capture_pane_content(&pane, PANE_CONTENT_CAP_LINES)?;
+            let (lines, cols, rows) =
+                capture_pane_content(&pane, PANE_CONTENT_CAP_LINES, entry.working_dir.as_ref())?;
             write_pane_sidecar(dir, entry.pane_id, lines, cols, rows)
         });
 
@@ -278,6 +279,7 @@ fn new_content_dir_name(prefix: &str) -> String {
 fn capture_pane_content(
     pane: &Arc<dyn Pane>,
     cap: usize,
+    working_dir: Option<&SerdeUrl>,
 ) -> Option<(Vec<wezterm_term::Line>, usize, usize)> {
     if cap == 0 {
         return None;
@@ -291,38 +293,137 @@ fn capture_pane_content(
     if start >= end {
         return None;
     }
-    let (_top, mut lines) = pane.get_lines(start..end);
-    trim_blank_edges(&mut lines);
+    let (top, mut lines) = pane.get_lines(start..end);
+
+    // With OSC 133 zones available, cut precisely at the live prompt: the
+    // last Prompt zone with no Output after it is the prompt that was
+    // sitting at the bottom when we saved. Rows above it -- including
+    // earlier prompt/input rows from commands that produced no output
+    // (cd, export, ...) -- are real history and must survive.
+    let zones = pane.get_semantic_zones().unwrap_or_default();
+    let has_semantics = zones
+        .iter()
+        .any(|z| z.semantic_type != wezterm_term::SemanticType::Output);
+    if let Some(prompt_start) = live_prompt_start_from_zones(&zones) {
+        let cut = (prompt_start - top).max(0) as usize;
+        lines.truncate(cut.min(lines.len()));
+    }
+
+    let prompt_fragments = prompt_fragments_from_working_dir(working_dir);
+    trim_blank_edges(&mut lines, !has_semantics, &prompt_fragments);
     if lines.is_empty() {
         return None;
     }
     Some((lines, dims.cols, dims.viewport_rows))
 }
 
-/// True if the line contains no command output: blank, or only cells the
-/// shell integration marked as Prompt/Input chrome.
-fn line_has_no_output(line: &wezterm_term::Line) -> bool {
+/// Stable row where the live (bottom-of-screen) prompt starts, if the
+/// zones prove there is one: the final Prompt zone counts only when no
+/// Output zone follows it, otherwise a command was still running at save
+/// time and there is no stale prompt to cut.
+fn live_prompt_start_from_zones(
+    zones: &[wezterm_term::SemanticZone],
+) -> Option<wezterm_term::StableRowIndex> {
     use wezterm_term::SemanticType;
-    line.visible_cells()
-        .all(|c| c.str() == " " || c.attrs().semantic_type() != SemanticType::Output)
+    let last_prompt = zones
+        .iter()
+        .rposition(|z| z.semantic_type == SemanticType::Prompt)?;
+    let last_output = zones
+        .iter()
+        .rposition(|z| z.semantic_type == SemanticType::Output);
+    match last_output {
+        Some(output) if output > last_prompt => None,
+        _ => Some(zones[last_prompt].start_y),
+    }
+}
+
+fn line_text(line: &wezterm_term::Line) -> String {
+    let mut text = String::new();
+    for cell in line.visible_cells() {
+        text.push_str(cell.str());
+    }
+    text.trim_end().to_string()
+}
+
+fn prompt_fragments_from_working_dir(working_dir: Option<&SerdeUrl>) -> Vec<String> {
+    let Some(cwd) = cwd_from_working_dir(working_dir) else {
+        return Vec::new();
+    };
+    let path = std::path::Path::new(&cwd);
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return Vec::new();
+    };
+
+    let mut fragments = vec![name.to_string()];
+    if let Some(parent) = path
+        .parent()
+        .and_then(|parent| parent.file_name())
+        .and_then(|name| name.to_str())
+    {
+        fragments.push(format!("{parent}/{name}"));
+    }
+    fragments
+}
+
+fn looks_like_prompt_without_semantics(
+    line: &wezterm_term::Line,
+    cwd_fragments: &[String],
+) -> bool {
+    let text = line_text(line);
+    let text = text.trim();
+    if text.is_empty() {
+        return true;
+    }
+
+    // Fallback for old sidecars and shells without OSC 133. Keep this tied to
+    // the pane cwd so real command output such as an absolute `pwd` path is not
+    // discarded just because it contains a slash.
+    let has_path_hint = cwd_fragments
+        .iter()
+        .any(|fragment| text == fragment || text.starts_with(&format!("{fragment} ")));
+    let has_prompt_suffix = text.ends_with('$')
+        || text.ends_with('%')
+        || text.ends_with('#')
+        || text.ends_with('>')
+        || text.ends_with('❯')
+        || text.ends_with('➜');
+
+    has_path_hint || has_prompt_suffix
 }
 
 /// Drop rows that carry nothing worth restoring from both ends of captured
 /// pane content.
 ///
-/// Trailing: the viewport capture includes everything down to the bottom of
-/// the screen, and the last populated rows are the shell prompt that was
-/// live at save time. The restored shell draws a fresh prompt, so injecting
-/// the stale one renders a confusing duplicate whenever a resize reflows it
-/// into view; blank padding rows likewise push the fresh prompt down the
-/// screen. Without shell integration every cell reads as Output, so this
-/// degrades to a plain blank-row trim.
+/// Trailing: blank padding rows below the content push the fresh prompt
+/// down the screen, so they always go. The stale live prompt itself is cut
+/// by the caller via OSC 133 zones when shell integration is active; the
+/// heuristic here only covers shells without integration, and is bounded
+/// to a single row so a false positive (real output that happens to end in
+/// `%`, `>`, `#`, ...) can never eat more than the bottom line.
 ///
 /// Leading: blank rows at the top just waste viewport space.
-fn trim_blank_edges(lines: &mut Vec<wezterm_term::Line>) {
-    while lines.last().map(line_has_no_output).unwrap_or(false) {
+fn trim_blank_edges(
+    lines: &mut Vec<wezterm_term::Line>,
+    allow_prompt_heuristic: bool,
+    cwd_fragments: &[String],
+) {
+    let pop_trailing_blanks = |lines: &mut Vec<wezterm_term::Line>| {
+        while lines.last().map(|l| l.is_whitespace()).unwrap_or(false) {
+            lines.pop();
+        }
+    };
+
+    pop_trailing_blanks(lines);
+    if allow_prompt_heuristic
+        && lines
+            .last()
+            .map(|line| looks_like_prompt_without_semantics(line, cwd_fragments))
+            .unwrap_or(false)
+    {
         lines.pop();
+        pop_trailing_blanks(lines);
     }
+
     let leading = lines
         .iter()
         .position(|l| !l.is_whitespace())
@@ -965,9 +1066,12 @@ async fn spawn_panes_for_tab(
                     payload.lines
                 };
                 // Snapshots written before blank edges were trimmed at
-                // capture time may still carry them; trim again so restore
-                // never pads the fresh prompt down the screen.
-                trim_blank_edges(&mut lines);
+                // capture time may still carry them; re-trim blanks so
+                // restore never pads the fresh prompt down the screen. The
+                // prompt heuristic stays off here: capture already removed
+                // the stale prompt, and guessing again could only delete
+                // real output from the bottom of the snapshot.
+                trim_blank_edges(&mut lines, false, &[]);
                 if lines.is_empty() {
                     // Nothing worth surfacing above the new prompt.
                 } else if let Err(e) = pane.inject_scrollback(lines) {
@@ -1415,6 +1519,113 @@ mod tests {
 
     fn make_line(text: &str) -> wezterm_term::Line {
         wezterm_term::Line::from_text(text, &wezterm_term::CellAttributes::default(), 0, None)
+    }
+
+    fn serde_file_url(path: &str) -> SerdeUrl {
+        url::Url::from_file_path(path).unwrap().into()
+    }
+
+    #[test]
+    fn trim_blank_edges_removes_cwd_prompt_without_semantics() {
+        let cwd = serde_file_url("/Users/liuxu/workProjects/vllm-l3cache");
+        let fragments = prompt_fragments_from_working_dir(Some(&cwd));
+        let mut lines = vec![
+            make_line("real output"),
+            make_line("workProjects/vllm-l3cache pwd"),
+        ];
+
+        trim_blank_edges(&mut lines, true, &fragments);
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(line_text(&lines[0]), "real output");
+    }
+
+    #[test]
+    fn trim_blank_edges_preserves_absolute_path_output() {
+        let cwd = serde_file_url("/Users/liuxu/workProjects/vllm-l3cache");
+        let fragments = prompt_fragments_from_working_dir(Some(&cwd));
+        let mut lines = vec![make_line("/Users/liuxu/workProjects/vllm-l3cache")];
+
+        trim_blank_edges(&mut lines, true, &fragments);
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(
+            line_text(&lines[0]),
+            "/Users/liuxu/workProjects/vllm-l3cache"
+        );
+    }
+
+    #[test]
+    fn trim_blank_edges_heuristic_drops_at_most_one_line() {
+        let cwd = serde_file_url("/Users/liuxu/workProjects/vllm-l3cache");
+        let fragments = prompt_fragments_from_working_dir(Some(&cwd));
+        // "downloading 100%" ends with '%' and would match the prompt
+        // heuristic too; only the bottom-most line may be sacrificed.
+        let mut lines = vec![
+            make_line("downloading 100%"),
+            make_line("vllm-l3cache ❯"),
+            make_line(""),
+        ];
+
+        trim_blank_edges(&mut lines, true, &fragments);
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(line_text(&lines[0]), "downloading 100%");
+    }
+
+    #[test]
+    fn trim_blank_edges_without_heuristic_keeps_prompt_looking_output() {
+        let mut lines = vec![make_line("downloading 100%"), make_line("")];
+
+        trim_blank_edges(&mut lines, false, &[]);
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(line_text(&lines[0]), "downloading 100%");
+    }
+
+    fn zone(
+        start_y: isize,
+        semantic_type: wezterm_term::SemanticType,
+    ) -> wezterm_term::SemanticZone {
+        wezterm_term::SemanticZone {
+            start_y,
+            start_x: 0,
+            end_y: start_y,
+            end_x: 10,
+            semantic_type,
+        }
+    }
+
+    #[test]
+    fn live_prompt_start_found_after_run_of_promptless_commands() {
+        use wezterm_term::SemanticType;
+        // cd/export style history: Prompt+Input pairs with no Output zones
+        // in between. Only the final prompt is live; rows above it stay.
+        let zones = vec![
+            zone(0, SemanticType::Output),
+            zone(1, SemanticType::Prompt),
+            zone(1, SemanticType::Input),
+            zone(2, SemanticType::Prompt),
+            zone(2, SemanticType::Input),
+            zone(3, SemanticType::Prompt),
+        ];
+        assert_eq!(live_prompt_start_from_zones(&zones), Some(3));
+    }
+
+    #[test]
+    fn live_prompt_start_absent_while_command_running() {
+        use wezterm_term::SemanticType;
+        let zones = vec![
+            zone(0, SemanticType::Prompt),
+            zone(0, SemanticType::Input),
+            zone(1, SemanticType::Output),
+        ];
+        assert_eq!(live_prompt_start_from_zones(&zones), None);
+    }
+
+    #[test]
+    fn live_prompt_start_absent_without_zones() {
+        assert_eq!(live_prompt_start_from_zones(&[]), None);
     }
 
     fn sample_payload(cols: usize, rows: usize, line_count: usize) -> PaneContentPayload {
