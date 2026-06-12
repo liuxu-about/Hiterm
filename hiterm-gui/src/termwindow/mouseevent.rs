@@ -53,14 +53,14 @@ pub(crate) struct WindowDragState {
 fn mouse_dispatch_target(
     has_ui_item: bool,
     coords_y: isize,
-    terminal_origin_y: isize,
+    title_area_bottom: isize,
     capture: Option<&super::MouseCapture>,
 ) -> MouseDispatchTarget {
     if matches!(capture, Some(super::MouseCapture::TerminalPane(_))) {
         MouseDispatchTarget::Terminal
     } else if has_ui_item {
         MouseDispatchTarget::Ui
-    } else if coords_y < terminal_origin_y {
+    } else if coords_y < title_area_bottom {
         MouseDispatchTarget::TitleArea
     } else {
         MouseDispatchTarget::Terminal
@@ -499,7 +499,6 @@ impl super::TermWindow {
         };
 
         let (padding_left, padding_top) = self.padding_left_top();
-        let terminal_origin_y = first_line_offset + padding_top as isize;
 
         let y = (event
             .coords
@@ -622,9 +621,11 @@ impl super::TermWindow {
                 // Perform click counting
                 let button = mouse_press_to_tmb(press);
 
-                // Use sentinel row value for title/padding area clicks to prevent
-                // chaining with terminal first row (row=0) as a double-click
-                let click_row = if event.coords.y < terminal_origin_y {
+                // Use sentinel row value for title-area clicks to prevent
+                // chaining with terminal first row (row=0) as a double-click.
+                // The padding band below the tab bar belongs to the terminal
+                // pane, so only the bar itself uses the sentinel.
+                let click_row = if event.coords.y < first_line_offset {
                     i64::MIN
                 } else {
                     y
@@ -645,14 +646,14 @@ impl super::TermWindow {
                 self.current_mouse_buttons.push(*press);
 
                 if press == &MousePress::Left
-                    && terminal_origin_y > 0
-                    && (event.coords.y as isize) < terminal_origin_y
+                    && first_line_offset > 0
+                    && (event.coords.y as isize) < first_line_offset
                 {
-                    // A left press above the terminal's first row may turn into
-                    // a native window drag (title / tab strip). Enter
-                    // drag-protection so follow-up motion/wheel isn't routed
-                    // into terminal selection/scroll. Use terminal_origin_y
-                    // rather than first_line_offset so the band of top
+                    // A left press on the tab strip / title bar may turn into
+                    // a native window drag. Enter drag-protection so follow-up
+                    // motion/wheel isn't routed into terminal selection or
+                    // scroll. Use first_line_offset (the bottom edge of the
+                    // bar) rather than terminal_origin_y so the band of top
                     // padding above row 0 isn't claimed as draggable — that
                     // band is part of the terminal pane (#356, 3-finger drag).
                     self.current_mouse_capture = Some(MouseCapture::UI);
@@ -783,7 +784,10 @@ impl super::TermWindow {
         match mouse_dispatch_target(
             ui_item.is_some(),
             event.coords.y,
-            terminal_origin_y,
+            // Title-area behavior (double-click zoom, window drag) stops at
+            // the bottom edge of the tab bar; the padding band below it is
+            // part of the terminal pane.
+            first_line_offset,
             self.current_mouse_capture.as_ref(),
         ) {
             MouseDispatchTarget::Ui => {

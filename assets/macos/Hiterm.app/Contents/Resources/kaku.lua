@@ -4118,10 +4118,11 @@ config.color_schemes['Kaku Dark'] = {
 
   split = KAKU.SURFACE_ACTIVE,
 
-  -- Tab bar colors
+  -- Tab bar colors. The bar surface is KAKU.SURFACE (see
+  -- get_window_frame_colors), so hover/active states step up from there.
   tab_bar = {
-    background = KAKU.BLACK,
-    inactive_tab_edge = KAKU.BLACK,
+    background = KAKU.SURFACE,
+    inactive_tab_edge = KAKU.SURFACE,
 
     active_tab = {
       bg_color = KAKU.SURFACE_ACTIVE,
@@ -4133,24 +4134,24 @@ config.color_schemes['Kaku Dark'] = {
     },
 
     inactive_tab = {
-      bg_color = KAKU.BLACK,
+      bg_color = KAKU.SURFACE,
       fg_color = KAKU.GRAY,
       intensity = 'Normal',
     },
 
     inactive_tab_hover = {
-      bg_color = KAKU.SURFACE,
+      bg_color = '#262433',
       fg_color = KAKU.WHITE,
       italic = false,
     },
 
     new_tab = {
-      bg_color = KAKU.BLACK,
+      bg_color = KAKU.SURFACE,
       fg_color = KAKU.GRAY,
     },
 
     new_tab_hover = {
-      bg_color = KAKU.SURFACE,
+      bg_color = '#262433',
       fg_color = KAKU.WHITE,
     },
   },
@@ -4212,11 +4213,11 @@ config.color_schemes['Kaku Light'] = {
   split = '#DDDBCF',
 
   tab_bar = {
-    background = '#FFFCF0',
-    inactive_tab_edge = '#FFFCF0',
+    background = '#F3EFE2',
+    inactive_tab_edge = '#F3EFE2',
 
     active_tab = {
-      bg_color = '#E8E6DB',
+      bg_color = '#FFFCF0',
       fg_color = '#100F0F',
       intensity = 'Bold',
       underline = 'None',
@@ -4225,24 +4226,24 @@ config.color_schemes['Kaku Light'] = {
     },
 
     inactive_tab = {
-      bg_color = '#FFFCF0',
+      bg_color = '#F3EFE2',
       fg_color = '#4A4946',
       intensity = 'Normal',
     },
 
     inactive_tab_hover = {
-      bg_color = '#F2F0EB',
+      bg_color = '#EAE5D5',
       fg_color = '#100F0F',
       italic = false,
     },
 
     new_tab = {
-      bg_color = '#FFFCF0',
+      bg_color = '#F3EFE2',
       fg_color = '#4A4946',
     },
 
     new_tab_hover = {
-      bg_color = '#F2F0EB',
+      bg_color = '#EAE5D5',
       fg_color = '#100F0F',
     },
   },
@@ -4280,8 +4281,10 @@ get_window_frame_colors = function(scheme)
   scheme = resolve_kaku_color_scheme(scheme)
   if scheme == 'Kaku Light' then
     return {
-      active_titlebar_bg = '#FFFCF0',
-      inactive_titlebar_bg = '#F8F5EA',
+      -- A step darker than the cream terminal background (#FFFCF0) so the
+      -- tab bar reads as a distinct surface.
+      active_titlebar_bg = '#F3EFE2',
+      inactive_titlebar_bg = '#EFEBDD',
       active_titlebar_fg = '#100F0F',
       inactive_titlebar_fg = '#575653',
       active_titlebar_border_bottom = '#E8E1D0',
@@ -4297,12 +4300,14 @@ get_window_frame_colors = function(scheme)
     }
   else
     return {
-      active_titlebar_bg = KAKU.BLACK,
-      inactive_titlebar_bg = KAKU.BLACK,
+      -- Slightly lighter than the terminal background (KAKU.BLACK) so the
+      -- tab bar reads as a distinct surface, like Ghostty's titlebar.
+      active_titlebar_bg = KAKU.SURFACE,
+      inactive_titlebar_bg = '#1a1922',
       active_titlebar_fg = KAKU.WHITE,
       inactive_titlebar_fg = KAKU.GRAY,
-      active_titlebar_border_bottom = KAKU.BLACK,
-      inactive_titlebar_border_bottom = KAKU.BLACK,
+      active_titlebar_border_bottom = KAKU.SURFACE,
+      inactive_titlebar_border_bottom = '#1a1922',
       border_left_width = 0,
       border_right_width = 0,
       border_top_height = 0,
