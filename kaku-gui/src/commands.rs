@@ -712,7 +712,8 @@ impl CommandDef {
         commands.retain(|cmd| !cmd.menubar.is_empty());
 
         // Prefer to put the menus in this order
-        let mut order: Vec<&'static str> = vec!["Hiterm", "Shell", "Edit", "View", "Window", "Help"];
+        let mut order: Vec<&'static str> =
+            vec!["Hiterm", "Shell", "Edit", "View", "Window", "Help"];
         // Add any other menus on the end
         for cmd in &commands {
             if !order.contains(&cmd.menubar[0]) {

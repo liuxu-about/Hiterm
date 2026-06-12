@@ -4065,6 +4065,8 @@ config.tab_max_width = 32
 config.hide_tab_bar_if_only_one_tab = false
 config.show_tab_index_in_tab_bar = false
 config.show_new_tab_button_in_tab_bar = true
+-- Ghostty-style ⌘N hints replace the per-tab close button; close with Cmd+W.
+config.show_close_tab_button_in_tabs = false
 
 -- Compute padding after tab-bar placement is finalized so startup layout
 -- matches the runtime override path.

@@ -1269,7 +1269,9 @@ fn kaku_bin_candidates() -> Vec<PathBuf> {
         }
     }
 
-    candidates.push(PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku"));
+    candidates.push(PathBuf::from(
+        "/Applications/Hiterm.app/Contents/MacOS/kaku",
+    ));
     candidates.push(
         home_dir()
             .join("Applications")
