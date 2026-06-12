@@ -1407,7 +1407,8 @@ impl Config {
 
         let mut s = String::new();
         file.read_to_string(&mut s)?;
-        let trace = std::env::var_os("KAKU_STARTUP_TRACE").is_some();
+        let trace = std::env::var_os("HITERM_STARTUP_TRACE").is_some()
+            || std::env::var_os("KAKU_STARTUP_TRACE").is_some();
         let t0 = std::time::Instant::now();
         let lua = make_lua_context(p)?;
         if trace {
@@ -1514,8 +1515,10 @@ impl Config {
                 }
                 cfg.check_consistency()?;
 
+                std::env::set_var("HITERM_CONFIG_FILE", p);
                 std::env::set_var("KAKU_CONFIG_FILE", p);
                 if let Some(dir) = p.parent() {
+                    std::env::set_var("HITERM_CONFIG_DIR", dir);
                     std::env::set_var("KAKU_CONFIG_DIR", dir);
                 }
                 Ok(cfg)
@@ -2016,8 +2019,14 @@ impl Config {
 
         if !smart_tab_env_is_explicit(cmd) {
             match self.smart_tab_mode {
-                SmartTabMode::Off => cmd.env(KAKU_SMART_TAB_DISABLE, "1"),
-                SmartTabMode::SuggestionFirst => cmd.env(KAKU_TAB_ACCEPT_SUGGEST_FIRST, "1"),
+                SmartTabMode::Off => {
+                    cmd.env(HITERM_SMART_TAB_DISABLE, "1");
+                    cmd.env(KAKU_SMART_TAB_DISABLE, "1");
+                }
+                SmartTabMode::SuggestionFirst => {
+                    cmd.env(HITERM_TAB_ACCEPT_SUGGEST_FIRST, "1");
+                    cmd.env(KAKU_TAB_ACCEPT_SUGGEST_FIRST, "1");
+                }
                 SmartTabMode::CompletionFirst => {}
             }
         }
@@ -3187,11 +3196,17 @@ impl FromDynamic for BoldBrightening {
     }
 }
 
+const HITERM_SMART_TAB_DISABLE: &str = "HITERM_SMART_TAB_DISABLE";
+const HITERM_TAB_ACCEPT_SUGGEST_FIRST: &str = "HITERM_TAB_ACCEPT_SUGGEST_FIRST";
+// Legacy names, still set so shells running a pre-rename generated
+// integration keep their configured Tab behavior.
 const KAKU_SMART_TAB_DISABLE: &str = "KAKU_SMART_TAB_DISABLE";
 const KAKU_TAB_ACCEPT_SUGGEST_FIRST: &str = "KAKU_TAB_ACCEPT_SUGGEST_FIRST";
 
 fn smart_tab_env_is_explicit(cmd: &CommandBuilder) -> bool {
-    cmd.get_env(KAKU_SMART_TAB_DISABLE).is_some()
+    cmd.get_env(HITERM_SMART_TAB_DISABLE).is_some()
+        || cmd.get_env(HITERM_TAB_ACCEPT_SUGGEST_FIRST).is_some()
+        || cmd.get_env(KAKU_SMART_TAB_DISABLE).is_some()
         || cmd.get_env(KAKU_TAB_ACCEPT_SUGGEST_FIRST).is_some()
 }
 

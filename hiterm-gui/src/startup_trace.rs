@@ -8,7 +8,10 @@ static ENABLED: OnceLock<bool> = OnceLock::new();
 
 pub fn init() {
     START.get_or_init(Instant::now);
-    ENABLED.get_or_init(|| std::env::var_os("KAKU_STARTUP_TRACE").is_some());
+    ENABLED.get_or_init(|| {
+        std::env::var_os("HITERM_STARTUP_TRACE").is_some()
+            || std::env::var_os("KAKU_STARTUP_TRACE").is_some()
+    });
 }
 
 pub fn mark(label: &str) {

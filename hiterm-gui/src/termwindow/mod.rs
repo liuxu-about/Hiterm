@@ -1131,10 +1131,11 @@ impl TermWindow {
         // might already be removed from Mux before the OSC 1337 is processed by
         // `emit_user_var_event`, meaning `window_contains_pane` evaluates to false.
         // This caused the config reload to be dropped. By returning true globally
-        // for `KAKU_CONFIG_CHANGED`, we ensure the reload happens. The `config::reload()`
-        // function has its own debouncing mechanism (reload_epoch) to prevent
-        // duplicate reloads across windows.
-        name == "KAKU_CONFIG_CHANGED"
+        // for the config-changed var, we ensure the reload happens. The
+        // `config::reload()` function has its own debouncing mechanism
+        // (reload_epoch) to prevent duplicate reloads across windows.
+        // The legacy KAKU_ name is still accepted from older CLI builds.
+        name == "HITERM_CONFIG_CHANGED" || name == "KAKU_CONFIG_CHANGED"
     }
 
     fn load_os_parameters(&mut self) {

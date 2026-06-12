@@ -257,26 +257,26 @@ mod imp {
     }
 
     fn resolve_update_provider() -> anyhow::Result<UpdateProvider> {
-        if let Some(provider) = std::env::var_os("KAKU_UPDATE_PROVIDER") {
+        if let Some(provider) = std::env::var_os("HITERM_UPDATE_PROVIDER") {
             let provider = provider.to_string_lossy().to_ascii_lowercase();
             return match provider.as_str() {
                 "brew" => {
                     let brew_info = resolve_brew_info()?.ok_or_else(|| {
                         anyhow!(
-                            "KAKU_UPDATE_PROVIDER=brew but brew-managed Kaku installation was not found"
+                            "HITERM_UPDATE_PROVIDER=brew but brew-managed Kaku installation was not found"
                         )
                     })?;
                     Ok(UpdateProvider::Brew(brew_info))
                 }
                 "direct" => Ok(UpdateProvider::Direct),
-                other => bail!("invalid KAKU_UPDATE_PROVIDER `{}`", other),
+                other => bail!("invalid HITERM_UPDATE_PROVIDER `{}`", other),
             };
         }
 
         let exe = std::env::current_exe().context("resolve current executable path")?;
         let mut should_probe_brew = path_is_or_points_to_caskroom(&exe);
 
-        if let Some(target) = std::env::var_os("KAKU_UPDATE_TARGET_APP") {
+        if let Some(target) = std::env::var_os("HITERM_UPDATE_TARGET_APP") {
             let target = PathBuf::from(target);
             should_probe_brew |= path_is_or_points_to_caskroom(&target);
         }
@@ -672,12 +672,12 @@ mod imp {
     }
 
     fn resolve_target_app_path() -> anyhow::Result<PathBuf> {
-        if let Some(path) = std::env::var_os("KAKU_UPDATE_TARGET_APP") {
+        if let Some(path) = std::env::var_os("HITERM_UPDATE_TARGET_APP") {
             let app = PathBuf::from(path);
             if app.ends_with("Hiterm.app") {
                 return Ok(app);
             }
-            bail!("KAKU_UPDATE_TARGET_APP must point to Hiterm.app");
+            bail!("HITERM_UPDATE_TARGET_APP must point to Hiterm.app");
         }
 
         let exe = std::env::current_exe().context("resolve current executable")?;
@@ -788,8 +788,8 @@ mod imp {
     fn confirm_apply_update(update_label: &str, assume_yes: bool) -> anyhow::Result<bool> {
         // When launched from the GUI (menu / notification), the env var is set
         // so the update proceeds without interactive confirmation.
-        if std::env::var_os("KAKU_UPDATE_AUTO_CONFIRM").is_some() {
-            println!("Auto-confirming update (KAKU_UPDATE_AUTO_CONFIRM is set).");
+        if std::env::var_os("HITERM_UPDATE_AUTO_CONFIRM").is_some() {
+            println!("Auto-confirming update (HITERM_UPDATE_AUTO_CONFIRM is set).");
             return Ok(true);
         }
 
@@ -802,7 +802,7 @@ mod imp {
             }
             bail!(
                 "Refusing to apply a binary-replacing update in a non-interactive session.\n\
-                 Re-run `kaku update --yes` (or set KAKU_UPDATE_AUTO_CONFIRM=1) to proceed."
+                 Re-run `hiterm update --yes` (or set HITERM_UPDATE_AUTO_CONFIRM=1) to proceed."
             );
         }
 

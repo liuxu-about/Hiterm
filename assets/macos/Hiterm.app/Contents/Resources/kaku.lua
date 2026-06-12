@@ -6,7 +6,7 @@ local config = {}
 
 -- `config_builder` validates every assignment and is expensive on large configs.
 -- Keep startup fast by default; enable strict validation only when debugging config.
-if os.getenv('KAKU_STRICT_CONFIG') == '1' and wezterm.config_builder then
+if (os.getenv('HITERM_STRICT_CONFIG') == '1' or os.getenv('KAKU_STRICT_CONFIG') == '1') and wezterm.config_builder then
   config = wezterm.config_builder()
 end
 

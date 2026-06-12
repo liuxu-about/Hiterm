@@ -31,7 +31,8 @@ pub fn run(args: CliArgs) -> anyhow::Result<()> {
     // When running inside a Kaku pane with no extra args, trigger the Cmd+L
     // overlay directly via OSC 1337 SetUserVar and exit. This gives the exact
     // same experience as pressing Cmd+L from the keyboard.
-    let inside_kaku = std::env::var_os("KAKU_UNIX_SOCKET").is_some();
+    let inside_kaku = std::env::var_os("HITERM_UNIX_SOCKET").is_some()
+        || std::env::var_os("KAKU_UNIX_SOCKET").is_some();
     if inside_kaku && args.prompt.is_none() && !args.new && args.resume.is_none() {
         use base64::engine::general_purpose::STANDARD;
         use base64::Engine as _;

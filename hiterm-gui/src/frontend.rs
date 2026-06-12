@@ -67,18 +67,20 @@ fn resolve_bundled_kaku_bin() -> anyhow::Result<PathBuf> {
 
     let mut candidates = Vec::new();
 
-    if let Some(path) = std::env::var_os("KAKU_BIN") {
-        add_candidate(&mut candidates, PathBuf::from(path));
+    for var in ["HITERM_BIN", "KAKU_BIN"] {
+        if let Some(path) = std::env::var_os(var) {
+            add_candidate(&mut candidates, PathBuf::from(path));
+        }
     }
 
     let current_exe = std::env::current_exe().context("resolve executable path")?;
     if let Some(parent) = current_exe.parent() {
-        add_candidate(&mut candidates, parent.join("kaku"));
+        add_candidate(&mut candidates, parent.join("hiterm"));
     }
 
     if let Ok(resolved_exe) = std::fs::canonicalize(&current_exe) {
         if let Some(parent) = resolved_exe.parent() {
-            add_candidate(&mut candidates, parent.join("kaku"));
+            add_candidate(&mut candidates, parent.join("hiterm"));
         }
     }
 
@@ -319,10 +321,10 @@ fn run_kaku_subcommand_in_new_tab(subcommand: &str, running_flag: Option<&'stati
     // environment) is inherited and ~/.zprofile is never loaded, so curl hits
     // api.github.com without a proxy -- causing 30+ second timeouts on Chinese
     // networks. The extra few hundred ms of profile loading is negligible.
-    // When launched from the GUI for `update`, set KAKU_UPDATE_AUTO_CONFIRM=1
+    // When launched from the GUI for `update`, set HITERM_UPDATE_AUTO_CONFIRM=1
     // so the CLI skips the interactive "Press Enter" confirmation.
     let env_prefix = if subcommand == "update" {
-        "KAKU_UPDATE_AUTO_CONFIRM=1 "
+        "HITERM_UPDATE_AUTO_CONFIRM=1 "
     } else {
         ""
     };

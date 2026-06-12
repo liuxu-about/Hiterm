@@ -570,7 +570,7 @@ pub fn effective_config_file_path() -> PathBuf {
     let config_file_override = CONFIG_FILE_OVERRIDE.lock().unwrap().clone();
     effective_config_file_path_from(
         config_file_override,
-        std::env::var_os("KAKU_CONFIG_FILE"),
+        std::env::var_os("HITERM_CONFIG_FILE").or_else(|| std::env::var_os("KAKU_CONFIG_FILE")),
         user_config_path(),
     )
 }

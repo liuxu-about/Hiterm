@@ -48,7 +48,9 @@ mod imp {
             .ok_or_else(|| anyhow!("failed to locate {} for Kaku initialization", script_name))?;
 
         let mut cmd = Command::new("/bin/bash");
-        cmd.arg(&script).env("KAKU_INIT_INTERNAL", "1");
+        cmd.arg(&script)
+            .env("HITERM_INIT_INTERNAL", "1")
+            .env("KAKU_INIT_INTERNAL", "1");
         if update_only {
             cmd.arg("--update-only");
         }

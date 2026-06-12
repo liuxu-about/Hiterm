@@ -1416,12 +1416,12 @@ fn open_config_in_editor(config_path: &Path) -> anyhow::Result<()> {
 fn signal_config_changed() {
     use std::io::Write;
     // OSC 1337 ; SetUserVar=name=base64(value) ST
-    // name: KAKU_CONFIG_CHANGED, value: "1" -> base64 "MQ=="
+    // name: HITERM_CONFIG_CHANGED, value: "1" -> base64 "MQ=="
     let seq = if std::env::var("TMUX").is_ok() {
         // tmux passthrough: wrap OSC in DCS tmux; ... ST
-        b"\x1bPtmux;\x1b\x1b]1337;SetUserVar=KAKU_CONFIG_CHANGED=MQ==\x07\x1b\\" as &[u8]
+        b"\x1bPtmux;\x1b\x1b]1337;SetUserVar=HITERM_CONFIG_CHANGED=MQ==\x07\x1b\\" as &[u8]
     } else {
-        b"\x1b]1337;SetUserVar=KAKU_CONFIG_CHANGED=MQ==\x07" as &[u8]
+        b"\x1b]1337;SetUserVar=HITERM_CONFIG_CHANGED=MQ==\x07" as &[u8]
     };
     let _ = std::io::stdout().write_all(seq);
     let _ = std::io::stdout().flush();

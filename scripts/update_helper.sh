@@ -19,18 +19,18 @@ NEW_APP_NORM=$(strip_trailing_slashes "$NEW_APP")
 TARGET_APP="$TARGET_APP_NORM"
 NEW_APP="$NEW_APP_NORM"
 BACKUP_APP="${TARGET_APP}.backup.$(date +%s)"
-TARGET_GUI="$TARGET_APP/Contents/MacOS/kaku-gui"
+TARGET_GUI="$TARGET_APP/Contents/MacOS/hiterm-gui"
 TARGET_CLI="$TARGET_APP/Contents/MacOS/kaku"
 
-# Validate that paths end with Kaku.app for safety (allow trailing slashes).
-# Final component match mirrors Rust Path::ends_with("Kaku.app") semantics.
-# After stripping trailing slashes, the final component must be Kaku.app
-if [[ ! "$TARGET_APP_NORM" == */Kaku.app && ! "$TARGET_APP_NORM" == Kaku.app ]]; then
-    echo "Error: TARGET_APP must end with Kaku.app" >&2
+# Validate that paths end with Hiterm.app for safety (allow trailing slashes).
+# Final component match mirrors Rust Path::ends_with("Hiterm.app") semantics.
+# After stripping trailing slashes, the final component must be Hiterm.app
+if [[ ! "$TARGET_APP_NORM" == */Hiterm.app && ! "$TARGET_APP_NORM" == Hiterm.app ]]; then
+    echo "Error: TARGET_APP must end with Hiterm.app" >&2
     exit 1
 fi
-if [[ ! "$NEW_APP_NORM" == */Kaku.app && ! "$NEW_APP_NORM" == Kaku.app ]]; then
-    echo "Error: NEW_APP must end with Kaku.app" >&2
+if [[ ! "$NEW_APP_NORM" == */Hiterm.app && ! "$NEW_APP_NORM" == Hiterm.app ]]; then
+    echo "Error: NEW_APP must end with Hiterm.app" >&2
     exit 1
 fi
 
@@ -77,14 +77,14 @@ fi
 
 for candidate in \
   "$TARGET_CLI" \
-  "/Applications/Kaku.app/Contents/MacOS/kaku" \
-  "\${HOME:-}/Applications/Kaku.app/Contents/MacOS/kaku"; do
+  "/Applications/Hiterm.app/Contents/MacOS/kaku" \
+  "\${HOME:-}/Applications/Hiterm.app/Contents/MacOS/kaku"; do
   if [[ -n "\$candidate" && -x "\$candidate" ]]; then
     exec "\$candidate" "\$@"
   fi
 done
 
-  echo "kaku: Kaku.app not found. Expected /Applications/Kaku.app." >&2
+  echo "kaku: Hiterm.app not found. Expected /Applications/Hiterm.app." >&2
   exit 127
 EOF
 

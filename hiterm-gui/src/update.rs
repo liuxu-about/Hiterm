@@ -556,7 +556,7 @@ fn update_checker() {
     log::info!("update_checker thread started");
 
     let initial_interval = Duration::from_secs(3);
-    let force_ui = std::env::var_os("KAKU_ALWAYS_SHOW_UPDATE_UI").is_some();
+    let force_ui = std::env::var_os("HITERM_ALWAYS_SHOW_UPDATE_UI").is_some();
 
     let update_file_name = config::DATA_DIR.join("check_update");
 
@@ -806,12 +806,12 @@ fn check_update_completed() {
 
 /// Resolve the installed Hiterm.app path, matching the logic in the CLI crate.
 pub fn resolve_target_app_path() -> anyhow::Result<PathBuf> {
-    if let Some(path) = std::env::var_os("KAKU_UPDATE_TARGET_APP") {
+    if let Some(path) = std::env::var_os("HITERM_UPDATE_TARGET_APP") {
         let app = PathBuf::from(path);
         if app.ends_with("Hiterm.app") {
             return Ok(app);
         }
-        anyhow::bail!("KAKU_UPDATE_TARGET_APP must point to Hiterm.app");
+        anyhow::bail!("HITERM_UPDATE_TARGET_APP must point to Hiterm.app");
     }
 
     let exe = std::env::current_exe().map_err(|e| anyhow!("resolve current executable: {}", e))?;

@@ -361,6 +361,7 @@ async fn async_run_terminal_gui(
 ) -> anyhow::Result<()> {
     let unix_socket_path =
         config::RUNTIME_DIR.join(format!("gui-sock-{}", unsafe { libc::getpid() }));
+    std::env::set_var("HITERM_UNIX_SOCKET", unix_socket_path.clone());
     std::env::set_var("KAKU_UNIX_SOCKET", unix_socket_path.clone());
     wezterm_blob_leases::register_storage(Arc::new(
         wezterm_blob_leases::simple_tempdir::SimpleTempDir::new_in(&*config::CACHE_DIR)?,
@@ -609,7 +610,9 @@ impl Publish {
                                 "Running GUI is a different executable from us, will start a new one");
                         }
                         if vers.config_file_path
-                            != std::env::var_os("KAKU_CONFIG_FILE").map(Into::into)
+                            != std::env::var_os("HITERM_CONFIG_FILE")
+                                .or_else(|| std::env::var_os("KAKU_CONFIG_FILE"))
+                                .map(Into::into)
                         {
                             *self = Publish::NoConnectNoPublish;
                             anyhow::bail!(
@@ -879,7 +882,8 @@ fn run_terminal_gui(opts: StartCommand, default_domain_name: Option<String>) -> 
 
 fn fatal_toast_notification(title: &str, message: &str) {
     let should_show = if cfg!(debug_assertions) {
-        std::env::var_os("KAKU_DEV_FATAL_TOAST").is_some()
+        std::env::var_os("HITERM_DEV_FATAL_TOAST").is_some()
+            || std::env::var_os("KAKU_DEV_FATAL_TOAST").is_some()
     } else {
         true
     };
