@@ -99,7 +99,7 @@ pub fn confirm_quit_program(
     tab_id: TabId,
 ) -> anyhow::Result<()> {
     if confirm::run_confirmation(
-        "Quit Kaku?\nAll open tabs and panes will be closed.",
+        "Quit Hiterm?\nAll open tabs and panes will be closed.",
         &mut term,
     )? {
         promise::spawn::spawn_into_main_thread(async move {

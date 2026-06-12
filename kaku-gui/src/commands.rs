@@ -712,7 +712,7 @@ impl CommandDef {
         commands.retain(|cmd| !cmd.menubar.is_empty());
 
         // Prefer to put the menus in this order
-        let mut order: Vec<&'static str> = vec!["Kaku", "Shell", "Edit", "View", "Window", "Help"];
+        let mut order: Vec<&'static str> = vec!["Hiterm", "Shell", "Edit", "View", "Window", "Help"];
         // Add any other menus on the end
         for cmd in &commands {
             if !order.contains(&cmd.menubar[0]) {
@@ -722,7 +722,7 @@ impl CommandDef {
 
         fn command_rank_for_menu(title: &str, action: &KeyAssignment) -> usize {
             match title {
-                "Kaku" => match action {
+                "Hiterm" => match action {
                     HideApplication => 80,
                     QuitApplication => 90,
                     _ => 500,
@@ -863,11 +863,11 @@ impl CommandDef {
                     // routing. Kaku owns its own tab/window switcher and
                     // has no help book, so the AppKit-managed children
                     // have no value here.
-                    if cmd.menubar[0] == "Kaku" {
+                    if cmd.menubar[0] == "Hiterm" {
                         menu.assign_as_app_menu();
 
                         let about_item = MenuItem::new_with(
-                            &format!("Kaku V{}", config::wezterm_version()),
+                            &format!("Hiterm V{}", config::wezterm_version()),
                             Some(kaku_perform_key_assignment_sel),
                             "",
                         );
@@ -1246,11 +1246,11 @@ pub fn derive_command_from_key_assignment(action: &KeyAssignment) -> Option<Comm
             icon: None,
         },
         HideApplication => CommandDef {
-            brief: "Hide Kaku".into(),
-            doc: "Hide all Kaku windows".into(),
+            brief: "Hide Hiterm".into(),
+            doc: "Hide all Hiterm windows".into(),
             keys: vec![(Modifiers::SUPER, "h".into())],
             args: &[],
-            menubar: &["Kaku"],
+            menubar: &["Hiterm"],
             icon: None,
         },
         SpawnWindow => CommandDef {
@@ -1850,11 +1850,11 @@ pub fn derive_command_from_key_assignment(action: &KeyAssignment) -> Option<Comm
             icon: None,
         },
         QuitApplication => CommandDef {
-            brief: "Quit Kaku".into(),
-            doc: "Quits Kaku".into(),
+            brief: "Quit Hiterm".into(),
+            doc: "Quits Hiterm".into(),
             keys: vec![(Modifiers::SUPER, "q".into())],
             args: &[],
-            menubar: &["Kaku"],
+            menubar: &["Hiterm"],
             icon: None,
         },
         MoveTabRelative(-1) => CommandDef {

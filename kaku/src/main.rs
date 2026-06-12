@@ -622,11 +622,11 @@ fn resolve_gui_executable(exe_name: &str) -> anyhow::Result<PathBuf> {
 
     #[cfg(target_os = "macos")]
     {
-        candidates.push(PathBuf::from("/Applications/Kaku.app/Contents/MacOS").join(exe_name));
+        candidates.push(PathBuf::from("/Applications/Hiterm.app/Contents/MacOS").join(exe_name));
         candidates.push(
             config::HOME_DIR
                 .join("Applications")
-                .join("Kaku.app")
+                .join("Hiterm.app")
                 .join("Contents")
                 .join("MacOS")
                 .join(exe_name),

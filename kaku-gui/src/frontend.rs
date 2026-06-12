@@ -96,13 +96,13 @@ fn resolve_bundled_kaku_bin() -> anyhow::Result<PathBuf> {
     {
         add_candidate(
             &mut candidates,
-            PathBuf::from("/Applications/Kaku.app/Contents/MacOS/kaku"),
+            PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku"),
         );
         add_candidate(
             &mut candidates,
             config::HOME_DIR
                 .join("Applications")
-                .join("Kaku.app")
+                .join("Hiterm.app")
                 .join("Contents")
                 .join("MacOS")
                 .join("kaku"),
@@ -212,7 +212,7 @@ pub fn restart_to_update() {
 
     // Toast click can fire twice (rapid double-click, or two GUI processes
     // both registering the click callback). Without this guard, two helper
-    // scripts race to ditto into the same Kaku.app.
+    // scripts race to ditto into the same Hiterm.app.
     static UPDATE_RUNNING: AtomicBool = AtomicBool::new(false);
     if UPDATE_RUNNING
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)

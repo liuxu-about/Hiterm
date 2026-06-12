@@ -581,7 +581,7 @@ fn reap_kaku_autofill_helpers() {
 for pid in $(pgrep -f 'SafariPlatformSupport.Helper|CredentialProviderExtensionHelper' 2>/dev/null); do
   name=$(lsappinfo info -only name -pid "$pid" 2>/dev/null | sed -n 's/.*"LSDisplayName"="\([^"]*\)".*/\1/p')
   case "$name" in
-    *"(Kaku)"*) kill "$pid" 2>/dev/null || true ;;
+    *"(Hiterm)"* | *"(Kaku)"*) kill "$pid" 2>/dev/null || true ;;
   esac
 done
 "#;
@@ -626,8 +626,8 @@ extern "C" fn application_should_terminate(
             WindowCloseConfirmation::AlwaysPrompt => {
                 let alert: id = msg_send![class!(NSAlert), alloc];
                 let alert: id = msg_send![alert, init];
-                let message_text = nsstring("Terminate Kaku?");
-                let info_text = nsstring("Detach and close all panes and terminate Kaku?");
+                let message_text = nsstring("Terminate Hiterm?");
+                let info_text = nsstring("Detach and close all panes and terminate Hiterm?");
                 let cancel = nsstring("Cancel");
                 let ok = nsstring("Ok");
 

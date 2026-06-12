@@ -10,7 +10,7 @@
 //! - **No dependency bloat** — instead of pulling the GUI/chat engine into
 //!   the `kaku` binary (which would link in WGPU + Cairo + the entire
 //!   GUI runtime), we `execvp` the `k` binary that already ships in
-//!   `Kaku.app/Contents/MacOS/k`. Same chat engine, same args, zero
+//!   `Hiterm.app/Contents/MacOS/k`. Same chat engine, same args, zero
 //!   process-overhead (exec replaces this process in-place on Unix).
 
 use anyhow::anyhow;
@@ -75,11 +75,11 @@ fn resolve_k_binary() -> anyhow::Result<PathBuf> {
     // 2. Standard macOS install locations.
     #[cfg(target_os = "macos")]
     {
-        candidates.push(PathBuf::from("/Applications/Kaku.app/Contents/MacOS/k"));
+        candidates.push(PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/k"));
         candidates.push(
             config::HOME_DIR
                 .join("Applications")
-                .join("Kaku.app")
+                .join("Hiterm.app")
                 .join("Contents")
                 .join("MacOS")
                 .join("k"),

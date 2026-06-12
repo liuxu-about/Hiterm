@@ -165,7 +165,7 @@ END
         let src_plist = repo_dir
             .join("assets")
             .join("macos")
-            .join("Kaku.app")
+            .join("Hiterm.app")
             .join("Contents")
             .join("Info.plist");
 
@@ -205,7 +205,7 @@ END
         };
 
         let dest_plist = build_target_dir.join("Info.plist");
-        println!("cargo:rerun-if-changed=assets/macos/Kaku.app/Contents/Info.plist");
+        println!("cargo:rerun-if-changed=assets/macos/Hiterm.app/Contents/Info.plist");
 
         // Ensure the destination directory exists before copying
         if let Some(parent) = dest_plist.parent() {

@@ -42,7 +42,7 @@ mod imp {
     // When adding or removing lines, update both places.
     const KAKU_LEGACY_INLINE_KNOWN_LINES: &[&str] = &[
         "# Kaku Zsh Integration - DO NOT EDIT MANUALLY",
-        "# This file is managed by Kaku.app. Any changes may be overwritten.",
+        "# This file is managed by Hiterm.app. Any changes may be overwritten.",
         r#"export KAKU_ZSH_DIR="$HOME/.config/kaku/zsh""#,
         "# Add bundled binaries to PATH",
         r#"export PATH="$KAKU_ZSH_DIR/bin:$PATH""#,

@@ -75,8 +75,8 @@ local function is_bundled_kaku_config_path(path)
   end
 
   local normalized = path:gsub('\\', '/')
-  return normalized:match('/Kaku%.app/Contents/Resources/kaku%.lua$') ~= nil
-    or normalized:match('/assets/macos/Kaku%.app/Contents/Resources/kaku%.lua$') ~= nil
+  return normalized:match('/Hiterm%.app/Contents/Resources/kaku%.lua$') ~= nil
+    or normalized:match('/assets/macos/Hiterm%.app/Contents/Resources/kaku%.lua$') ~= nil
 end
 
 -- Detect if user has custom config overrides in their config file.
@@ -4048,6 +4048,9 @@ config.pane_close_confirmation = 'SmartPrompt'
 
 -- Smart Tab modes: 'suggestion_first' (default), 'completion_first', or 'off'.
 config.smart_tab_mode = 'suggestion_first'
+
+-- Hiterm is a personal fork; upstream Kaku releases are not valid updates.
+config.check_for_updates = false
 
 -- ===== Tab Bar =====
 config.enable_tab_bar = true

@@ -32,7 +32,7 @@ pub struct StagedUpdateInfo {
     pub body: String,
     pub staged_at: u64,
     pub verified: bool,
-    /// Path to the extracted Kaku.app inside the staged_update directory.
+    /// Path to the extracted Hiterm.app inside the staged_update directory.
     pub app_path: String,
 }
 
@@ -414,7 +414,7 @@ fn verify_sha256(zip_path: &Path, checksum_text: &str) -> anyhow::Result<()> {
 }
 
 fn find_kaku_app(extracted_dir: &Path) -> Option<PathBuf> {
-    let direct = extracted_dir.join("Kaku.app");
+    let direct = extracted_dir.join("Hiterm.app");
     if direct.exists() {
         return Some(direct);
     }
@@ -425,7 +425,7 @@ fn find_kaku_app(extracted_dir: &Path) -> Option<PathBuf> {
         if path
             .file_name()
             .and_then(|n| n.to_str())
-            .map(|n| n.eq_ignore_ascii_case("Kaku.app"))
+            .map(|n| n.eq_ignore_ascii_case("Hiterm.app"))
             .unwrap_or(false)
         {
             return Some(path);
@@ -512,7 +512,7 @@ fn download_and_stage_update(
 
     // 4. Find and verify the extracted app
     let new_app_path = find_kaku_app(&extracted_dir)
-        .ok_or_else(|| anyhow!("update package does not contain Kaku.app"))?;
+        .ok_or_else(|| anyhow!("update package does not contain Hiterm.app"))?;
 
     let new_version = read_app_version(&new_app_path)?;
     let current = wezterm_version();
@@ -804,14 +804,14 @@ fn check_update_completed() {
 // because kaku-gui does not depend on the kaku crate).
 // ---------------------------------------------------------------------------
 
-/// Resolve the installed Kaku.app path, matching the logic in the CLI crate.
+/// Resolve the installed Hiterm.app path, matching the logic in the CLI crate.
 pub fn resolve_target_app_path() -> anyhow::Result<PathBuf> {
     if let Some(path) = std::env::var_os("KAKU_UPDATE_TARGET_APP") {
         let app = PathBuf::from(path);
-        if app.ends_with("Kaku.app") {
+        if app.ends_with("Hiterm.app") {
             return Ok(app);
         }
-        anyhow::bail!("KAKU_UPDATE_TARGET_APP must point to Kaku.app");
+        anyhow::bail!("KAKU_UPDATE_TARGET_APP must point to Hiterm.app");
     }
 
     let exe = std::env::current_exe().map_err(|e| anyhow!("resolve current executable: {}", e))?;
@@ -819,19 +819,19 @@ pub fn resolve_target_app_path() -> anyhow::Result<PathBuf> {
         if ancestor
             .file_name()
             .and_then(|n| n.to_str())
-            .map(|n| n.eq_ignore_ascii_case("Kaku.app"))
+            .map(|n| n.eq_ignore_ascii_case("Hiterm.app"))
             .unwrap_or(false)
         {
             return Ok(ancestor.to_path_buf());
         }
     }
 
-    let default_app = PathBuf::from("/Applications/Kaku.app");
+    let default_app = PathBuf::from("/Applications/Hiterm.app");
     if default_app.exists() {
         return Ok(default_app);
     }
 
-    anyhow::bail!("cannot locate installed Kaku.app")
+    anyhow::bail!("cannot locate installed Hiterm.app")
 }
 
 pub fn write_update_helper_script(script_path: &Path) -> anyhow::Result<()> {
@@ -858,15 +858,15 @@ pub fn spawn_update_helper(
 ) -> anyhow::Result<()> {
     use std::process::{Command, Stdio};
 
-    // Validate paths end with Kaku.app.
-    if !target_app.ends_with("Kaku.app") {
+    // Validate paths end with Hiterm.app.
+    if !target_app.ends_with("Hiterm.app") {
         anyhow::bail!(
-            "target_app must end with Kaku.app: {}",
+            "target_app must end with Hiterm.app: {}",
             target_app.display()
         );
     }
-    if !new_app.ends_with("Kaku.app") {
-        anyhow::bail!("new_app must end with Kaku.app: {}", new_app.display());
+    if !new_app.ends_with("Hiterm.app") {
+        anyhow::bail!("new_app must end with Hiterm.app: {}", new_app.display());
     }
 
     Command::new("/usr/bin/nohup")
@@ -909,13 +909,13 @@ mod tests {
             body: "some release notes".to_string(),
             staged_at: 1700000000,
             verified: true,
-            app_path: "/tmp/test/Kaku.app".to_string(),
+            app_path: "/tmp/test/Hiterm.app".to_string(),
         };
         let json = serde_json::to_string_pretty(&info).unwrap();
         let parsed: StagedUpdateInfo = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.tag, "V0.9.0");
         assert!(parsed.verified);
-        assert_eq!(parsed.app_path, "/tmp/test/Kaku.app");
+        assert_eq!(parsed.app_path, "/tmp/test/Hiterm.app");
     }
 
     #[test]
@@ -988,8 +988,8 @@ mod tests {
             .expect("ditto");
         assert!(ditto_status.success(), "ditto extraction should succeed");
 
-        // Find Kaku.app
-        let app_path = find_kaku_app(&extracted).expect("should find Kaku.app");
+        // Find Hiterm.app
+        let app_path = find_kaku_app(&extracted).expect("should find Hiterm.app");
         println!("found app: {}", app_path.display());
         assert!(app_path.exists());
 

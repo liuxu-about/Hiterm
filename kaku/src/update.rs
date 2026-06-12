@@ -210,7 +210,7 @@ mod imp {
 
         let new_app_path = find_kaku_app(&extracted_dir).ok_or_else(|| {
             anyhow!(
-                "update package `{}` does not contain `Kaku.app`",
+                "update package `{}` does not contain `Hiterm.app`",
                 UPDATE_ZIP_NAME
             )
         })?;
@@ -229,7 +229,7 @@ mod imp {
         verify_app_signature(&new_app_path)
             .context("downloaded update failed code-signature verification; refusing to install")?;
 
-        let target_app = resolve_target_app_path().context("resolve installed Kaku.app path")?;
+        let target_app = resolve_target_app_path().context("resolve installed Hiterm.app path")?;
         ensure_can_write_target(&target_app)?;
 
         let helper_script = update_root.join(format!("apply-update-{}.sh", now));
@@ -632,7 +632,7 @@ mod imp {
     }
 
     fn find_kaku_app(extracted_dir: &Path) -> Option<PathBuf> {
-        let direct = extracted_dir.join("Kaku.app");
+        let direct = extracted_dir.join("Hiterm.app");
         if direct.exists() {
             return Some(direct);
         }
@@ -643,7 +643,7 @@ mod imp {
             if path
                 .file_name()
                 .and_then(|n| n.to_str())
-                .map(|n| n.eq_ignore_ascii_case("Kaku.app"))
+                .map(|n| n.eq_ignore_ascii_case("Hiterm.app"))
                 .unwrap_or(false)
             {
                 return Some(path);
@@ -674,10 +674,10 @@ mod imp {
     fn resolve_target_app_path() -> anyhow::Result<PathBuf> {
         if let Some(path) = std::env::var_os("KAKU_UPDATE_TARGET_APP") {
             let app = PathBuf::from(path);
-            if app.ends_with("Kaku.app") {
+            if app.ends_with("Hiterm.app") {
                 return Ok(app);
             }
-            bail!("KAKU_UPDATE_TARGET_APP must point to Kaku.app");
+            bail!("KAKU_UPDATE_TARGET_APP must point to Hiterm.app");
         }
 
         let exe = std::env::current_exe().context("resolve current executable")?;
@@ -685,19 +685,19 @@ mod imp {
             if ancestor
                 .file_name()
                 .and_then(|n| n.to_str())
-                .map(|n| n.eq_ignore_ascii_case("Kaku.app"))
+                .map(|n| n.eq_ignore_ascii_case("Hiterm.app"))
                 .unwrap_or(false)
             {
                 return Ok(ancestor.to_path_buf());
             }
         }
 
-        let default_app = PathBuf::from("/Applications/Kaku.app");
+        let default_app = PathBuf::from("/Applications/Hiterm.app");
         if default_app.exists() {
             return Ok(default_app);
         }
 
-        bail!("cannot locate installed Kaku.app; run this from installed Kaku")
+        bail!("cannot locate installed Hiterm.app; run this from installed Kaku")
     }
 
     fn ensure_can_write_target(target_app: &Path) -> anyhow::Result<()> {
@@ -730,15 +730,15 @@ mod imp {
         }
     }
 
-    /// Validates that the path points to a valid Kaku.app bundle.
+    /// Validates that the path points to a valid Hiterm.app bundle.
     /// Uses Path component comparison (not string suffix) to handle
-    /// trailing separators correctly (e.g., /Applications/Kaku.app/).
+    /// trailing separators correctly (e.g., /Applications/Hiterm.app/).
     fn validate_app_bundle_path(path: &Path) -> anyhow::Result<()> {
-        // Use ends_with("Kaku.app") which compares path components, not strings.
-        // This correctly handles paths like /Applications/Kaku.app/ (with trailing slash).
-        if !path.ends_with("Kaku.app") {
+        // Use ends_with("Hiterm.app") which compares path components, not strings.
+        // This correctly handles paths like /Applications/Hiterm.app/ (with trailing slash).
+        if !path.ends_with("Hiterm.app") {
             bail!(
-                "invalid app bundle path: must end with Kaku.app: {}",
+                "invalid app bundle path: must end with Hiterm.app: {}",
                 path.display()
             );
         }

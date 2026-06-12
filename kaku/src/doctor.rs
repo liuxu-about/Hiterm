@@ -585,7 +585,7 @@ fn build_runtime_group() -> DoctorGroup {
         fix: if existing.is_some() {
             None
         } else {
-            Some("Install Kaku.app to /Applications or ~/Applications".to_string())
+            Some("Install Hiterm.app to /Applications or ~/Applications".to_string())
         },
     });
 
@@ -634,7 +634,7 @@ fn build_local_network_check() -> DoctorCheck {
         "If LAN access works in Terminal or iTerm2 but fails in Kaku, compare the two launch contexts before changing shell or PATH setup.".to_string(),
         "Run these in both apps: `route -n get <ip>`, `netstat -rn | grep <subnet>`, `ifconfig`, `scutil --nwi`, `ping -v <ip>`, `nc -vz <ip> 22`.".to_string(),
         "Check macOS System Settings > Privacy & Security > Local Network and confirm Kaku is allowed.".to_string(),
-        "Compare launching Kaku from Finder/Dock versus Terminal, for example `open -na /Applications/Kaku.app`.".to_string(),
+        "Compare launching Kaku from Finder/Dock versus Terminal, for example `open -na /Applications/Hiterm.app`.".to_string(),
     ];
 
     if let Some(bundle) = app_bundle {
@@ -644,7 +644,7 @@ fn build_local_network_check() -> DoctorCheck {
         ));
     } else {
         details.push(
-            "No installed Kaku.app bundle was detected in the standard locations.".to_string(),
+            "No installed Hiterm.app bundle was detected in the standard locations.".to_string(),
         );
     }
 
@@ -1161,7 +1161,7 @@ fn probe_wrapper(wrapper: &Path) -> DoctorCheck {
                 DoctorStatus::Fail,
                 format!("Wrapper exited with status {}", output.status),
                 details,
-                Some("Check Kaku.app location then run `kaku init --update-only`".to_string()),
+                Some("Check Hiterm.app location then run `kaku init --update-only`".to_string()),
             )
         }
         Err(err) => wrapper_check(
@@ -1269,11 +1269,11 @@ fn kaku_bin_candidates() -> Vec<PathBuf> {
         }
     }
 
-    candidates.push(PathBuf::from("/Applications/Kaku.app/Contents/MacOS/kaku"));
+    candidates.push(PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku"));
     candidates.push(
         home_dir()
             .join("Applications")
-            .join("Kaku.app")
+            .join("Hiterm.app")
             .join("Contents")
             .join("MacOS")
             .join("kaku"),

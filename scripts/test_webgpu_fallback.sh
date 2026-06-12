@@ -76,7 +76,7 @@ cfg_file="$tmp_dir/kaku-fallback.lua"
 log_file="$tmp_dir/kaku-fallback.log"
 vmmap_file="$tmp_dir/vmmap.txt"
 summary_file="$tmp_dir/vmmap-summary.txt"
-class_name="fun.tw93.kaku.fallback.$RANDOM.$RANDOM"
+class_name="fun.liuxu.hiterm.fallback.$RANDOM.$RANDOM"
 
 cleanup() {
   local exit_code=$?

@@ -250,7 +250,7 @@ fn spawn_kaku_update() {
             .and_then(|exe| exe.parent().map(|p| p.join("kaku-gui")))
             .filter(|p| p.exists())
             .unwrap_or_else(|| {
-                std::path::PathBuf::from("/Applications/Kaku.app/Contents/MacOS/kaku-gui")
+                std::path::PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku-gui")
             });
 
         let kaku_cli = kaku_gui
@@ -258,7 +258,7 @@ fn spawn_kaku_update() {
             .map(|p| p.join("kaku"))
             .filter(|p| p.exists())
             .unwrap_or_else(|| {
-                std::path::PathBuf::from("/Applications/Kaku.app/Contents/MacOS/kaku")
+                std::path::PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku")
             });
 
         let result = std::process::Command::new(&kaku_gui)

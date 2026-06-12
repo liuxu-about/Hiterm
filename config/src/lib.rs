@@ -712,14 +712,14 @@ local function resolve_bundled_config()
     return bundled
   end
 
-  local dev_bundled = wezterm.executable_dir .. '/../../assets/macos/Kaku.app/Contents/Resources/kaku.lua'
+  local dev_bundled = wezterm.executable_dir .. '/../../assets/macos/Hiterm.app/Contents/Resources/kaku.lua'
   f = io.open(dev_bundled, 'r')
   if f then
     f:close()
     return dev_bundled
   end
 
-  local app_bundled = '/Applications/Kaku.app/Contents/Resources/kaku.lua'
+  local app_bundled = '/Applications/Hiterm.app/Contents/Resources/kaku.lua'
   f = io.open(app_bundled, 'r')
   if f then
     f:close()
@@ -727,7 +727,7 @@ local function resolve_bundled_config()
   end
 
   local home = os.getenv('HOME') or ''
-  local home_bundled = home .. '/Applications/Kaku.app/Contents/Resources/kaku.lua'
+  local home_bundled = home .. '/Applications/Hiterm.app/Contents/Resources/kaku.lua'
   f = io.open(home_bundled, 'r')
   if f then
     f:close()
@@ -944,7 +944,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_defaults_missing_theme_to_appearance() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Kaku.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -977,7 +977,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_uses_config_for_remember_last_cwd() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Kaku.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -989,7 +989,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_sets_colorfgbg_from_user_theme_scan() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Kaku.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1004,7 +1004,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_closes_fullscreen_last_window_on_cmd_w() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Kaku.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1017,7 +1017,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_defaults_close_confirmation_to_smart_prompt() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Kaku.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1031,7 +1031,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_defaults_smart_tab_to_suggestion_first() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Kaku.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1043,7 +1043,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_enables_minimum_text_contrast() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Kaku.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1055,7 +1055,7 @@ mod tests {
     #[test]
     fn bundled_kaku_dark_maps_black_foregrounds_to_readable_text() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Kaku.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(

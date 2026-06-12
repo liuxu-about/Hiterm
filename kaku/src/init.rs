@@ -80,7 +80,7 @@ mod imp {
         }
 
         let preferred_bin = resolve_preferred_kaku_bin()
-            .unwrap_or_else(|| PathBuf::from("/Applications/Kaku.app/Contents/MacOS/kaku"));
+            .unwrap_or_else(|| PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku"));
         let preferred_bin = escape_for_double_quotes(&preferred_bin.display().to_string());
 
         let script = format!(
@@ -93,14 +93,14 @@ fi
 
 for candidate in \
 	"{preferred_bin}" \
-	"/Applications/Kaku.app/Contents/MacOS/kaku" \
-	"$HOME/Applications/Kaku.app/Contents/MacOS/kaku"; do
+	"/Applications/Hiterm.app/Contents/MacOS/kaku" \
+	"$HOME/Applications/Hiterm.app/Contents/MacOS/kaku"; do
 	if [[ -n "$candidate" && -x "$candidate" ]]; then
 		exec "$candidate" "$@"
 	fi
 done
 
-echo "kaku: Kaku.app not found. Expected /Applications/Kaku.app." >&2
+echo "kaku: Hiterm.app not found. Expected /Applications/Hiterm.app." >&2
 exit 127
 "#
         );
@@ -141,7 +141,7 @@ exit 127
         }
 
         let preferred_k_bin = resolve_preferred_k_bin()
-            .unwrap_or_else(|| PathBuf::from("/Applications/Kaku.app/Contents/MacOS/k"));
+            .unwrap_or_else(|| PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/k"));
         let preferred_k_bin = escape_for_double_quotes(&preferred_k_bin.display().to_string());
 
         let script = format!(
@@ -150,14 +150,14 @@ set -euo pipefail
 
 for candidate in \
 	"{preferred_k_bin}" \
-	"/Applications/Kaku.app/Contents/MacOS/k" \
-	"$HOME/Applications/Kaku.app/Contents/MacOS/k"; do
+	"/Applications/Hiterm.app/Contents/MacOS/k" \
+	"$HOME/Applications/Hiterm.app/Contents/MacOS/k"; do
 	if [[ -n "$candidate" && -x "$candidate" ]]; then
 		exec "$candidate" "$@"
 	fi
 done
 
-echo "k: Kaku.app not found. Run 'kaku init' after installing Kaku." >&2
+echo "k: Hiterm.app not found. Run 'kaku init' after installing Kaku." >&2
 exit 127
 "#
         );
@@ -193,10 +193,10 @@ exit 127
             }
         }
         for candidate in [
-            PathBuf::from("/Applications/Kaku.app/Contents/MacOS/k"),
+            PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/k"),
             config::HOME_DIR
                 .join("Applications")
-                .join("Kaku.app")
+                .join("Hiterm.app")
                 .join("Contents")
                 .join("MacOS")
                 .join("k"),
@@ -242,10 +242,10 @@ exit 127
         }
 
         for candidate in [
-            PathBuf::from("/Applications/Kaku.app/Contents/MacOS/kaku"),
+            PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku"),
             config::HOME_DIR
                 .join("Applications")
-                .join("Kaku.app")
+                .join("Hiterm.app")
                 .join("Contents")
                 .join("MacOS")
                 .join("kaku"),
@@ -290,13 +290,13 @@ exit 127
         }
 
         candidates.push(PathBuf::from(format!(
-            "/Applications/Kaku.app/Contents/Resources/{}",
+            "/Applications/Hiterm.app/Contents/Resources/{}",
             script_name
         )));
         candidates.push(
             config::HOME_DIR
                 .join("Applications")
-                .join("Kaku.app")
+                .join("Hiterm.app")
                 .join("Contents")
                 .join("Resources")
                 .join(script_name),

@@ -13,7 +13,7 @@ export CMAKE_OSX_DEPLOYMENT_TARGET="${CMAKE_OSX_DEPLOYMENT_TARGET:-11.0}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-APP_NAME="Kaku"
+APP_NAME="Hiterm"
 TARGET_DIR="${TARGET_DIR:-target}"
 PROFILE="${PROFILE:-release}"
 OUT_DIR="${OUT_DIR:-dist}"
@@ -169,7 +169,7 @@ done
 require_command cargo
 require_command rustup
 
-APP_BUNDLE_SRC="assets/macos/Kaku.app"
+APP_BUNDLE_SRC="assets/macos/Hiterm.app"
 APP_BUNDLE_OUT="$OUT_DIR/$APP_NAME.app"
 
 echo "[1/7] Building binaries ($PROFILE, $BUILD_ARCH)..."
@@ -326,7 +326,7 @@ BASE_SIGN_ARGS=(
 RUNTIME_SIGN_ARGS=(
 	"${BASE_SIGN_ARGS[@]}"
 	--options runtime
-	--entitlements assets/macos/Kaku.entitlements
+	--entitlements assets/macos/Hiterm.entitlements
 )
 
 if [[ "$SIGNING_IDENTITY" == "-" ]]; then
