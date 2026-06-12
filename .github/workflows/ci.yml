@@ -178,7 +178,7 @@ jobs:
         run: ./scripts/check_prompts.sh
 
       - name: Check key crates
-        run: cargo check --locked -p kaku -p kaku-gui
+        run: cargo check --locked -p hiterm -p hiterm-gui
 
   relay-check:
     name: Relay Build
@@ -230,7 +230,7 @@ jobs:
       - name: Run clippy on lint-opt-in crates
         run: |
           cargo clippy --locked --all-targets \
-            -p kaku -p kaku-gui -p mux -p config \
+            -p hiterm -p hiterm-gui -p mux -p config \
             -- -D warnings
 
   release-notes-check:
@@ -275,8 +275,8 @@ jobs:
       - name: Build both targets
         run: |
           set -o pipefail
-          cargo build --locked --release --target aarch64-apple-darwin -p kaku -p kaku-gui 2>&1 | sed '/has no symbols/d'
-          cargo build --locked --release --target x86_64-apple-darwin -p kaku -p kaku-gui 2>&1 | sed '/has no symbols/d'
+          cargo build --locked --release --target aarch64-apple-darwin -p hiterm -p hiterm-gui 2>&1 | sed '/has no symbols/d'
+          cargo build --locked --release --target x86_64-apple-darwin -p hiterm -p hiterm-gui 2>&1 | sed '/has no symbols/d'
 
       - name: Lipo merge and verify
         run: |
@@ -284,15 +284,15 @@ jobs:
           lipo -create -output target/universal/release/kaku \
             target/aarch64-apple-darwin/release/kaku \
             target/x86_64-apple-darwin/release/kaku
-          lipo -create -output target/universal/release/kaku-gui \
-            target/aarch64-apple-darwin/release/kaku-gui \
-            target/x86_64-apple-darwin/release/kaku-gui
+          lipo -create -output target/universal/release/hiterm-gui \
+            target/aarch64-apple-darwin/release/hiterm-gui \
+            target/x86_64-apple-darwin/release/hiterm-gui
 
           lipo target/universal/release/kaku -verify_arch arm64 x86_64
-          lipo target/universal/release/kaku-gui -verify_arch arm64 x86_64
+          lipo target/universal/release/hiterm-gui -verify_arch arm64 x86_64
 
           lipo -info target/universal/release/kaku
-          lipo -info target/universal/release/kaku-gui
+          lipo -info target/universal/release/hiterm-gui
 
   app-bundle:
     name: App Bundle Validation

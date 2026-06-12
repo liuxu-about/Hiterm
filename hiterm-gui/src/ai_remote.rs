@@ -10,7 +10,7 @@
 //! twice, the second call starts fresh.
 
 use crate::ai_client::{AiClient, ApiMessage, AssistantConfig};
-use kaku_remote::{set_ai_handler, AiEvent, AiHandler, AiRequest};
+use hiterm_remote::{set_ai_handler, AiEvent, AiHandler, AiRequest};
 use mux::pane::CachePolicy;
 use mux::Mux;
 use std::sync::atomic::{AtomicUsize, Ordering};

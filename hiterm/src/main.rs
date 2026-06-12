@@ -339,12 +339,12 @@ fn run() -> anyhow::Result<()> {
         }
         #[cfg(feature = "remote")]
         SubCommand::Remote => {
-            let state = kaku_remote::read_state()?;
+            let state = hiterm_remote::read_state()?;
             let output = if let Some(relay) = &state.tunnel_relay {
-                kaku_remote::render_relay_qr_terminal(relay, &state.token)
+                hiterm_remote::render_relay_qr_terminal(relay, &state.token)
             } else {
                 let host = lan_ip().unwrap_or_else(|| "127.0.0.1".to_string());
-                kaku_remote::render_qr_terminal(&host, state.port, &state.token)
+                hiterm_remote::render_qr_terminal(&host, state.port, &state.token)
             };
             println!("{output}");
             Ok(())
@@ -563,9 +563,9 @@ fn delegate_to_gui(saver: UmaskSaver) -> anyhow::Result<()> {
     drop(saver);
 
     let exe_name = if cfg!(windows) {
-        "kaku-gui.exe"
+        "hiterm-gui.exe"
     } else {
-        "kaku-gui"
+        "hiterm-gui"
     };
 
     let exe = resolve_gui_executable(exe_name)?;

@@ -485,13 +485,15 @@ mod imp {
         let fish_init = config_home().join("fish").join("kaku.fish");
         remove_file_if_exists(fish_init, "removed ~/.config/kaku/fish/kaku.fish", report)?;
 
-        // Remove fish wrapper bin
-        let fish_wrapper = config_home().join("fish").join("bin").join("kaku");
-        remove_file_if_exists(
-            fish_wrapper,
-            "removed ~/.config/kaku/fish/bin/kaku wrapper",
-            report,
-        )?;
+        // Remove fish wrapper bins (current name plus pre-rename leftovers)
+        for name in ["hiterm", "kaku", "k"] {
+            let fish_wrapper = config_home().join("fish").join("bin").join(name);
+            remove_file_if_exists(
+                fish_wrapper,
+                &format!("removed ~/.config/kaku/fish/bin/{name} wrapper"),
+                report,
+            )?;
+        }
 
         Ok(())
     }

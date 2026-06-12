@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>kaku-gui</string>
+	<string>hiterm-gui</string>
 	<key>CFBundleIdentifier</key>
 	<string>fun.liuxu.hiterm</string>
 	<key>OSAScriptingDefinition</key>
@@ -126,7 +126,7 @@
 	<array>
 		<dict>
 			<key>NSMessage</key>
-			<string>openInKakuService</string>
+			<string>openInHitermService</string>
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
@@ -148,7 +148,7 @@
 		</dict>
 		<dict>
 			<key>NSMessage</key>
-			<string>openInKakuWindowService</string>
+			<string>openInHitermWindowService</string>
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>

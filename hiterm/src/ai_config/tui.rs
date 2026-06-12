@@ -1047,7 +1047,7 @@ fn fetch_kaku_assistant_models(api_key: &str, base_url: &str) -> Vec<String> {
         .map(|arr| {
             arr.iter()
                 .filter_map(|m| m.get("id").and_then(|s| s.as_str()).map(String::from))
-                .filter(|id| kaku_ai_utils::is_chat_model_id(id))
+                .filter(|id| hiterm_ai_utils::is_chat_model_id(id))
                 .collect()
         })
         .unwrap_or_default();

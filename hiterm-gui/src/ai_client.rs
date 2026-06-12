@@ -471,7 +471,7 @@ impl AiClient {
         let mut out: Vec<String> = arr
             .iter()
             .filter_map(|m| m.get("id").and_then(|s| s.as_str()).map(String::from))
-            .filter(|id| kaku_ai_utils::is_chat_model_id(id))
+            .filter(|id| hiterm_ai_utils::is_chat_model_id(id))
             .collect();
         out.sort();
         out.dedup();

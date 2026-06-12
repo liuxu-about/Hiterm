@@ -36,16 +36,16 @@ dev:
 		-w lua-api-crates \
 		-i "dist/**" \
 		-i "deps/**" \
-		-x "run $(BUILD_OPTS) -p kaku-gui --"
+		-x "run $(BUILD_OPTS) -p hiterm-gui --"
 
 build:
-	cargo build --locked $(BUILD_OPTS) -p kaku -p kaku-gui -p wezterm-mux-server-impl
+	cargo build --locked $(BUILD_OPTS) -p hiterm -p hiterm-gui -p wezterm-mux-server-impl
 
 fmt:
-	cargo +nightly fmt -p kaku -p kaku-gui -p mux -p wezterm-term -p termwiz -p config -p wezterm-font
+	cargo +nightly fmt -p hiterm -p hiterm-gui -p mux -p wezterm-term -p termwiz -p config -p wezterm-font
 
 fmt-check:
-	cargo +nightly fmt -p kaku -p kaku-gui -p mux -p wezterm-term -p termwiz -p config -p wezterm-font -- --check
+	cargo +nightly fmt -p hiterm -p hiterm-gui -p mux -p wezterm-term -p termwiz -p config -p wezterm-font -- --check
 	@echo "Format check passed."
 
 install-tools:

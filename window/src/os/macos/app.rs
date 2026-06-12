@@ -1514,12 +1514,12 @@ extern "C" fn open_in_kaku_service(
     _error: *mut Object,
 ) {
     let Some(path) = first_service_path(pasteboard) else {
-        log::warn!("openInKakuService: Finder provided no usable paths");
+        log::warn!("openInHitermService: Finder provided no usable paths");
         return;
     };
     let path = normalize_finder_service_path(path);
 
-    log::debug!("openInKakuService {path}");
+    log::debug!("openInHitermService {path}");
     dispatch_or_queue_service_open(path, true);
 }
 
@@ -1531,12 +1531,12 @@ extern "C" fn open_in_kaku_window_service(
     _error: *mut Object,
 ) {
     let Some(path) = first_service_path(pasteboard) else {
-        log::warn!("openInKakuWindowService: Finder provided no usable paths");
+        log::warn!("openInHitermWindowService: Finder provided no usable paths");
         return;
     };
     let path = normalize_finder_service_path(path);
 
-    log::debug!("openInKakuWindowService {path}");
+    log::debug!("openInHitermWindowService {path}");
     dispatch_or_queue_service_open(path, false);
 }
 
@@ -1617,12 +1617,12 @@ fn get_class() -> &'static Class {
                     as extern "C" fn(&mut Object, Sel, *mut Object) -> BOOL,
             );
             cls.add_method(
-                sel!(openInKakuService:userData:error:),
+                sel!(openInHitermService:userData:error:),
                 open_in_kaku_service
                     as extern "C" fn(&mut Object, Sel, *mut Object, *mut Object, *mut Object),
             );
             cls.add_method(
-                sel!(openInKakuWindowService:userData:error:),
+                sel!(openInHitermWindowService:userData:error:),
                 open_in_kaku_window_service
                     as extern "C" fn(&mut Object, Sel, *mut Object, *mut Object, *mut Object),
             );

@@ -205,13 +205,13 @@ ensure_rust_targets "${BUILD_TARGETS[@]}"
 
 for target in "${BUILD_TARGETS[@]}"; do
 	echo "Building target: $target"
-	CARGO_TERM_PROGRESS_WHEN=auto cargo build --locked ${CARGO_PROFILE_ARGS[@]+"${CARGO_PROFILE_ARGS[@]}"} ${CARGO_FEATURE_ARGS[@]+"${CARGO_FEATURE_ARGS[@]}"} --target "$target" --target-dir "$TARGET_DIR" -p kaku-gui -p kaku
+	CARGO_TERM_PROGRESS_WHEN=auto cargo build --locked ${CARGO_PROFILE_ARGS[@]+"${CARGO_PROFILE_ARGS[@]}"} ${CARGO_FEATURE_ARGS[@]+"${CARGO_FEATURE_ARGS[@]}"} --target "$target" --target-dir "$TARGET_DIR" -p hiterm-gui -p hiterm
 done
 
 if [[ "$BUILD_ARCH" == "universal" ]]; then
 	BIN_DIR="$TARGET_DIR/universal/$PROFILE_DIR"
 	mkdir -p "$BIN_DIR"
-	for bin in kaku kaku-gui k; do
+	for bin in hiterm hiterm-gui k; do
 		lipo -create \
 			-output "$BIN_DIR/$bin" \
 			"$TARGET_DIR/aarch64-apple-darwin/$PROFILE_DIR/$bin" \
@@ -222,7 +222,7 @@ else
 	BIN_DIR="$TARGET_DIR/${BUILD_TARGETS[0]}/$PROFILE_DIR"
 fi
 
-for bin in kaku kaku-gui k; do
+for bin in hiterm hiterm-gui k; do
 	echo -n "Built $bin: "
 	lipo -info "$BIN_DIR/$bin"
 done
@@ -277,12 +277,12 @@ if [[ -f "assets/logo.icns" ]]; then
 	cp "assets/logo.icns" "$APP_BUNDLE_OUT/Contents/Resources/terminal.icns"
 fi
 
-if ! tic -xe kaku -o "$APP_BUNDLE_OUT/Contents/Resources/terminfo" termwiz/data/kaku.terminfo; then
+if ! tic -xe hiterm,kaku -o "$APP_BUNDLE_OUT/Contents/Resources/terminfo" termwiz/data/hiterm.terminfo; then
 	echo "Warning: 'tic -xe' failed (some ncurses/tic variants). Falling back to full compile mode."
-	tic -x -o "$APP_BUNDLE_OUT/Contents/Resources/terminfo" termwiz/data/kaku.terminfo
+	tic -x -o "$APP_BUNDLE_OUT/Contents/Resources/terminfo" termwiz/data/hiterm.terminfo
 fi
 
-for bin in kaku kaku-gui k; do
+for bin in hiterm hiterm-gui k; do
 	cp "$BIN_DIR/$bin" "$APP_BUNDLE_OUT/Contents/MacOS/$bin"
 	chmod +x "$APP_BUNDLE_OUT/Contents/MacOS/$bin"
 done
@@ -348,7 +348,7 @@ while IFS= read -r -d '' dylib; do
 	codesign_with_retry "${BASE_SIGN_ARGS[@]}" "$dylib"
 done < <(find "$APP_BUNDLE_OUT/Contents/Frameworks" -type f -name '*.dylib' -print0 | sort -z)
 
-for bin in "$APP_BUNDLE_OUT/Contents/MacOS/kaku" "$APP_BUNDLE_OUT/Contents/MacOS/kaku-gui" "$APP_BUNDLE_OUT/Contents/MacOS/k"; do
+for bin in "$APP_BUNDLE_OUT/Contents/MacOS/hiterm" "$APP_BUNDLE_OUT/Contents/MacOS/hiterm-gui" "$APP_BUNDLE_OUT/Contents/MacOS/k"; do
 	codesign_with_retry "${RUNTIME_SIGN_ARGS[@]}" "$bin"
 done
 

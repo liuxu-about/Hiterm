@@ -1,7 +1,7 @@
 //! Thin entry point for the `k` standalone AI chat CLI.
 
 use clap::Parser;
-use kaku_gui_lib::cli_chat::{run, CliArgs};
+use hiterm_gui_lib::cli_chat::{run, CliArgs};
 
 #[derive(Parser)]
 #[command(

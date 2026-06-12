@@ -36,8 +36,8 @@ mod imp {
     pub fn run(update_only: bool) -> anyhow::Result<()> {
         ensure_user_config().context("ensure user config exists")?;
 
-        install_kaku_wrapper().context("install kaku wrapper")?;
-        install_k_wrapper().context("install k wrapper")?;
+        install_cli_wrapper().context("install hiterm wrapper")?;
+        remove_legacy_wrappers();
 
         let shell = detect_shell_kind();
         let script_name = match shell {
@@ -63,7 +63,7 @@ mod imp {
         bail!("kaku init failed with status {}", status);
     }
 
-    fn install_kaku_wrapper() -> anyhow::Result<()> {
+    fn install_cli_wrapper() -> anyhow::Result<()> {
         let wrapper_path = wrapper_path();
         let wrapper_dir = wrapper_path
             .parent()
@@ -79,28 +79,28 @@ mod imp {
             })?;
         }
 
-        let preferred_bin = resolve_preferred_kaku_bin()
-            .unwrap_or_else(|| PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku"));
+        let preferred_bin = resolve_preferred_cli_bin()
+            .unwrap_or_else(|| PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/hiterm"));
         let preferred_bin = escape_for_double_quotes(&preferred_bin.display().to_string());
 
         let script = format!(
             r#"#!/bin/bash
 set -euo pipefail
 
-if [[ -n "${{KAKU_BIN:-}}" && -x "${{KAKU_BIN}}" ]]; then
-	exec "${{KAKU_BIN}}" "$@"
+if [[ -n "${{HITERM_BIN:-${{KAKU_BIN:-}}}}" && -x "${{HITERM_BIN:-${{KAKU_BIN:-}}}}" ]]; then
+	exec "${{HITERM_BIN:-${{KAKU_BIN:-}}}}" "$@"
 fi
 
 for candidate in \
 	"{preferred_bin}" \
-	"/Applications/Hiterm.app/Contents/MacOS/kaku" \
-	"$HOME/Applications/Hiterm.app/Contents/MacOS/kaku"; do
+	"/Applications/Hiterm.app/Contents/MacOS/hiterm" \
+	"$HOME/Applications/Hiterm.app/Contents/MacOS/hiterm"; do
 	if [[ -n "$candidate" && -x "$candidate" ]]; then
 		exec "$candidate" "$@"
 	fi
 done
 
-echo "kaku: Hiterm.app not found. Expected /Applications/Hiterm.app." >&2
+echo "hiterm: Hiterm.app not found. Expected /Applications/Hiterm.app." >&2
 exit 127
 "#
         );
@@ -114,98 +114,30 @@ exit 127
         Ok(())
     }
 
-    fn install_k_wrapper() -> anyhow::Result<()> {
-        let k_path = k_wrapper_path();
-        let k_dir = k_path
-            .parent()
-            .ok_or_else(|| anyhow!("invalid k wrapper path"))?;
-        config::create_user_owned_dirs(k_dir).context("create k wrapper directory")?;
-
-        // If something else already owns this path and it is not our wrapper, skip.
-        if k_path.exists() {
-            let content = fs::read_to_string(&k_path).unwrap_or_default();
-            if !content.contains("Kaku") && !content.contains("kaku") {
-                eprintln!(
-                    "k: {} already exists and does not appear to be a Kaku wrapper; skipping.",
-                    k_path.display()
-                );
-                return Ok(());
+    /// Remove the wrappers older releases installed: the AI-chat `k`
+    /// entry point (dropped entirely) and the pre-rename `kaku` CLI
+    /// (replaced by `hiterm`). Only files that look like our generated
+    /// wrappers are touched; anything user-owned is left alone.
+    fn remove_legacy_wrappers() {
+        for shell_dir in ["zsh", "fish"] {
+            for name in ["k", "kaku"] {
+                let path = config::HOME_DIR
+                    .join(".config")
+                    .join("kaku")
+                    .join(shell_dir)
+                    .join("bin")
+                    .join(name);
+                let is_symlink = fs::symlink_metadata(&path)
+                    .map(|m| m.file_type().is_symlink())
+                    .unwrap_or(false);
+                let is_our_wrapper = fs::read_to_string(&path)
+                    .map(|content| content.contains("Kaku") || content.contains("Hiterm"))
+                    .unwrap_or(false);
+                if is_symlink || is_our_wrapper {
+                    let _ = fs::remove_file(&path);
+                }
             }
         }
-        if fs::symlink_metadata(&k_path)
-            .map(|m| m.file_type().is_symlink())
-            .unwrap_or(false)
-        {
-            fs::remove_file(&k_path)
-                .with_context(|| format!("remove legacy symlink k wrapper {}", k_path.display()))?;
-        }
-
-        let preferred_k_bin = resolve_preferred_k_bin()
-            .unwrap_or_else(|| PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/k"));
-        let preferred_k_bin = escape_for_double_quotes(&preferred_k_bin.display().to_string());
-
-        let script = format!(
-            r#"#!/bin/bash
-set -euo pipefail
-
-for candidate in \
-	"{preferred_k_bin}" \
-	"/Applications/Hiterm.app/Contents/MacOS/k" \
-	"$HOME/Applications/Hiterm.app/Contents/MacOS/k"; do
-	if [[ -n "$candidate" && -x "$candidate" ]]; then
-		exec "$candidate" "$@"
-	fi
-done
-
-echo "k: Hiterm.app not found. Run 'kaku init' after installing Kaku." >&2
-exit 127
-"#
-        );
-
-        let mut file = fs::File::create(&k_path)
-            .with_context(|| format!("create k wrapper {}", k_path.display()))?;
-        file.write_all(script.as_bytes())
-            .with_context(|| format!("write k wrapper {}", k_path.display()))?;
-        fs::set_permissions(&k_path, fs::Permissions::from_mode(0o755))
-            .with_context(|| format!("chmod k wrapper {}", k_path.display()))?;
-        Ok(())
-    }
-
-    fn k_wrapper_path() -> PathBuf {
-        let dir = match detect_shell_kind() {
-            ShellKind::Fish => "fish",
-            _ => "zsh",
-        };
-        config::HOME_DIR
-            .join(".config")
-            .join("kaku")
-            .join(dir)
-            .join("bin")
-            .join("k")
-    }
-
-    fn resolve_preferred_k_bin() -> Option<PathBuf> {
-        if let Ok(exe) = std::env::current_exe() {
-            // current_exe is the `kaku` binary; `k` sits alongside it.
-            let k_candidate = exe.with_file_name("k");
-            if is_executable_file(&k_candidate) {
-                return Some(k_candidate);
-            }
-        }
-        for candidate in [
-            PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/k"),
-            config::HOME_DIR
-                .join("Applications")
-                .join("Hiterm.app")
-                .join("Contents")
-                .join("MacOS")
-                .join("k"),
-        ] {
-            if is_executable_file(&candidate) {
-                return Some(candidate);
-            }
-        }
-        None
     }
 
     fn wrapper_path() -> PathBuf {
@@ -218,14 +150,16 @@ exit 127
             .join("kaku")
             .join(dir)
             .join("bin")
-            .join("kaku")
+            .join("hiterm")
     }
 
-    fn resolve_preferred_kaku_bin() -> Option<PathBuf> {
-        if let Some(path) = std::env::var_os("KAKU_BIN") {
-            let path = PathBuf::from(path);
-            if is_executable_file(&path) {
-                return Some(path);
+    fn resolve_preferred_cli_bin() -> Option<PathBuf> {
+        for var in ["HITERM_BIN", "KAKU_BIN"] {
+            if let Some(path) = std::env::var_os(var) {
+                let path = PathBuf::from(path);
+                if is_executable_file(&path) {
+                    return Some(path);
+                }
             }
         }
 
@@ -233,7 +167,7 @@ exit 127
             if exe
                 .file_name()
                 .and_then(|n| n.to_str())
-                .map(|n| n.eq_ignore_ascii_case("kaku"))
+                .map(|n| n.eq_ignore_ascii_case("hiterm") || n.eq_ignore_ascii_case("kaku"))
                 .unwrap_or(false)
                 && is_executable_file(&exe)
             {
@@ -242,13 +176,13 @@ exit 127
         }
 
         for candidate in [
-            PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku"),
+            PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/hiterm"),
             config::HOME_DIR
                 .join("Applications")
                 .join("Hiterm.app")
                 .join("Contents")
                 .join("MacOS")
-                .join("kaku"),
+                .join("hiterm"),
         ] {
             if is_executable_file(&candidate) {
                 return Some(candidate);

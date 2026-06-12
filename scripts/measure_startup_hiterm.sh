@@ -36,9 +36,9 @@ if [[ ! -d "$APP_PATH" ]]; then
 fi
 
 quit_kaku() {
-  pkill -9 -x "kaku-gui" >/dev/null 2>&1 || true
+  pkill -9 -x "hiterm-gui" >/dev/null 2>&1 || true
   for _ in {1..200}; do
-    pgrep -x "kaku-gui" >/dev/null 2>&1 || return 0
+    pgrep -x "hiterm-gui" >/dev/null 2>&1 || return 0
     sleep 0.05
   done
 }
@@ -85,7 +85,7 @@ quit_kaku
 cold_ms=$(jq -r '.results[0].mean * 1000 | round' "$tmp_json")
 
 # Warm start: skip cold launch overhead by warming once then measuring.
-warm_cmd="open -a '$APP_PATH'; $(declare -f wait_first_window); wait_first_window $WAIT_TIMEOUT_SEC; pkill -9 -x kaku-gui >/dev/null 2>&1 || true"
+warm_cmd="open -a '$APP_PATH'; $(declare -f wait_first_window); wait_first_window $WAIT_TIMEOUT_SEC; pkill -9 -x hiterm-gui >/dev/null 2>&1 || true"
 hyperfine \
   --warmup 2 \
   --runs "$RUNS" \

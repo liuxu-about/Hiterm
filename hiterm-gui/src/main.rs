@@ -375,7 +375,7 @@ async fn async_run_terminal_gui(
     #[cfg(feature = "remote")]
     {
         ai_remote::register_if_configured();
-        kaku_remote::start();
+        hiterm_remote::start();
     }
 
     let default_domain_is_local = Mux::get().default_domain().domain_name() == "local";
@@ -968,7 +968,7 @@ fn run() -> anyhow::Result<()> {
     {
         unsafe {
             ::windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(
-                ::windows::core::PCWSTR(wide_string("sh.kaku.Kaku").as_ptr()),
+                ::windows::core::PCWSTR(wide_string("fun.liuxu.hiterm").as_ptr()),
             )
             .unwrap();
         }
@@ -1044,7 +1044,7 @@ fn run() -> anyhow::Result<()> {
         Some(sub) => sub,
         None => {
             // Need to fake an argv0
-            let mut argv = vec!["kaku-gui".to_string()];
+            let mut argv = vec!["hiterm-gui".to_string()];
             for a in &config.default_gui_startup_args {
                 argv.push(a.clone());
             }

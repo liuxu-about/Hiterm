@@ -1,5 +1,5 @@
 [package]
-name = "kaku"
+name = "hiterm"
 version = "0.12.1"
 authors = ["Tw93 <hitw93@gmail.com>"]
 edition = "2018"
@@ -8,12 +8,12 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-remote = ["dep:kaku-remote"]
+remote = ["dep:hiterm-remote"]
 
 [dependencies]
 anyhow.workspace = true
-kaku-ai-utils.workspace = true
-kaku-remote = { workspace = true, optional = true }
+hiterm-ai-utils.workspace = true
+hiterm-remote = { workspace = true, optional = true }
 base64.workspace = true
 chrono.workspace = true
 clap.workspace = true
