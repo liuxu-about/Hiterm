@@ -459,9 +459,9 @@ fn render_chat(term: &mut TermWizTerminal, app: &App) -> termwiz::Result<()> {
     };
     let has_switch = app.available_models.len() > 1;
     let title = if has_switch {
-        format!(" Kaku AI • {} · ⇧⇥ switch · ESC exit ", model_display)
+        format!(" Hiterm AI • {} · ⇧⇥ switch · ESC exit ", model_display)
     } else {
-        format!(" Kaku AI • {} · ESC exit ", model_display)
+        format!(" Hiterm AI • {} · ESC exit ", model_display)
     };
     let title_width = unicode_column_width(&title, None);
     let border_fill = inner_w.saturating_sub(title_width);

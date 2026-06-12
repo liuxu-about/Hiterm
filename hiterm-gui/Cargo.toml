@@ -17,10 +17,6 @@ path = "src/lib.rs"
 name = "hiterm-gui"
 path = "src/main.rs"
 
-[[bin]]
-name = "k"
-path = "src/bin/k.rs"
-
 [features]
 default = ["vendored-fonts", "wayland"]
 wayland = ["window/wayland"]

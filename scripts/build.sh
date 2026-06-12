@@ -20,7 +20,12 @@ OUT_DIR="${OUT_DIR:-dist}"
 OPEN_APP="${OPEN_APP:-0}"
 APP_ONLY="${APP_ONLY:-0}"
 BUILD_ARCH="${BUILD_ARCH:-}"
-KAKU_REQUIRE_SIGNED_RELEASE="${KAKU_REQUIRE_SIGNED_RELEASE:-0}"
+HITERM_REQUIRE_SIGNED_RELEASE="${HITERM_REQUIRE_SIGNED_RELEASE:-${KAKU_REQUIRE_SIGNED_RELEASE:-0}}"
+KAKU_REQUIRE_SIGNED_RELEASE="$HITERM_REQUIRE_SIGNED_RELEASE"
+HITERM_SIGNING_IDENTITY="${HITERM_SIGNING_IDENTITY:-${KAKU_SIGNING_IDENTITY:-}}"
+if [[ -n "${HITERM_SIGNING_IDENTITY:-}" ]]; then
+	export KAKU_SIGNING_IDENTITY="$HITERM_SIGNING_IDENTITY"
+fi
 
 if [[ -z "$BUILD_ARCH" ]]; then
 	if [[ "$PROFILE" == "release" || "$PROFILE" == "release-opt" ]]; then
@@ -82,12 +87,13 @@ is_developer_id_application_identity() {
 detect_signing_identity() {
 	local identities count
 
-	if [[ -n "${KAKU_SIGNING_IDENTITY:-}" ]]; then
-		if ! is_developer_id_application_identity "$KAKU_SIGNING_IDENTITY"; then
-			echo "Warning: KAKU_SIGNING_IDENTITY is not a Developer ID Application certificate: $KAKU_SIGNING_IDENTITY" >&2
+	if [[ -n "${HITERM_SIGNING_IDENTITY:-}" ]]; then
+		if ! is_developer_id_application_identity "$HITERM_SIGNING_IDENTITY"; then
+			echo "Warning: HITERM_SIGNING_IDENTITY is not a Developer ID Application certificate: $HITERM_SIGNING_IDENTITY" >&2
 			echo "Notarization requires Developer ID Application signing." >&2
 			return 1
 		fi
+		export KAKU_SIGNING_IDENTITY="$HITERM_SIGNING_IDENTITY"
 		return 0
 	fi
 
@@ -95,12 +101,13 @@ detect_signing_identity() {
 	count=$(printf '%s\n' "$identities" | grep -c '^Developer ID Application:' || true)
 
 	if [[ "$count" -ge 1 ]]; then
-		KAKU_SIGNING_IDENTITY=$(printf '%s\n' "$identities" | head -n1)
-		export KAKU_SIGNING_IDENTITY
+		HITERM_SIGNING_IDENTITY=$(printf '%s\n' "$identities" | head -n1)
+		export HITERM_SIGNING_IDENTITY
+		export KAKU_SIGNING_IDENTITY="$HITERM_SIGNING_IDENTITY"
 		if [[ "$count" -gt 1 ]]; then
-			echo "Release build: found multiple Developer ID Application certificates, auto-selecting: $KAKU_SIGNING_IDENTITY"
+			echo "Release build: found multiple Developer ID Application certificates, auto-selecting: $HITERM_SIGNING_IDENTITY"
 		else
-			echo "Release build: auto-detected signing identity: $KAKU_SIGNING_IDENTITY"
+			echo "Release build: auto-detected signing identity: $HITERM_SIGNING_IDENTITY"
 		fi
 		return 0
 	fi
@@ -211,7 +218,7 @@ done
 if [[ "$BUILD_ARCH" == "universal" ]]; then
 	BIN_DIR="$TARGET_DIR/universal/$PROFILE_DIR"
 	mkdir -p "$BIN_DIR"
-	for bin in hiterm hiterm-gui k; do
+	for bin in hiterm hiterm-gui; do
 		lipo -create \
 			-output "$BIN_DIR/$bin" \
 			"$TARGET_DIR/aarch64-apple-darwin/$PROFILE_DIR/$bin" \
@@ -222,7 +229,7 @@ else
 	BIN_DIR="$TARGET_DIR/${BUILD_TARGETS[0]}/$PROFILE_DIR"
 fi
 
-for bin in hiterm hiterm-gui k; do
+for bin in hiterm hiterm-gui; do
 	echo -n "Built $bin: "
 	lipo -info "$BIN_DIR/$bin"
 done
@@ -282,7 +289,7 @@ if ! tic -xe hiterm,kaku -o "$APP_BUNDLE_OUT/Contents/Resources/terminfo" termwi
 	tic -x -o "$APP_BUNDLE_OUT/Contents/Resources/terminfo" termwiz/data/hiterm.terminfo
 fi
 
-for bin in hiterm hiterm-gui k; do
+for bin in hiterm hiterm-gui; do
 	cp "$BIN_DIR/$bin" "$APP_BUNDLE_OUT/Contents/MacOS/$bin"
 	chmod +x "$APP_BUNDLE_OUT/Contents/MacOS/$bin"
 done
@@ -293,9 +300,9 @@ xattr -cr "$APP_BUNDLE_OUT"
 echo "[5/7] Signing app bundle..."
 # Signing strategy:
 # - Dev builds (PROFILE=dev): Always use ad-hoc signing (-) for speed
-# - Release builds (PROFILE=release/release-opt): Use KAKU_SIGNING_IDENTITY or auto-detect a Developer ID Application certificate
+# - Release builds (PROFILE=release/release-opt): Use HITERM_SIGNING_IDENTITY or auto-detect a Developer ID Application certificate
 # Usage with developer certificate:
-#   KAKU_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./scripts/build.sh
+#   HITERM_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)" ./scripts/build.sh
 if [[ "$KAKU_REQUIRE_SIGNED_RELEASE" == "1" && ( "$PROFILE" == "dev" || "$PROFILE" == "debug" ) ]]; then
 	echo "Error: signed release requires PROFILE=release or PROFILE=release-opt, got PROFILE=$PROFILE" >&2
 	exit 1
@@ -306,15 +313,15 @@ if [[ "$PROFILE" == "dev" || "$PROFILE" == "debug" ]]; then
 	echo "Dev build: using ad-hoc signing"
 else
 	if detect_signing_identity; then
-		SIGNING_IDENTITY="$KAKU_SIGNING_IDENTITY"
+		SIGNING_IDENTITY="$HITERM_SIGNING_IDENTITY"
 		echo "Release build: signing with developer certificate"
 	else
 		if [[ "$KAKU_REQUIRE_SIGNED_RELEASE" == "1" ]]; then
-			echo "Error: release build requires a Developer ID Application certificate. Set KAKU_SIGNING_IDENTITY or install one in Keychain." >&2
+			echo "Error: release build requires a Developer ID Application certificate. Set HITERM_SIGNING_IDENTITY or install one in Keychain." >&2
 			exit 1
 		fi
 		SIGNING_IDENTITY="-"
-		echo "Release build: using ad-hoc signing (set KAKU_SIGNING_IDENTITY or install a single Developer ID Application certificate for notarization)"
+		echo "Release build: using ad-hoc signing (set HITERM_SIGNING_IDENTITY or install a single Developer ID Application certificate for notarization)"
 	fi
 fi
 
@@ -348,7 +355,7 @@ while IFS= read -r -d '' dylib; do
 	codesign_with_retry "${BASE_SIGN_ARGS[@]}" "$dylib"
 done < <(find "$APP_BUNDLE_OUT/Contents/Frameworks" -type f -name '*.dylib' -print0 | sort -z)
 
-for bin in "$APP_BUNDLE_OUT/Contents/MacOS/hiterm" "$APP_BUNDLE_OUT/Contents/MacOS/hiterm-gui" "$APP_BUNDLE_OUT/Contents/MacOS/k"; do
+for bin in "$APP_BUNDLE_OUT/Contents/MacOS/hiterm" "$APP_BUNDLE_OUT/Contents/MacOS/hiterm-gui"; do
 	codesign_with_retry "${RUNTIME_SIGN_ARGS[@]}" "$bin"
 done
 
@@ -365,7 +372,7 @@ if [[ "$APP_ONLY" == "1" ]]; then
 	exit 0
 fi
 
-UPDATE_ZIP_NAME="kaku_for_update.zip"
+UPDATE_ZIP_NAME="hiterm_for_update.zip"
 UPDATE_ZIP_PATH="$OUT_DIR/$UPDATE_ZIP_NAME"
 UPDATE_SHA_PATH="$OUT_DIR/${UPDATE_ZIP_NAME}.sha256"
 

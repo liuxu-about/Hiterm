@@ -14,7 +14,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-const KAKU_AUTO_COLOR_SCHEME_EXPR: &str = "(wezterm.gui and wezterm.gui.get_appearance() or 'Dark'):find('Dark') and 'Kaku Dark' or 'Kaku Light'";
+const HITERM_AUTO_COLOR_SCHEME_EXPR: &str = "(wezterm.gui and wezterm.gui.get_appearance() or 'Dark'):find('Dark') and 'Hiterm Dark' or 'Hiterm Light'";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum NormalModeAction {
@@ -287,7 +287,7 @@ impl App {
                 lua_key: "color_scheme",
                 value: String::new(),
                 default: "Auto".into(),
-                options: vec!["Auto", "Kaku Dark", "Kaku Light"],
+                options: vec!["Auto", "Hiterm Dark", "Hiterm Light"],
                 skip_write: false,
             },
             ConfigField {
@@ -666,7 +666,7 @@ impl App {
                 }
             }
             let value = Self::strip_trailing_comment(value_part);
-            if key == "color_scheme" && Self::is_kaku_auto_color_scheme_expr(&value) {
+            if key == "color_scheme" && Self::is_hiterm_auto_color_scheme_expr(&value) {
                 return Some("Auto".to_string());
             }
             // Number, boolean, or identifier
@@ -678,8 +678,8 @@ impl App {
         None
     }
 
-    fn is_kaku_auto_color_scheme_expr(raw: &str) -> bool {
-        raw.trim() == KAKU_AUTO_COLOR_SCHEME_EXPR
+    fn is_hiterm_auto_color_scheme_expr(raw: &str) -> bool {
+        raw.trim() == HITERM_AUTO_COLOR_SCHEME_EXPR
     }
 
     fn extract_quoted_arg(s: &str, prefix: &str) -> Option<String> {
@@ -913,14 +913,14 @@ impl App {
     }
 
     /// Save config if there are pending changes. Returns Err on save failure.
-    /// Also signals kaku-gui immediately after a successful write so it reloads
+    /// Also signals hiterm-gui immediately after a successful write so it reloads
     /// without waiting for the file-watcher grace period.
     fn save_if_dirty(&mut self) -> anyhow::Result<()> {
         if self.dirty {
             self.save_config()?;
             self.dirty = false;
             // Signal immediately while the pane's stdout is still being read by
-            // kaku-gui. Sending after LeaveAlternateScreen is unreliable because
+            // hiterm-gui. Sending after LeaveAlternateScreen is unreliable because
             // the terminal may have already closed the child's output stream.
             signal_config_changed();
         }
@@ -1198,8 +1198,8 @@ impl App {
 
     fn strip_managed_theme_blocks(content: &str) -> String {
         let (content, _) =
-            Self::strip_theme_block(content, "-- ===== Kaku Theme Defaults (managed) =====");
-        let (content, _) = Self::strip_theme_block(&content, "-- ===== Kaku Theme =====");
+            Self::strip_theme_block(content, "-- ===== Hiterm Theme Defaults (managed) =====");
+        let (content, _) = Self::strip_theme_block(&content, "-- ===== Hiterm Theme =====");
         content
     }
 
@@ -1305,7 +1305,7 @@ impl App {
         match field.lua_key {
             "color_scheme" => {
                 if field.value == "Auto" {
-                    KAKU_AUTO_COLOR_SCHEME_EXPR.into()
+                    HITERM_AUTO_COLOR_SCHEME_EXPR.into()
                 } else {
                     format!("'{}'", field.value)
                 }
@@ -1411,7 +1411,7 @@ fn open_config_in_editor(config_path: &Path) -> anyhow::Result<()> {
     open_path_in_editor(&config_path)
 }
 
-/// Send an OSC 1337 SetUserVar to signal kaku-gui that config has changed.
+/// Send an OSC 1337 SetUserVar to signal hiterm-gui that config has changed.
 /// This triggers an immediate config reload instead of waiting for the file watcher.
 fn signal_config_changed() {
     use std::io::Write;
@@ -1431,7 +1431,7 @@ fn signal_config_changed() {
 mod tests {
     use super::{
         ensure_editable_config_exists, normal_mode_action, App, Mode, NormalModeAction,
-        KAKU_AUTO_COLOR_SCHEME_EXPR,
+        HITERM_AUTO_COLOR_SCHEME_EXPR,
     };
     use crossterm::event::KeyCode;
     use std::path::PathBuf;
@@ -1528,7 +1528,7 @@ mod tests {
 
         assert_eq!(
             app.to_lua_value(&app.fields[idx]),
-            KAKU_AUTO_COLOR_SCHEME_EXPR
+            HITERM_AUTO_COLOR_SCHEME_EXPR
         );
     }
 
@@ -1540,13 +1540,13 @@ mod tests {
             .iter()
             .position(|f| f.lua_key == "color_scheme")
             .expect("color_scheme field to exist");
-        app.fields[idx].value = "Kaku Light".to_string();
+        app.fields[idx].value = "Hiterm Light".to_string();
 
         let content = "\
 local wezterm = require 'wezterm'
 local config = {}
 
--- ===== Kaku Theme =====
+-- ===== Hiterm Theme =====
 config.colors = {
   foreground = '#d4d4d4',
   background = '#1e1e1e',
@@ -1554,16 +1554,16 @@ config.colors = {
 config.window_frame = {
   active_titlebar_bg = '#1e1e1e',
 }
-config.color_scheme = 'Kaku Dark'
+config.color_scheme = 'Hiterm Dark'
 return config
 ";
 
         let updated = app.update_lua_config(content, &app.fields[idx]);
 
-        assert!(!updated.contains("-- ===== Kaku Theme ====="));
+        assert!(!updated.contains("-- ===== Hiterm Theme ====="));
         assert!(!updated.contains("config.colors"));
         assert!(!updated.contains("config.window_frame"));
-        assert!(updated.contains("config.color_scheme = 'Kaku Light'"));
+        assert!(updated.contains("config.color_scheme = 'Hiterm Light'"));
         assert!(updated.contains("return config"));
     }
 
@@ -1575,14 +1575,14 @@ return config
             .iter()
             .position(|f| f.lua_key == "color_scheme")
             .expect("color_scheme field to exist");
-        app.fields[idx].value = "Kaku Light".to_string();
+        app.fields[idx].value = "Hiterm Light".to_string();
 
         let content = "\
 local config = {}
 config.colors = {
   background = '#111111',
 }
-config.color_scheme = 'Kaku Dark'
+config.color_scheme = 'Hiterm Dark'
 return config
 ";
 
@@ -1590,7 +1590,7 @@ return config
 
         assert!(updated.contains("config.colors"));
         assert!(updated.contains("background = '#111111'"));
-        assert!(updated.contains("config.color_scheme = 'Kaku Light'"));
+        assert!(updated.contains("config.color_scheme = 'Hiterm Light'"));
     }
 
     #[test]
@@ -1599,7 +1599,7 @@ return config
         let config_path = dir.path().join("kaku.lua");
         std::fs::write(
             &config_path,
-            format!("config.color_scheme = {KAKU_AUTO_COLOR_SCHEME_EXPR}\n"),
+            format!("config.color_scheme = {HITERM_AUTO_COLOR_SCHEME_EXPR}\n"),
         )
         .expect("write config");
 
@@ -1789,7 +1789,7 @@ return config
     #[test]
     fn dynamic_color_scheme_expression_is_not_parsed_as_writable_value() {
         let content =
-            "config.color_scheme = appearance == 'Dark' and 'Kaku Dark' or 'Kaku Light'\n";
+            "config.color_scheme = appearance == 'Dark' and 'Hiterm Dark' or 'Hiterm Light'\n";
 
         assert_eq!(App::extract_lua_value(content, "color_scheme"), None);
         assert!(App::has_config_line(content, "color_scheme"));
@@ -1848,7 +1848,7 @@ return config
             app.dirty,
             "ESC in Selecting mode should commit the selection"
         );
-        assert_eq!(app.fields[idx].value, "Kaku Dark");
+        assert_eq!(app.fields[idx].value, "Hiterm Dark");
     }
 
     #[test]

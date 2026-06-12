@@ -20,7 +20,7 @@ mod imp {
     use anyhow::bail;
 
     pub fn run(_assume_yes: bool) -> anyhow::Result<()> {
-        bail!("`kaku update` is currently supported on macOS only")
+        bail!("`hiterm update` is currently supported on macOS only")
     }
 }
 
@@ -36,15 +36,15 @@ mod imp {
     use std::process::{Command, Stdio};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    const RELEASE_API_URL: &str = "https://api.github.com/repos/tw93/Kaku/releases/latest";
+    const RELEASE_API_URL: &str = "https://api.github.com/repos/liuxu-about/Hiterm/releases/latest";
     const LATEST_ZIP_URL: &str =
-        "https://github.com/tw93/Kaku/releases/latest/download/kaku_for_update.zip";
+        "https://github.com/liuxu-about/Hiterm/releases/latest/download/hiterm_for_update.zip";
     const LATEST_SHA_URL: &str =
-        "https://github.com/tw93/Kaku/releases/latest/download/kaku_for_update.zip.sha256";
-    const RELEASE_LATEST_URL: &str = "https://github.com/tw93/Kaku/releases/latest";
-    const UPDATE_ZIP_NAME: &str = "kaku_for_update.zip";
-    const UPDATE_SHA_NAME: &str = "kaku_for_update.zip.sha256";
-    const BREW_CASK_NAME: &str = "tw93/tap/kakuku";
+        "https://github.com/liuxu-about/Hiterm/releases/latest/download/hiterm_for_update.zip.sha256";
+    const RELEASE_LATEST_URL: &str = "https://github.com/liuxu-about/Hiterm/releases/latest";
+    const UPDATE_ZIP_NAME: &str = "hiterm_for_update.zip";
+    const UPDATE_SHA_NAME: &str = "hiterm_for_update.zip.sha256";
+    const BREW_CASK_NAME: &str = "hiterm";
 
     #[derive(Debug, Deserialize)]
     struct GitHubRelease {
@@ -208,7 +208,7 @@ mod imp {
             "extract update package",
         )?;
 
-        let new_app_path = find_kaku_app(&extracted_dir).ok_or_else(|| {
+        let new_app_path = find_hiterm_app(&extracted_dir).ok_or_else(|| {
             anyhow!(
                 "update package `{}` does not contain `Hiterm.app`",
                 UPDATE_ZIP_NAME
@@ -252,7 +252,7 @@ mod imp {
             "Update to {} has started in background.",
             format_version_for_display(update_label)
         );
-        println!("Kaku will quit and relaunch automatically when replacement is complete.");
+        println!("Hiterm will quit and relaunch automatically when replacement is complete.");
         Ok(())
     }
 
@@ -263,7 +263,7 @@ mod imp {
                 "brew" => {
                     let brew_info = resolve_brew_info()?.ok_or_else(|| {
                         anyhow!(
-                            "HITERM_UPDATE_PROVIDER=brew but brew-managed Kaku installation was not found"
+                            "HITERM_UPDATE_PROVIDER=brew but brew-managed Hiterm installation was not found"
                         )
                     })?;
                     Ok(UpdateProvider::Brew(brew_info))
@@ -288,7 +288,7 @@ mod imp {
 
             if find_brew_binary().is_none() {
                 bail!(
-                    "Kaku appears to be Homebrew-managed but `brew` was not found in PATH or standard locations"
+                    "Hiterm appears to be Homebrew-managed but `brew` was not found in PATH or standard locations"
                 );
             }
         }
@@ -308,14 +308,15 @@ mod imp {
             }));
         }
 
-        // Old cask name "kaku" conflicts with another software in homebrew/cask.
-        // Warn and fall back to direct update so existing users are not blocked.
-        if is_brew_cask_installed(&brew_bin, "kaku")? {
-            println!(
-                "WARNING: Detected old Homebrew cask 'kaku' which conflicts with another software."
-            );
+        // Old cask names belong to pre-rename Kaku builds. Warn and fall back to
+        // direct update so existing users are not blocked.
+        if is_brew_cask_installed(&brew_bin, "tw93/tap/kakuku")?
+            || is_brew_cask_installed(&brew_bin, "kaku")?
+        {
+            println!("WARNING: Detected a pre-rename Kaku Homebrew cask.");
             println!("Proceeding with direct update from GitHub for this run.");
             println!("Please migrate when convenient:");
+            println!("  brew uninstall --cask tw93/tap/kakuku");
             println!("  brew uninstall --cask kaku");
             println!("  brew install --cask {}", BREW_CASK_NAME);
             return Ok(None);
@@ -398,7 +399,7 @@ mod imp {
         std::thread::sleep(std::time::Duration::from_secs(2));
         match Command::new("/usr/bin/open")
             .arg("-a")
-            .arg("Kaku")
+            .arg("Hiterm")
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -435,13 +436,13 @@ mod imp {
             .with_context(|| format!("failed to run brew upgrade for {}", info.cask_name))?;
         if primary.success() {
             if !relaunch_after_upgrade() {
-                println!("Upgrade completed. Please launch Kaku manually.");
+                println!("Upgrade completed. Please launch Hiterm manually.");
             }
             return Ok(());
         }
 
         let fallback_name = if info.cask_name == BREW_CASK_NAME {
-            "kaku"
+            "tw93/tap/kakuku"
         } else {
             BREW_CASK_NAME
         };
@@ -456,7 +457,7 @@ mod imp {
             })?;
         if fallback.success() {
             if !relaunch_after_upgrade() {
-                println!("Upgrade completed. Please launch Kaku manually.");
+                println!("Upgrade completed. Please launch Hiterm manually.");
             }
             return Ok(());
         }
@@ -482,7 +483,7 @@ mod imp {
             .arg("--connect-timeout")
             .arg("10")
             .arg("--user-agent")
-            .arg(format!("kaku/{}", current_version))
+            .arg(format!("hiterm/{}", current_version))
             .arg("--write-out")
             .arg("%{url_effective}")
             .arg("--output")
@@ -567,7 +568,7 @@ mod imp {
             .arg("--connect-timeout")
             .arg("15")
             .arg("--user-agent")
-            .arg(format!("kaku/{}", current_version))
+            .arg(format!("hiterm/{}", current_version))
             .arg(url);
         apply_to_command(&mut cmd, proxy);
         let output = run_output(&mut cmd, "request update metadata")?;
@@ -589,7 +590,7 @@ mod imp {
             .arg("--connect-timeout")
             .arg("20")
             .arg("--user-agent")
-            .arg(format!("kaku/{}", current_version))
+            .arg(format!("hiterm/{}", current_version))
             .arg("--output")
             .arg(output_path)
             .arg(url);
@@ -631,7 +632,7 @@ mod imp {
         Ok(())
     }
 
-    fn find_kaku_app(extracted_dir: &Path) -> Option<PathBuf> {
+    fn find_hiterm_app(extracted_dir: &Path) -> Option<PathBuf> {
         let direct = extracted_dir.join("Hiterm.app");
         if direct.exists() {
             return Some(direct);
@@ -697,7 +698,7 @@ mod imp {
             return Ok(default_app);
         }
 
-        bail!("cannot locate installed Hiterm.app; run this from installed Kaku")
+        bail!("cannot locate installed Hiterm.app; run this from the installed app")
     }
 
     fn ensure_can_write_target(target_app: &Path) -> anyhow::Result<()> {
@@ -711,7 +712,7 @@ mod imp {
             );
         }
 
-        let test_file = parent.join(format!(".kaku-update-write-test-{}", now_unix_seconds()));
+        let test_file = parent.join(format!(".hiterm-update-write-test-{}", now_unix_seconds()));
         match fs::OpenOptions::new()
             .create_new(true)
             .write(true)

@@ -23,7 +23,7 @@ mod imp {
     use anyhow::bail;
 
     pub fn run(_update_only: bool) -> anyhow::Result<()> {
-        bail!("`kaku init` is currently supported on macOS only")
+        bail!("`hiterm init` is currently supported on macOS only")
     }
 }
 
@@ -45,7 +45,7 @@ mod imp {
             _ => "setup_zsh.sh",
         };
         let script = resolve_setup_script(script_name)
-            .ok_or_else(|| anyhow!("failed to locate {} for Kaku initialization", script_name))?;
+            .ok_or_else(|| anyhow!("failed to locate {} for Hiterm initialization", script_name))?;
 
         let mut cmd = Command::new("/bin/bash");
         cmd.arg(&script)
@@ -62,7 +62,7 @@ mod imp {
             return Ok(());
         }
 
-        bail!("kaku init failed with status {}", status);
+        bail!("hiterm init failed with status {}", status);
     }
 
     fn install_cli_wrapper() -> anyhow::Result<()> {
@@ -123,9 +123,11 @@ exit 127
     fn remove_legacy_wrappers() {
         for shell_dir in ["zsh", "fish"] {
             for name in ["k", "kaku"] {
+                // The hiterm config dir; pre-migration installs reach the
+                // same tree through the ~/.config/kaku symlink.
                 let path = config::HOME_DIR
                     .join(".config")
-                    .join("kaku")
+                    .join("hiterm")
                     .join(shell_dir)
                     .join("bin")
                     .join(name);
@@ -149,7 +151,7 @@ exit 127
         };
         config::HOME_DIR
             .join(".config")
-            .join("kaku")
+            .join("hiterm")
             .join(dir)
             .join("bin")
             .join("hiterm")

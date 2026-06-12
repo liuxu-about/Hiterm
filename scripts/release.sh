@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Release script for Kaku
+# Release script for Hiterm
 # Usage: ./scripts/release.sh
 #
 # Prerequisites:
 #   - Clean git working tree on main branch
 #   - gh CLI authenticated (for creating releases)
-#   - Apple Developer ID certificate in login Keychain (or set KAKU_SIGNING_IDENTITY)
+#   - Apple Developer ID certificate in login Keychain (or set HITERM_SIGNING_IDENTITY)
 #   - Notarization credentials via rcodesign API key or notarytool Keychain profile
 #
 # Environment variables:
-#   KAKU_SIGNING_IDENTITY    - Signing identity (auto-detected from Keychain if not set)
-#   KAKU_ASC_API_KEY_PATH    - rcodesign App Store Connect API key JSON path
-#   KAKU_NOTARYTOOL_PROFILE  - notarytool Keychain profile name
+#   HITERM_SIGNING_IDENTITY    - Signing identity (auto-detected from Keychain if not set)
+#   HITERM_ASC_API_KEY_PATH    - rcodesign App Store Connect API key JSON path
+#   HITERM_NOTARYTOOL_PROFILE  - notarytool Keychain profile name
+#   KAKU_* equivalents are still accepted as legacy fallbacks.
 #   HOMEBREW_TAP_TOKEN       - Optional: GitHub token for Homebrew tap (defaults to gh auth token)
 #   REQUIRE_HOMEBREW_TAP_UPDATE - Set to 0 to allow release to continue when tap update fails (default: 1)
 #   RUN_CLIPPY               - Set to 1 to also run clippy (default: 0)
@@ -42,7 +43,7 @@ PROFILE="${PROFILE:-release-opt}"
 BUILD_ARCH="${BUILD_ARCH:-universal}"
 RUN_CLIPPY="${RUN_CLIPPY:-0}"
 SKIP_TESTS="${SKIP_TESTS:-0}"
-GITHUB_REPO="${GITHUB_REPO:-tw93/Kaku}"
+GITHUB_REPO="${GITHUB_REPO:-liuxu-about/Hiterm}"
 HOMEBREW_TAP_REPO="${HOMEBREW_TAP_REPO:-tw93/homebrew-tap}"
 REQUIRE_HOMEBREW_TAP_UPDATE="${REQUIRE_HOMEBREW_TAP_UPDATE:-1}"
 DRY_RUN="${DRY_RUN:-0}"
@@ -84,15 +85,15 @@ time_stage() {
 # Verify version consistency across crates
 check_version_consistency() {
     log_info "Checking version consistency..."
-    local kaku_version kaku_gui_version
-    kaku_version=$(grep '^version =' "$REPO_ROOT/hiterm/Cargo.toml" | head -n1 | cut -d'"' -f2)
-    kaku_gui_version=$(grep '^version =' "$REPO_ROOT/hiterm-gui/Cargo.toml" | head -n1 | cut -d'"' -f2)
+    local hiterm_version hiterm_gui_version
+    hiterm_version=$(grep '^version =' "$REPO_ROOT/hiterm/Cargo.toml" | head -n1 | cut -d'"' -f2)
+    hiterm_gui_version=$(grep '^version =' "$REPO_ROOT/hiterm-gui/Cargo.toml" | head -n1 | cut -d'"' -f2)
 
-    if [[ "$kaku_version" != "$kaku_gui_version" ]]; then
-        die "Version mismatch: kaku=$kaku_version, kaku-gui=$kaku_gui_version"
+    if [[ "$hiterm_version" != "$hiterm_gui_version" ]]; then
+        die "Version mismatch: hiterm=$hiterm_version, hiterm-gui=$hiterm_gui_version"
     fi
 
-    log_info "Version: $kaku_version"
+    log_info "Version: $hiterm_version"
 }
 
 # Check release notes match version
@@ -145,11 +146,14 @@ check_gh_auth() {
 
 # Detect Developer ID from Keychain if not set
 detect_signing_identity() {
-    if [[ -n "${KAKU_SIGNING_IDENTITY:-}" ]]; then
-        if ! is_developer_id_application_identity "$KAKU_SIGNING_IDENTITY"; then
-            die "KAKU_SIGNING_IDENTITY must be a Developer ID Application certificate, got: $KAKU_SIGNING_IDENTITY"
+    HITERM_SIGNING_IDENTITY="${HITERM_SIGNING_IDENTITY:-${KAKU_SIGNING_IDENTITY:-}}"
+    if [[ -n "${HITERM_SIGNING_IDENTITY:-}" ]]; then
+        if ! is_developer_id_application_identity "$HITERM_SIGNING_IDENTITY"; then
+            die "HITERM_SIGNING_IDENTITY must be a Developer ID Application certificate, got: $HITERM_SIGNING_IDENTITY"
         fi
-        log_info "Using signing identity from environment: $KAKU_SIGNING_IDENTITY"
+        export HITERM_SIGNING_IDENTITY
+        export KAKU_SIGNING_IDENTITY="$HITERM_SIGNING_IDENTITY"
+        log_info "Using signing identity from environment: $HITERM_SIGNING_IDENTITY"
         return 0
     fi
 
@@ -164,15 +168,16 @@ detect_signing_identity() {
 
     if [[ "$count" -eq 0 ]]; then
         die "No Developer ID Application certificate found in Keychain.\n" \
-            "Install your certificate or set KAKU_SIGNING_IDENTITY environment variable."
+            "Install your certificate or set HITERM_SIGNING_IDENTITY environment variable."
     fi
 
-    KAKU_SIGNING_IDENTITY=$(echo "$identities" | grep "^Developer ID Application" | head -n1)
-    export KAKU_SIGNING_IDENTITY
+    HITERM_SIGNING_IDENTITY=$(echo "$identities" | grep "^Developer ID Application" | head -n1)
+    export HITERM_SIGNING_IDENTITY
+    export KAKU_SIGNING_IDENTITY="$HITERM_SIGNING_IDENTITY"
     if [[ "$count" -gt 1 ]]; then
         log_warn "Multiple Developer ID Application certificates found, auto-selecting the first match"
     fi
-    log_info "Auto-detected signing identity: $KAKU_SIGNING_IDENTITY"
+    log_info "Auto-detected signing identity: $HITERM_SIGNING_IDENTITY"
 }
 
 validate_release_profile() {
@@ -193,7 +198,10 @@ check_notarization_creds() {
     local have_creds=0
     local asc_api_key_path notarytool_profile
 
-    asc_api_key_path="${KAKU_ASC_API_KEY_PATH:-}"
+    asc_api_key_path="${HITERM_ASC_API_KEY_PATH:-${KAKU_ASC_API_KEY_PATH:-}}"
+    if [[ -z "$asc_api_key_path" ]]; then
+        asc_api_key_path=$(security find-generic-password -s "hiterm-asc-api-key-path" -w 2>/dev/null || true)
+    fi
     if [[ -z "$asc_api_key_path" ]]; then
         asc_api_key_path=$(security find-generic-password -s "kaku-asc-api-key-path" -w 2>/dev/null || true)
     fi
@@ -202,7 +210,10 @@ check_notarization_creds() {
         log_info "Found App Store Connect API key for rcodesign notarization"
     fi
 
-    notarytool_profile="${KAKU_NOTARYTOOL_PROFILE:-}"
+    notarytool_profile="${HITERM_NOTARYTOOL_PROFILE:-${KAKU_NOTARYTOOL_PROFILE:-}}"
+    if [[ -z "$notarytool_profile" ]]; then
+        notarytool_profile=$(security find-generic-password -s "hiterm-notarytool-profile" -w 2>/dev/null || true)
+    fi
     if [[ -z "$notarytool_profile" ]]; then
         notarytool_profile=$(security find-generic-password -s "kaku-notarytool-profile" -w 2>/dev/null || true)
     fi
@@ -214,11 +225,11 @@ check_notarization_creds() {
     if [[ "$have_creds" -eq 0 ]]; then
         log_warn "Notarization credentials not found"
         log_warn "Notarization may fail. To set up credentials:"
-        log_warn "  security add-generic-password -s 'kaku-asc-api-key-path' -a 'kaku' -w '/path/to/asc_api_key.json'"
+        log_warn "  security add-generic-password -s 'hiterm-asc-api-key-path' -a 'hiterm' -w '/path/to/asc_api_key.json'"
         log_warn ""
         log_warn "Or store a notarytool Keychain profile:"
-        log_warn "  xcrun notarytool store-credentials kaku-notarytool --apple-id <apple-id> --team-id <team-id>"
-        log_warn "  security add-generic-password -s 'kaku-notarytool-profile' -a 'kaku' -w 'kaku-notarytool'"
+        log_warn "  xcrun notarytool store-credentials hiterm-notarytool --apple-id <apple-id> --team-id <team-id>"
+        log_warn "  security add-generic-password -s 'hiterm-notarytool-profile' -a 'hiterm' -w 'hiterm-notarytool'"
         if [[ ! -t 0 ]]; then
             die "Notarization credentials are missing and stdin is not interactive."
         fi
@@ -254,7 +265,7 @@ run_checks() {
 build_release() {
     log_info "Building release (PROFILE=$PROFILE, ARCH=$BUILD_ARCH)..."
 
-    export KAKU_SIGNING_IDENTITY
+    export KAKU_SIGNING_IDENTITY="${HITERM_SIGNING_IDENTITY:-${KAKU_SIGNING_IDENTITY:-}}"
     export KAKU_REQUIRE_SIGNED_RELEASE=1
     export PROFILE
     export BUILD_ARCH
@@ -318,7 +329,7 @@ create_github_release() {
     # Build a cleaned notes file: strip the first heading line and remove blank
     # lines between numbered list items so GitHub doesn't render extra spacing.
     local notes_tmp
-    notes_tmp=$(mktemp /tmp/kaku-release-notes.XXXXXX.md)
+    notes_tmp=$(mktemp /tmp/hiterm-release-notes.XXXXXX.md)
     # shellcheck disable=SC2064
     trap "rm -f $notes_tmp" RETURN
 
@@ -364,24 +375,24 @@ create_github_release() {
         gh release upload "$tag" \
             -R "$GITHUB_REPO" \
             "$OUT_DIR/Hiterm.dmg" \
-            "$OUT_DIR/kaku_for_update.zip" \
-            "$OUT_DIR/kaku_for_update.zip.sha256" \
+            "$OUT_DIR/hiterm_for_update.zip" \
+            "$OUT_DIR/hiterm_for_update.zip.sha256" \
             --clobber
     else
         if [[ "$notes_arg" == "--notes-file" ]]; then
             gh release create "$tag" \
                 -R "$GITHUB_REPO" \
                 "$OUT_DIR/Hiterm.dmg" \
-                "$OUT_DIR/kaku_for_update.zip" \
-                "$OUT_DIR/kaku_for_update.zip.sha256" \
+                "$OUT_DIR/hiterm_for_update.zip" \
+                "$OUT_DIR/hiterm_for_update.zip.sha256" \
                 --title "$release_title" \
                 "$notes_arg" "$notes_tmp"
         else
             gh release create "$tag" \
                 -R "$GITHUB_REPO" \
                 "$OUT_DIR/Hiterm.dmg" \
-                "$OUT_DIR/kaku_for_update.zip" \
-                "$OUT_DIR/kaku_for_update.zip.sha256" \
+                "$OUT_DIR/hiterm_for_update.zip" \
+                "$OUT_DIR/hiterm_for_update.zip.sha256" \
                 --title "$release_title" \
                 --generate-notes
         fi
@@ -396,6 +407,7 @@ update_homebrew_tap() {
     local token=""
     local dmg_sha256
     local dispatch_output
+    local cask_path="${HOMEBREW_CASK_PATH:-Casks/hiterm.rb}"
     local workflow_url="https://github.com/${HOMEBREW_TAP_REPO}/actions/workflows/bump.yml"
     local latest_run_url=""
 
@@ -430,7 +442,7 @@ update_homebrew_tap() {
         -H "Accept: application/vnd.github+json" \
         -H "X-GitHub-Api-Version: 2022-11-28" \
         "/repos/${HOMEBREW_TAP_REPO}/dispatches" \
-        -f "event_type=kaku_release_published" \
+        -f "event_type=hiterm_release_published" \
         -f "client_payload[version]=$version" \
         -f "client_payload[sha256]=$dmg_sha256" 2>&1
     ); then
@@ -451,7 +463,7 @@ update_homebrew_tap() {
         --workflow bump.yml \
         --limit 1 \
         --json url,status,displayTitle,event \
-        --jq '.[] | select(.displayTitle=="kaku_release_published" and .event=="repository_dispatch") | .url' 2>/dev/null || true)
+        --jq '.[] | select(.displayTitle=="hiterm_release_published" and .event=="repository_dispatch") | .url' 2>/dev/null || true)
     if [[ -n "$latest_run_url" ]]; then
         log_info "Latest Homebrew tap run: $latest_run_url"
     fi
@@ -468,7 +480,7 @@ update_homebrew_tap() {
             # download_url points at raw.githubusercontent.com behind Fastly
             # (cache-control max-age=300), which serves the previous version for
             # the whole polling window and causes false-negative timeouts.
-            remote_version=$(gh api "repos/${HOMEBREW_TAP_REPO}/contents/Casks/kakuku.rb?ref=main" \
+            remote_version=$(gh api "repos/${HOMEBREW_TAP_REPO}/contents/${cask_path}?ref=main" \
                 -H "Accept: application/vnd.github.raw" 2>/dev/null \
                 | sed -n 's/^  version "\([^"]*\)"$/\1/p' | head -n1 || true)
             if [[ "$remote_version" == "$expected_version" ]]; then
@@ -516,7 +528,7 @@ main() {
     if [[ "$DRY_RUN" == "1" ]]; then
         log_warn "[DRY-RUN] All pre-flight checks passed."
         log_warn "[DRY-RUN] Would build → notarize → tag V${version} → upload → tap dispatch"
-        log_warn "[DRY-RUN] Expected artifacts: $OUT_DIR/Hiterm.dmg, $OUT_DIR/kaku_for_update.zip, $OUT_DIR/kaku_for_update.zip.sha256"
+        log_warn "[DRY-RUN] Expected artifacts: $OUT_DIR/Hiterm.dmg, $OUT_DIR/hiterm_for_update.zip, $OUT_DIR/hiterm_for_update.zip.sha256"
         log_warn "[DRY-RUN] GitHub repo: $GITHUB_REPO"
         log_warn "[DRY-RUN] Homebrew tap: $HOMEBREW_TAP_REPO"
         log_warn "[DRY-RUN] Unset DRY_RUN (or drop --dry-run) to run for real."
@@ -553,8 +565,8 @@ main() {
     log_info "Release $version complete!"
     log_info "Artifacts:"
     log_info "  - $OUT_DIR/Hiterm.dmg"
-    log_info "  - $OUT_DIR/kaku_for_update.zip"
-    log_info "  - $OUT_DIR/kaku_for_update.zip.sha256"
+    log_info "  - $OUT_DIR/hiterm_for_update.zip"
+    log_info "  - $OUT_DIR/hiterm_for_update.zip.sha256"
     log_info ""
     log_info "GitHub Release: https://github.com/${GITHUB_REPO}/releases/tag/V${version}"
 }

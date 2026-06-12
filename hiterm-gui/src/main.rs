@@ -134,11 +134,11 @@ pub use termwindow::{set_window_class, set_window_position, TermWindow, ICON_DAT
 
 #[derive(Debug, Parser)]
 #[command(
-    about = "Kaku Terminal Emulator\nhttp://github.com/tw93/Kaku",
+    about = "Hiterm Terminal Emulator\nhttps://github.com/liuxu-about/Hiterm",
     version = config::wezterm_version()
 )]
 struct Opt {
-    /// Skip loading kaku.lua
+    /// Skip loading hiterm.lua
     #[arg(long, short = 'n')]
     skip_config: bool,
 
@@ -829,7 +829,7 @@ fn run_terminal_gui(opts: StartCommand, default_domain_name: Option<String>) -> 
     )?;
     startup_trace::mark("build_initial_mux() done");
 
-    // First, let's see if we can ask an already running Kaku instance to do this.
+    // First, let's see if we can ask an already running Hiterm instance to do this.
     // We must do this before we start the gui frontend as the scheduler
     // requirements are different.
     startup_trace::mark("Publish::resolve start");
@@ -908,9 +908,9 @@ fn notify_on_panic() {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         if let Some(s) = info.payload().downcast_ref::<&str>() {
-            fatal_toast_notification("Kaku panic", s);
+            fatal_toast_notification("Hiterm panic", s);
         } else if let Some(s) = info.payload().downcast_ref::<String>() {
-            fatal_toast_notification("Kaku panic", s);
+            fatal_toast_notification("Hiterm panic", s);
         }
         default_hook(info);
     }));
@@ -918,7 +918,7 @@ fn notify_on_panic() {
 
 fn terminate_with_error_message(err: &str) -> ! {
     log::error!("{}; terminating", err);
-    fatal_toast_notification("Kaku Error", &err);
+    fatal_toast_notification("Hiterm Error", err);
     std::process::exit(1);
 }
 
@@ -935,6 +935,8 @@ fn terminate_with_error(err: anyhow::Error) -> ! {
 }
 
 fn main() {
+    #[cfg(unix)]
+    config::migrate_legacy_kaku_dirs();
     startup_trace::init();
     startup_trace::mark("main() entry");
 

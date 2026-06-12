@@ -21,7 +21,7 @@ read_bundled_config_version() {
 }
 
 config_update_highlight_language() {
-	local explicit="${KAKU_CONFIG_UPDATE_LANGUAGE:-${KAKU_UPDATE_LANGUAGE:-}}"
+	local explicit="${HITERM_CONFIG_UPDATE_LANGUAGE:-${HITERM_UPDATE_LANGUAGE:-${KAKU_CONFIG_UPDATE_LANGUAGE:-${KAKU_UPDATE_LANGUAGE:-}}}}"
 	case "$explicit" in
 		zh* | ZH* | cn | CN | 中文)
 			printf 'zh\n'

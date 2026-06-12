@@ -23,7 +23,7 @@ mod imp {
     use anyhow::bail;
 
     pub fn run(_yes: bool) -> anyhow::Result<()> {
-        bail!("`kaku reset` is currently supported on macOS only")
+        bail!("`hiterm reset` is currently supported on macOS only")
     }
 }
 
@@ -31,8 +31,11 @@ mod imp {
 mod imp {
     use super::*;
 
+    const HITERM_SOURCE_PATTERN: &str = "hiterm/zsh/hiterm.zsh";
     const KAKU_SOURCE_PATTERN: &str = "kaku/zsh/kaku.zsh";
+    const HITERM_PATH_MARKER: &str = "# Hiterm PATH Integration";
     const KAKU_PATH_MARKER: &str = "# Kaku PATH Integration";
+    const HITERM_TMUX_SOURCE_PATTERN: &str = "hiterm/tmux/hiterm.tmux.conf";
     const KAKU_TMUX_SOURCE_PATTERN: &str = "kaku/tmux/kaku.tmux.conf";
     const KAKU_LEGACY_INLINE_MARKER: &str = "# Kaku Shell Integration";
     const KAKU_LEGACY_INLINE_VAR: &str = "KAKU_ZSH_DIR";
@@ -233,7 +236,7 @@ mod imp {
                 }
             }
 
-            println!("\nKaku reset completed.");
+            println!("\nHiterm reset completed.");
         }
     }
 
@@ -243,19 +246,24 @@ mod imp {
         let mut report = ResetReport::default();
 
         remove_zsh_integration(&mut report)?;
-        remove_kaku_shell_dir(&mut report)?;
+        remove_zsh_init_files(&mut report)?;
         remove_fish_integration(&mut report)?;
         remove_tmux_integration(&mut report)?;
         remove_file_if_exists(
-            config_home().join("tmux").join("kaku.tmux.conf"),
+            config_home().join("tmux").join("hiterm.tmux.conf"),
             "removed managed tmux integration script",
+            &mut report,
+        )?;
+        remove_file_if_exists(
+            legacy_config_home().join("tmux").join("kaku.tmux.conf"),
+            "removed legacy managed tmux integration script",
             &mut report,
         )?;
         cleanup_git_delta_defaults(&mut report)?;
         cleanup_theme_block(&mut report)?;
         remove_file_if_exists(
             config_home().join("state.json"),
-            "removed persisted Kaku state",
+            "removed persisted Hiterm state",
             &mut report,
         )?;
         remove_file_if_exists(
@@ -275,12 +283,12 @@ mod imp {
         )?;
         remove_dir_if_exists(
             config_home().join("backups"),
-            "removed Kaku backup directory",
+            "removed Hiterm backup directory",
             &mut report,
         )?;
         remove_dir_if_exists(
             config_home().join("soul"),
-            "removed Kaku soul directory",
+            "removed Hiterm soul directory",
             &mut report,
         )?;
         remove_file_if_exists(
@@ -293,7 +301,8 @@ mod imp {
             "removed AI chat onboarding flag",
             &mut report,
         )?;
-        remove_empty_kaku_config_dir(&mut report)?;
+        remove_empty_config_dir(config_home(), &mut report)?;
+        remove_empty_config_dir(legacy_config_home(), &mut report)?;
 
         report.print();
 
@@ -305,9 +314,9 @@ mod imp {
             .unwrap_or(false);
 
         let tools_dir = if is_fish {
-            "~/.config/kaku/fish/"
+            "~/.config/hiterm/fish/"
         } else {
-            "~/.config/kaku/zsh/"
+            "~/.config/hiterm/zsh/"
         };
         let restart_cmd = if is_fish {
             "exec fish -l"
@@ -330,17 +339,20 @@ mod imp {
             let answer = input.trim().to_ascii_lowercase();
             if answer.is_empty() || answer == "y" || answer == "yes" {
                 println!("\nRestarting shell...");
-                println!("Tip: Run 'kaku init' to restore integration");
+                println!("Tip: Run 'hiterm init' to restore integration");
                 let err = std::process::Command::new(&shell).arg("-l").exec();
                 bail!("failed to restart shell: {}", err);
             } else {
                 println!(
-                    "\nRun '{}' when ready. Restore with 'kaku init'",
+                    "\nRun '{}' when ready. Restore with 'hiterm init'",
                     restart_cmd
                 );
             }
         } else {
-            println!("Run '{}' to restart. Restore with 'kaku init'", restart_cmd);
+            println!(
+                "Run '{}' to restart. Restore with 'hiterm init'",
+                restart_cmd
+            );
         }
 
         Ok(())
@@ -356,7 +368,7 @@ mod imp {
         }
 
         println!(
-            "This will remove Kaku shell and tmux integration and reset Kaku-managed git defaults."
+            "This will remove Hiterm shell and tmux integration and reset Hiterm-managed git defaults."
         );
         print!("Continue with reset? [y/N] ");
         io::stdout().flush().context("flush stdout")?;
@@ -380,6 +392,10 @@ mod imp {
     }
 
     fn config_home() -> PathBuf {
+        home_dir().join(".config").join("hiterm")
+    }
+
+    fn legacy_config_home() -> PathBuf {
         home_dir().join(".config").join("kaku")
     }
 
@@ -401,7 +417,10 @@ mod imp {
     }
 
     fn is_active_kaku_tmux_source_line(trimmed_line: &str) -> bool {
-        if trimmed_line.starts_with('#') || !trimmed_line.contains(KAKU_TMUX_SOURCE_PATTERN) {
+        if trimmed_line.starts_with('#')
+            || (!trimmed_line.contains(HITERM_TMUX_SOURCE_PATTERN)
+                && !trimmed_line.contains(KAKU_TMUX_SOURCE_PATTERN))
+        {
             return false;
         }
         contains_tmux_source_command(trimmed_line)
@@ -418,7 +437,12 @@ mod imp {
             std::fs::read_to_string(&zshrc).with_context(|| format!("read {}", zshrc.display()))?;
         let filtered: Vec<&str> = original
             .lines()
-            .filter(|line| !line.contains(KAKU_SOURCE_PATTERN) && !line.contains(KAKU_PATH_MARKER))
+            .filter(|line| {
+                !line.contains(HITERM_SOURCE_PATTERN)
+                    && !line.contains(KAKU_SOURCE_PATTERN)
+                    && !line.contains(HITERM_PATH_MARKER)
+                    && !line.contains(KAKU_PATH_MARKER)
+            })
             .collect();
         let removed_managed_lines = filtered.len() != original.lines().count();
 
@@ -430,7 +454,7 @@ mod imp {
         let (updated, removed_legacy_block) = strip_legacy_inline_block(&updated);
         if !removed_managed_lines && !removed_legacy_block {
             report.skipped(format!(
-                "no Kaku shell integration found in {}",
+                "no Hiterm shell integration found in {}",
                 zshrc.display()
             ));
             return Ok(());
@@ -439,12 +463,12 @@ mod imp {
         std::fs::write(&zshrc, updated).with_context(|| format!("write {}", zshrc.display()))?;
         if removed_managed_lines && removed_legacy_block {
             report.changed(format!(
-                "removed Kaku-managed .zshrc lines and legacy inline block from {}",
+                "removed Hiterm-managed .zshrc lines and legacy inline block from {}",
                 zshrc.display()
             ));
         } else if removed_managed_lines {
             report.changed(format!(
-                "removed Kaku-managed .zshrc lines from {}",
+                "removed Hiterm-managed .zshrc lines from {}",
                 zshrc.display()
             ));
         } else {
@@ -456,14 +480,19 @@ mod imp {
         Ok(())
     }
 
-    fn remove_kaku_shell_dir(report: &mut ResetReport) -> anyhow::Result<()> {
-        let kaku_init = config_home().join("zsh").join("kaku.zsh");
-        if kaku_init.exists() {
-            std::fs::remove_file(&kaku_init)
-                .with_context(|| format!("remove {}", kaku_init.display()))?;
-            report.changed(format!("removed {}", kaku_init.display()));
-        } else {
-            report.skipped(format!("{} not found", kaku_init.display()));
+    fn remove_zsh_init_files(report: &mut ResetReport) -> anyhow::Result<()> {
+        for init in [
+            config_home().join("zsh").join("hiterm.zsh"),
+            config_home().join("zsh").join("kaku.zsh"),
+            legacy_config_home().join("zsh").join("kaku.zsh"),
+        ] {
+            if init.exists() {
+                std::fs::remove_file(&init)
+                    .with_context(|| format!("remove {}", init.display()))?;
+                report.changed(format!("removed {}", init.display()));
+            } else {
+                report.skipped(format!("{} not found", init.display()));
+            }
         }
         Ok(())
     }
@@ -474,23 +503,54 @@ mod imp {
             .join(".config")
             .join("fish")
             .join("conf.d")
-            .join("kaku.fish");
+            .join("hiterm.fish");
         remove_file_if_exists(
             conf_d_file,
-            "removed ~/.config/fish/conf.d/kaku.fish",
+            "removed ~/.config/fish/conf.d/hiterm.fish",
+            report,
+        )?;
+        remove_file_if_exists(
+            home_dir()
+                .join(".config")
+                .join("fish")
+                .join("conf.d")
+                .join("kaku.fish"),
+            "removed legacy ~/.config/fish/conf.d/kaku.fish",
             report,
         )?;
 
         // Remove managed fish init file
-        let fish_init = config_home().join("fish").join("kaku.fish");
-        remove_file_if_exists(fish_init, "removed ~/.config/kaku/fish/kaku.fish", report)?;
+        let fish_init = config_home().join("fish").join("hiterm.fish");
+        remove_file_if_exists(
+            fish_init,
+            "removed ~/.config/hiterm/fish/hiterm.fish",
+            report,
+        )?;
+        let legacy_fish_init = config_home().join("fish").join("kaku.fish");
+        remove_file_if_exists(
+            legacy_fish_init,
+            "removed legacy ~/.config/hiterm/fish/kaku.fish",
+            report,
+        )?;
+        let legacy_dir_fish_init = legacy_config_home().join("fish").join("kaku.fish");
+        remove_file_if_exists(
+            legacy_dir_fish_init,
+            "removed legacy ~/.config/kaku/fish/kaku.fish",
+            report,
+        )?;
 
         // Remove fish wrapper bins (current name plus pre-rename leftovers)
         for name in ["hiterm", "kaku", "k"] {
             let fish_wrapper = config_home().join("fish").join("bin").join(name);
             remove_file_if_exists(
                 fish_wrapper,
-                &format!("removed ~/.config/kaku/fish/bin/{name} wrapper"),
+                &format!("removed ~/.config/hiterm/fish/bin/{name} wrapper"),
+                report,
+            )?;
+            let legacy_fish_wrapper = legacy_config_home().join("fish").join("bin").join(name);
+            remove_file_if_exists(
+                legacy_fish_wrapper,
+                &format!("removed legacy ~/.config/kaku/fish/bin/{name} wrapper"),
                 report,
             )?;
         }
@@ -514,7 +574,7 @@ mod imp {
 
         if filtered.len() == original.lines().count() {
             report.skipped(format!(
-                "no Kaku tmux integration found in {}",
+                "no Hiterm tmux integration found in {}",
                 tmuxrc.display()
             ));
             return Ok(());
@@ -526,7 +586,7 @@ mod imp {
         }
         std::fs::write(&tmuxrc, updated).with_context(|| format!("write {}", tmuxrc.display()))?;
         report.changed(format!(
-            "removed Kaku-managed tmux source line from {}",
+            "removed Hiterm-managed tmux source line from {}",
             tmuxrc.display()
         ));
         Ok(())
@@ -546,7 +606,7 @@ mod imp {
         }
 
         if removed.is_empty() {
-            report.skipped("no Kaku-managed git defaults to remove");
+            report.skipped("no Hiterm-managed git defaults to remove");
         } else {
             report.changed(format!("removed git defaults: {}", removed.join(", ")));
         }
@@ -601,28 +661,44 @@ mod imp {
     }
 
     fn cleanup_theme_block(report: &mut ResetReport) -> anyhow::Result<()> {
-        let config_path = config_home().join("kaku.lua");
-        if !config_path.exists() {
-            report.skipped(format!("{} not found", config_path.display()));
+        let config_candidates = [
+            config_home().join("hiterm.lua"),
+            config_home().join("kaku.lua"),
+            legacy_config_home().join("kaku.lua"),
+        ];
+        let Some(config_path) = config_candidates.iter().find(|path| path.exists()) else {
+            report.skipped("no user config file found for managed theme cleanup");
             return Ok(());
-        }
+        };
 
         let original = std::fs::read_to_string(&config_path)
             .with_context(|| format!("read {}", config_path.display()))?;
 
         let (after_managed, changed_managed) =
-            strip_theme_block(&original, "-- ===== Kaku Theme Defaults (managed) =====");
+            strip_theme_block(&original, "-- ===== Hiterm Theme Defaults (managed) =====");
+        let (after_kaku_managed, changed_kaku_managed) = strip_theme_block(
+            &after_managed,
+            "-- ===== Kaku Theme Defaults (managed) =====",
+        );
         let (after_legacy, changed_legacy) =
-            strip_theme_block(&after_managed, "-- ===== Kaku Theme =====");
+            strip_theme_block(&after_kaku_managed, "-- ===== Hiterm Theme =====");
+        let (after_kaku_legacy, changed_kaku_legacy) =
+            strip_theme_block(&after_legacy, "-- ===== Kaku Theme =====");
 
-        if !changed_managed && !changed_legacy {
-            report.skipped("no managed Kaku theme block found in ~/.config/kaku/kaku.lua");
+        if !changed_managed && !changed_kaku_managed && !changed_legacy && !changed_kaku_legacy {
+            report.skipped(format!(
+                "no managed Hiterm theme block found in {}",
+                config_path.display()
+            ));
             return Ok(());
         }
 
-        std::fs::write(&config_path, after_legacy)
+        std::fs::write(&config_path, after_kaku_legacy)
             .with_context(|| format!("write {}", config_path.display()))?;
-        report.changed("removed managed Kaku theme block from ~/.config/kaku/kaku.lua");
+        report.changed(format!(
+            "removed managed Hiterm theme block from {}",
+            config_path.display()
+        ));
         Ok(())
     }
 
@@ -771,8 +847,7 @@ mod imp {
         Ok(())
     }
 
-    fn remove_empty_kaku_config_dir(report: &mut ResetReport) -> anyhow::Result<()> {
-        let dir = config_home();
+    fn remove_empty_config_dir(dir: PathBuf, report: &mut ResetReport) -> anyhow::Result<()> {
         if !dir.exists() {
             return Ok(());
         }

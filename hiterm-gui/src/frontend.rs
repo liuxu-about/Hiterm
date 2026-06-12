@@ -58,7 +58,7 @@ pub(crate) fn refresh_fast_config_snapshot() {
     FAST_CONFIG_SNAPSHOT.lock().unwrap().replace(cfg);
 }
 
-fn resolve_bundled_kaku_bin() -> anyhow::Result<PathBuf> {
+fn resolve_bundled_hiterm_bin() -> anyhow::Result<PathBuf> {
     fn add_candidate(candidates: &mut Vec<PathBuf>, path: PathBuf) {
         if !candidates.iter().any(|p| p == &path) {
             candidates.push(path);
@@ -84,6 +84,19 @@ fn resolve_bundled_kaku_bin() -> anyhow::Result<PathBuf> {
         }
     }
 
+    for shell in ["zsh", "fish"] {
+        add_candidate(
+            &mut candidates,
+            config::HOME_DIR
+                .join(".config")
+                .join("hiterm")
+                .join(shell)
+                .join("bin")
+                .join("hiterm"),
+        );
+    }
+
+    // Migration fallback for pre-rename shell setup.
     add_candidate(
         &mut candidates,
         config::HOME_DIR
@@ -98,7 +111,7 @@ fn resolve_bundled_kaku_bin() -> anyhow::Result<PathBuf> {
     {
         add_candidate(
             &mut candidates,
-            PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/kaku"),
+            PathBuf::from("/Applications/Hiterm.app/Contents/MacOS/hiterm"),
         );
         add_candidate(
             &mut candidates,
@@ -107,7 +120,7 @@ fn resolve_bundled_kaku_bin() -> anyhow::Result<PathBuf> {
                 .join("Hiterm.app")
                 .join("Contents")
                 .join("MacOS")
-                .join("kaku"),
+                .join("hiterm"),
         );
     }
 
@@ -116,7 +129,7 @@ fn resolve_bundled_kaku_bin() -> anyhow::Result<PathBuf> {
     }
 
     anyhow::bail!(
-        "could not find kaku binary; checked: {}",
+        "could not find hiterm binary; checked: {}",
         candidates
             .iter()
             .map(|p| p.display().to_string())
@@ -125,20 +138,20 @@ fn resolve_bundled_kaku_bin() -> anyhow::Result<PathBuf> {
     )
 }
 
-pub(crate) fn kaku_cli_program_for_spawn() -> String {
-    match resolve_bundled_kaku_bin() {
+pub(crate) fn hiterm_cli_program_for_spawn() -> String {
+    match resolve_bundled_hiterm_bin() {
         Ok(path) => path.to_string_lossy().into_owned(),
         Err(err) => {
             // Finder-launched apps can have a minimal PATH; fall back only when
             // we cannot resolve the bundled companion binary.
-            log::warn!("Falling back to PATH lookup for `kaku`: {err:#}");
-            "kaku".to_string()
+            log::warn!("Falling back to PATH lookup for `hiterm`: {err:#}");
+            "hiterm".to_string()
         }
     }
 }
 
-pub fn open_kaku_config() {
-    let kaku_bin = kaku_cli_program_for_spawn();
+pub fn open_hiterm_config() {
+    let hiterm_bin = hiterm_cli_program_for_spawn();
 
     promise::spawn::spawn_into_main_thread(async move {
         let config = fast_config_snapshot();
@@ -148,7 +161,7 @@ pub fn open_kaku_config() {
         crate::spawn::spawn_command_impl(
             &SpawnCommand {
                 domain: SpawnTabDomain::DomainName("local".to_string()),
-                args: Some(vec![kaku_bin, "config".to_string()]),
+                args: Some(vec![hiterm_bin, "config".to_string()]),
                 ..Default::default()
             },
             // Keep settings isolated from active coding tabs so ESC inside
@@ -162,16 +175,16 @@ pub fn open_kaku_config() {
     .detach();
 }
 
-pub fn run_kaku_update_from_menu() {
+pub fn run_hiterm_update_from_menu() {
     static UPDATE_RUNNING: AtomicBool = AtomicBool::new(false);
     if UPDATE_RUNNING
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_err()
     {
-        log::info!("run_kaku_update_from_menu: update already running, ignoring");
+        log::info!("run_hiterm_update_from_menu: update already running, ignoring");
         return;
     }
-    run_kaku_subcommand_in_new_tab("update", Some(&UPDATE_RUNNING));
+    run_hiterm_subcommand_in_new_tab("update", Some(&UPDATE_RUNNING));
 }
 
 /// Entry point for the update toast click. Routes to the front GUI window and
@@ -200,7 +213,7 @@ pub(crate) fn apply_update_now() {
     if crate::update::staged_update_available().is_some() {
         restart_to_update();
     } else {
-        run_kaku_update_from_menu();
+        run_hiterm_update_from_menu();
     }
 }
 
@@ -235,14 +248,14 @@ pub fn restart_to_update() {
             "Update Failed",
             "Automatic update failed. Trying manual update.",
         );
-        run_kaku_update_from_menu();
+        run_hiterm_update_from_menu();
     }
 
     let info = match staged_update_available() {
         Some(info) => info,
         None => {
             log::warn!("restart_to_update: no staged update available, falling back to menu flow");
-            run_kaku_update_from_menu();
+            run_hiterm_update_from_menu();
             release_guard();
             return;
         }
@@ -286,7 +299,7 @@ pub fn restart_to_update() {
             "Update Failed",
             "Automatic update failed. Trying manual update.",
         );
-        run_kaku_update_from_menu();
+        run_hiterm_update_from_menu();
         release_guard();
         return;
     }
@@ -298,23 +311,23 @@ pub fn restart_to_update() {
     );
 }
 
-pub fn run_kaku_doctor_in_new_tab() {
-    run_kaku_subcommand_in_new_tab("doctor", None);
+pub fn run_hiterm_doctor_in_new_tab() {
+    run_hiterm_subcommand_in_new_tab("doctor", None);
 }
 
-fn run_kaku_subcommand_in_new_tab(subcommand: &str, running_flag: Option<&'static AtomicBool>) {
+fn run_hiterm_subcommand_in_new_tab(subcommand: &str, running_flag: Option<&'static AtomicBool>) {
     let subcommand = subcommand.to_string();
-    let kaku_bin = kaku_cli_program_for_spawn();
-    let fallback_bin = shlex::try_quote(&kaku_bin)
+    let hiterm_bin = hiterm_cli_program_for_spawn();
+    let fallback_bin = shlex::try_quote(&hiterm_bin)
         .map(|q| q.into_owned())
-        .unwrap_or_else(|_| kaku_bin.clone());
+        .unwrap_or_else(|_| hiterm_bin.clone());
 
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "sh".to_string());
     let shell_name = Path::new(&shell)
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
-    // Use login + interactive shell (-lic / -l -i -c) to match the default Kaku
+    // Use login + interactive shell (-lic / -l -i -c) to match the default Hiterm
     // tab behavior (argv0 = "-zsh"). This ensures ~/.zprofile is sourced, where
     // macOS users typically export proxy variables (https_proxy, ALL_PROXY, etc.).
     // Without -l, the GUI process env (launched via launchd with a minimal
@@ -418,13 +431,13 @@ pub fn set_default_terminal_with_feedback() {
     match Connection::get() {
         Some(conn) => match conn.set_default_terminal() {
             Ok(()) => {
-                let message = "Kaku is now the default terminal";
+                let message = "Hiterm is now the default terminal";
                 if !show_window_toast(message) {
                     conn.alert("Default Terminal", message);
                 }
             }
             Err(err) => {
-                let message = format!("Failed to set Kaku as default terminal: {err:#}");
+                let message = format!("Failed to set Hiterm as default terminal: {err:#}");
                 log::error!("{message}");
                 if !show_window_toast("Failed to set default terminal") {
                     conn.alert("Default Terminal", &message);
@@ -915,20 +928,20 @@ impl GuiFrontEnd {
                     KeyAssignment::EmitEvent(event)
                         if event == "update-kaku" || event == "run-kaku-update" =>
                     {
-                        run_kaku_update_from_menu();
+                        run_hiterm_update_from_menu();
                     }
                     KeyAssignment::EmitEvent(event) if event == "run-kaku-cli" => {
-                        let kaku_cli = kaku_cli_program_for_spawn();
+                        let hiterm_cli = hiterm_cli_program_for_spawn();
                         spawn_command(
                             &SpawnCommand {
-                                args: Some(vec![kaku_cli]),
+                                args: Some(vec![hiterm_cli]),
                                 ..Default::default()
                             },
                             SpawnWhere::NewWindow,
                         );
                     }
                     KeyAssignment::EmitEvent(event) if event == "open-kaku-config" => {
-                        open_kaku_config();
+                        open_hiterm_config();
                     }
                     KeyAssignment::EmitEvent(event) if event == SET_DEFAULT_TERMINAL_EVENT => {
                         set_default_terminal_with_feedback();
@@ -1108,7 +1121,7 @@ impl GuiFrontEnd {
                     log::error!("Failed to create window: {:#}", err);
                     if err_text.contains("failed to create NSOpenGLPixelFormat") {
                         log::error!(
-                            "OpenGL initialization failed. This often means no compatible GPU renderer is available (for example in some VMs). Try setting `front_end = 'WebGpu'` in kaku.lua or enabling VM GPU acceleration."
+                            "OpenGL initialization failed. This often means no compatible GPU renderer is available (for example in some VMs). Try setting `front_end = 'WebGpu'` in hiterm.lua or enabling VM GPU acceleration."
                         );
                     }
                     let mux = Mux::get();

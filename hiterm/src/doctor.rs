@@ -8,6 +8,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
+const HITERM_ZSH_SOURCE_PATTERN: &str = "hiterm/zsh/hiterm.zsh";
+const KAKU_ZSH_SOURCE_PATTERN: &str = "kaku/zsh/kaku.zsh";
+const HITERM_FISH_SOURCE_PATTERN: &str = "hiterm/fish/hiterm.fish";
+const KAKU_FISH_SOURCE_PATTERN: &str = "kaku/fish/kaku.fish";
+
 #[derive(Debug, Parser, Clone, Default)]
 pub struct DoctorCommand {
     /// Apply safe automatic fixes, then rerun diagnostics
@@ -30,7 +35,7 @@ impl DoctorCommand {
         }
 
         if self.prompt_fix && should_offer_auto_fix(&report) {
-            match prompt_yes_no("Run safe auto-fix now with `kaku init --update-only`? [Y/n] ") {
+            match prompt_yes_no("Run safe auto-fix now with `hiterm init --update-only`? [Y/n] ") {
                 Ok(true) => run_auto_fix_and_rerun_report(),
                 Ok(false) => {}
                 Err(err) => eprintln!("Auto-fix prompt skipped: {}", err),
@@ -59,7 +64,7 @@ fn prompt_yes_no(question: &str) -> anyhow::Result<bool> {
 }
 
 fn run_auto_fix_and_rerun_report() {
-    println!("Auto-fix: running `kaku init --update-only`");
+    println!("Auto-fix: running `hiterm init --update-only`");
     let init_cmd = crate::init::InitCommand { update_only: true };
     match init_cmd.run() {
         Ok(()) => println!("Auto-fix: completed"),
@@ -192,11 +197,12 @@ fn build_health_group(overall_status: DoctorStatus, summary: &DoctorSummary) -> 
             "Summary: {} ok, {} warn, {} fail, {} info",
             summary.ok, summary.warn, summary.fail, summary.info
         ),
-        format!("Kaku version: {}", doctor_version_string()),
+        format!("Hiterm version: {}", doctor_version_string()),
     ];
 
     if summary.fail > 0 || summary.warn > 0 {
-        details.push("Run `kaku init --update-only` after fixing shell or PATH issues".to_string());
+        details
+            .push("Run `hiterm init --update-only` after fixing shell or PATH issues".to_string());
     }
 
     let checks = vec![DoctorCheck {
@@ -204,13 +210,13 @@ fn build_health_group(overall_status: DoctorStatus, summary: &DoctorSummary) -> 
         status: overall_status,
         summary: match overall_status {
             DoctorStatus::Ok => "No blocking issues detected".to_string(),
-            DoctorStatus::Warn => "Kaku works but setup is incomplete".to_string(),
-            DoctorStatus::Fail => "Kaku command entry is broken or missing".to_string(),
+            DoctorStatus::Warn => "Hiterm works but setup is incomplete".to_string(),
+            DoctorStatus::Fail => "Hiterm command entry is broken or missing".to_string(),
             DoctorStatus::Info => "Informational only".to_string(),
         },
         details,
         fix: if overall_status.severity_rank() >= DoctorStatus::Warn.severity_rank() {
-            Some("kaku init --update-only".to_string())
+            Some("hiterm init --update-only".to_string())
         } else {
             None
         },
@@ -245,13 +251,13 @@ fn build_environment_group() -> DoctorGroup {
             None => "SHELL is not set".to_string(),
         },
         details: vec![
-            "Kaku shell integration supports zsh and fish for PATH injection and managed shell config"
+            "Hiterm shell integration supports zsh and fish for PATH injection and managed shell config"
                 .to_string(),
             "Doctor reports the current process environment. GUI-launched apps can differ from a Terminal login shell."
                 .to_string(),
         ],
         fix: if !shell_supported {
-            Some("Use zsh or fish, or add the kaku bin dir to your shell PATH manually".to_string())
+            Some("Use zsh or fish, or add the hiterm bin dir to your shell PATH manually".to_string())
         } else {
             None
         },
@@ -264,12 +270,12 @@ fn build_environment_group() -> DoctorGroup {
         let path_has_managed_bin = path_entries.iter().any(|entry| entry == &managed_bin);
         let bin_dir_display = managed_bin.display().to_string();
         let restart_hint = if shell_kind == ShellKind::Fish {
-            "Run `kaku init --update-only` and restart fish".to_string()
+            "Run `hiterm init --update-only` and restart fish".to_string()
         } else {
-            "Run `kaku init --update-only` and restart zsh with `exec zsh -l`".to_string()
+            "Run `hiterm init --update-only` and restart zsh with `exec zsh -l`".to_string()
         };
         checks.push(DoctorCheck {
-            title: "PATH Contains Kaku Managed Bin",
+            title: "PATH Contains Hiterm Managed Bin",
             status: if path_has_managed_bin {
                 DoctorStatus::Ok
             } else {
@@ -281,8 +287,8 @@ fn build_environment_group() -> DoctorGroup {
                 format!("PATH is missing {}", bin_dir_display)
             },
             details: vec![
-                format!("Kaku command wrapper is expected at {}/kaku", bin_dir_display),
-                "This PATH entry is normally added by Kaku shell integration on startup".to_string(),
+                format!("Hiterm command wrapper is expected at {}/hiterm", bin_dir_display),
+                "This PATH entry is normally added by Hiterm shell integration on startup".to_string(),
                 "PATH in Doctor reflects the current process environment and can differ between GUI and Terminal launches."
                     .to_string(),
             ],
@@ -298,7 +304,7 @@ fn build_environment_group() -> DoctorGroup {
                 .join(".config")
                 .join("fish")
                 .join("conf.d")
-                .join("kaku.fish");
+                .join("hiterm.fish");
             checks.push(DoctorCheck {
                 title: "Fish conf.d Entry Point",
                 status: DoctorStatus::Info,
@@ -308,7 +314,7 @@ fn build_environment_group() -> DoctorGroup {
                     format!("Not present: {}", conf_d.display())
                 },
                 details: vec![format!(
-                    "Fish loads Kaku integration via {}",
+                    "Fish loads Hiterm integration via {}",
                     conf_d.display()
                 )],
                 fix: None,
@@ -328,13 +334,13 @@ fn build_environment_group() -> DoctorGroup {
         }
     } else {
         checks.push(DoctorCheck {
-            title: "PATH Contains Kaku Managed Bin",
+            title: "PATH Contains Hiterm Managed Bin",
             status: DoctorStatus::Info,
-            summary: "Current shell is not managed by Kaku; skipping shell-specific PATH check"
+            summary: "Current shell is not managed by Hiterm; skipping shell-specific PATH check"
                 .to_string(),
             details: vec![
-                "Kaku shell integration manages PATH for zsh and fish.".to_string(),
-                "For other shells, add the kaku bin directory to PATH manually.".to_string(),
+                "Hiterm shell integration manages PATH for zsh and fish.".to_string(),
+                "For other shells, add the hiterm bin directory to PATH manually.".to_string(),
             ],
             fix: None,
         });
@@ -377,7 +383,7 @@ fn wrapper_check(
         } else if exists {
             Some(format!("Run `chmod +x {}`", path.display()))
         } else {
-            Some("Run `kaku init --update-only`".to_string())
+            Some("Run `hiterm init --update-only`".to_string())
         },
     }
 }
@@ -391,10 +397,10 @@ fn build_shell_integration_group() -> DoctorGroup {
             title: "Shell Integration",
             status: DoctorStatus::Info,
             summary: format!(
-                "Current shell ({}) is not managed by Kaku; shell-specific checks skipped",
+                "Current shell ({}) is not managed by Hiterm; shell-specific checks skipped",
                 shell_kind.name()
             ),
-            details: vec!["Kaku shell integration supports zsh and fish.".to_string()],
+            details: vec!["Hiterm shell integration supports zsh and fish.".to_string()],
             fix: None,
         });
         return DoctorGroup {
@@ -430,11 +436,11 @@ fn build_shell_integration_group() -> DoctorGroup {
         } else {
             format!("Missing {}", init_file.display())
         },
-        details: vec!["Kaku writes PATH and shell integration to this managed file".to_string()],
+        details: vec!["Hiterm writes PATH and shell integration to this managed file".to_string()],
         fix: if init_exists {
             None
         } else {
-            Some("Run `kaku init --update-only`".to_string())
+            Some("Run `hiterm init --update-only`".to_string())
         },
     });
 
@@ -457,22 +463,23 @@ fn build_shell_integration_group() -> DoctorGroup {
             .join(".config")
             .join("fish")
             .join("conf.d")
-            .join("kaku.fish");
+            .join("hiterm.fish");
         let source_check = check_fish_conf_d_source_line(&conf_d);
         let mut details = vec![
             format!("Checked {}", conf_d.display()),
-            "Fish loads Kaku integration via this conf.d file on startup".to_string(),
+            "Fish loads Hiterm integration via this conf.d file on startup".to_string(),
         ];
         if !source_check.has_valid_source
             && !source_check.missing_file
             && source_check.read_error.is_none()
         {
             details.push(
-                "Expected an active line that sources ~/.config/kaku/fish/kaku.fish".to_string(),
+                "Expected an active line that sources ~/.config/hiterm/fish/hiterm.fish"
+                    .to_string(),
             );
         }
         checks.push(DoctorCheck {
-            title: "fish conf.d Sources Kaku Init",
+            title: "fish conf.d Sources Hiterm Init",
             status: if source_check.read_error.is_some() {
                 DoctorStatus::Fail
             } else if source_check.has_valid_source {
@@ -485,25 +492,25 @@ fn build_shell_integration_group() -> DoctorGroup {
             } else if source_check.missing_file {
                 format!("Missing {}", conf_d.display())
             } else if source_check.has_valid_source {
-                format!("Found valid Kaku source entry in {}", conf_d.display())
+                format!("Found valid Hiterm source entry in {}", conf_d.display())
             } else {
-                format!("No valid Kaku source entry in {}", conf_d.display())
+                format!("No valid Hiterm source entry in {}", conf_d.display())
             },
             details,
             fix: if source_check.has_valid_source {
                 None
             } else {
-                Some("Run `kaku init --update-only`".to_string())
+                Some("Run `hiterm init --update-only`".to_string())
             },
         });
     } else {
         let zshrc = zshrc_path();
         let source_check = check_zshrc_source_line(&zshrc);
         checks.push(DoctorCheck {
-            title: "zshrc Sources Kaku Init",
+            title: "zshrc Sources Hiterm Init",
             status: if source_check.read_error.is_some() {
                 DoctorStatus::Fail
-            } else if source_check.has_active_lines() && !source_check.has_legacy_guarded_lines() {
+            } else if source_check.has_current_active_lines() && !source_check.has_legacy_guarded_lines() {
                 DoctorStatus::Ok
             } else {
                 DoctorStatus::Warn
@@ -514,30 +521,30 @@ fn build_shell_integration_group() -> DoctorGroup {
                 format!("No zshrc file found at {}", zshrc.display())
             } else if source_check.has_legacy_guarded_lines() {
                 format!(
-                    "Found {} active Kaku source line(s), including {} legacy guarded line(s) in {}",
+                    "Found {} active Hiterm source line(s), including {} legacy guarded line(s) in {}",
                     source_check.guarded_active_lines + source_check.unguarded_active_lines,
                     source_check.guarded_active_lines,
                     zshrc.display()
                 )
             } else if source_check.has_active_lines() {
                 format!(
-                    "Found {} active Kaku source line(s) in {}",
+                    "Found {} active Hiterm source line(s) in {}",
                     source_check.guarded_active_lines + source_check.unguarded_active_lines,
                     zshrc.display()
                 )
             } else {
-                format!("No active Kaku source line in {}", zshrc.display())
+                format!("No active Hiterm source line in {}", zshrc.display())
             },
             details: source_check.details(&zshrc),
             fix: if source_check.read_error.is_some() {
                 Some(format!(
-                    "Fix permissions or path access for {} then run `kaku doctor` again",
+                    "Fix permissions or path access for {} then run `hiterm doctor` again",
                     zshrc.display()
                 ))
-            } else if source_check.has_active_lines() && !source_check.has_legacy_guarded_lines() {
+            } else if source_check.has_current_active_lines() && !source_check.has_legacy_guarded_lines() {
                 None
             } else {
-                Some("Run `kaku init --update-only`".to_string())
+                Some("Run `hiterm init --update-only`".to_string())
             },
         });
     }
@@ -552,13 +559,13 @@ fn build_shell_integration_group() -> DoctorGroup {
 fn build_runtime_group() -> DoctorGroup {
     let mut checks = Vec::new();
 
-    let candidates = kaku_bin_candidates();
+    let candidates = hiterm_bin_candidates();
     let existing = candidates
         .iter()
         .find(|p| config::is_executable_file(p))
         .cloned();
     checks.push(DoctorCheck {
-        title: "Kaku App Binary",
+        title: "Hiterm App Binary",
         status: if existing.is_some() {
             DoctorStatus::Ok
         } else {
@@ -566,7 +573,7 @@ fn build_runtime_group() -> DoctorGroup {
         },
         summary: match &existing {
             Some(path) => format!("Found executable {}", path.display()),
-            None => "Kaku CLI binary not found in known locations".to_string(),
+            None => "Hiterm CLI binary not found in known locations".to_string(),
         },
         details: candidates
             .iter()
@@ -610,7 +617,7 @@ fn build_runtime_group() -> DoctorGroup {
 
 #[cfg(target_os = "macos")]
 fn build_local_network_check() -> DoctorCheck {
-    let app_bundle = kaku_bin_candidates()
+    let app_bundle = hiterm_bin_candidates()
         .into_iter()
         .find(|path| config::is_executable_file(path))
         .and_then(|path| {
@@ -621,10 +628,10 @@ fn build_local_network_check() -> DoctorCheck {
         });
 
     let mut details = vec![
-        "If LAN access works in Terminal or iTerm2 but fails in Kaku, compare the two launch contexts before changing shell or PATH setup.".to_string(),
+        "If LAN access works in Terminal or iTerm2 but fails in Hiterm, compare the two launch contexts before changing shell or PATH setup.".to_string(),
         "Run these in both apps: `route -n get <ip>`, `netstat -rn | grep <subnet>`, `ifconfig`, `scutil --nwi`, `ping -v <ip>`, `nc -vz <ip> 22`.".to_string(),
-        "Check macOS System Settings > Privacy & Security > Local Network and confirm Kaku is allowed.".to_string(),
-        "Compare launching Kaku from Finder/Dock versus Terminal, for example `open -na /Applications/Hiterm.app`.".to_string(),
+        "Check macOS System Settings > Privacy & Security > Local Network and confirm Hiterm is allowed.".to_string(),
+        "Compare launching Hiterm from Finder/Dock versus Terminal, for example `open -na /Applications/Hiterm.app`.".to_string(),
     ];
 
     if let Some(bundle) = app_bundle {
@@ -641,7 +648,7 @@ fn build_local_network_check() -> DoctorCheck {
     DoctorCheck {
         title: "Local Network Troubleshooting",
         status: DoctorStatus::Info,
-        summary: "Use this when local-network access differs between Kaku and other terminals"
+        summary: "Use this when local-network access differs between Hiterm and other terminals"
             .to_string(),
         details,
         fix: None,
@@ -706,7 +713,7 @@ fn path_has_executable(name: &str) -> bool {
 }
 
 fn zsh_autosuggest_provider_marker(provider: &str) -> String {
-    format!(r#"typeset -g _kaku_autosuggest_cli_provider="{provider}""#)
+    format!(r#"typeset -g _hiterm_autosuggest_cli_provider="{provider}""#)
 }
 
 fn zsh_init_has_autosuggest_provider_marker(content: &str, provider: &str) -> bool {
@@ -715,7 +722,10 @@ fn zsh_init_has_autosuggest_provider_marker(content: &str, provider: &str) -> bo
 
 fn zsh_init_loads_bundled_autosuggestions(content: &str) -> bool {
     content
-        .contains(r#"source "$KAKU_ZSH_DIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh""#)
+        .contains(r#"source "$HITERM_ZSH_DIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh""#)
+        || content.contains(
+            r#"source "$KAKU_ZSH_DIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh""#,
+        )
 }
 
 fn zsh_init_defers_autosuggestions_to_provider(content: &str, provider: &str) -> bool {
@@ -725,7 +735,7 @@ fn zsh_init_defers_autosuggestions_to_provider(content: &str, provider: &str) ->
 
 fn build_zsh_external_autosuggest_check(init_file: &Path, provider: &str) -> DoctorCheck {
     let fix = format!(
-        "Run `kaku init --update-only` to regenerate {} with {} autosuggest compatibility, then restart zsh with `exec zsh -l`",
+        "Run `hiterm init --update-only` to regenerate {} with {} autosuggest compatibility, then restart zsh with `exec zsh -l`",
         init_file.display(),
         provider
     );
@@ -735,7 +745,7 @@ fn build_zsh_external_autosuggest_check(init_file: &Path, provider: &str) -> Doc
             "Checked {} for the provider marker and bundled zsh-autosuggestions source line",
             init_file.display()
         ),
-        "When compatibility is active, Kaku keeps Tab bound but leaves it in completion-only mode to avoid widget recursion.".to_string(),
+        "When compatibility is active, Hiterm keeps Tab bound but leaves it in completion-only mode to avoid widget recursion.".to_string(),
     ];
 
     let init_content = match fs::read_to_string(init_file) {
@@ -812,7 +822,7 @@ fn group_status(checks: &[DoctorCheck]) -> DoctorStatus {
 
 fn render_text_report(report: &DoctorReport) -> String {
     let mut out = String::new();
-    out.push_str("Kaku Doctor\n");
+    out.push_str("Hiterm Doctor\n");
     out.push_str(&format!(
         "Status: {} {}\n",
         report.overall_status.icon(),
@@ -855,6 +865,7 @@ fn render_text_report(report: &DoctorReport) -> String {
 struct ZshrcSourceCheck {
     guarded_active_lines: usize,
     unguarded_active_lines: usize,
+    legacy_path_lines: usize,
     malformed_escaped_path_lines: usize,
     read_error: Option<String>,
     missing_file: bool,
@@ -864,6 +875,10 @@ struct ZshrcSourceCheck {
 impl ZshrcSourceCheck {
     fn has_active_lines(&self) -> bool {
         self.guarded_active_lines + self.unguarded_active_lines > 0
+    }
+
+    fn has_current_active_lines(&self) -> bool {
+        self.has_active_lines() && self.legacy_path_lines == 0
     }
 
     fn has_legacy_guarded_lines(&self) -> bool {
@@ -882,7 +897,7 @@ impl ZshrcSourceCheck {
         }
         if !self.has_active_lines() {
             details.push(
-                "Expected an active line that sources ~/.config/kaku/zsh/kaku.zsh".to_string(),
+                "Expected an active line that sources ~/.config/hiterm/zsh/hiterm.zsh".to_string(),
             );
         } else {
             details.push(format!(
@@ -892,18 +907,24 @@ impl ZshrcSourceCheck {
         }
         if self.has_legacy_guarded_lines() {
             details.push(
-                "Found older Kaku-specific guarded source line variants; `kaku init --update-only` will normalize them."
+                "Found older guarded source line variants; `hiterm init --update-only` will normalize them."
                     .to_string(),
             );
         }
+        if self.legacy_path_lines > 0 {
+            details.push(format!(
+                "Found {} pre-rename Kaku source path line(s); `hiterm init --update-only` will rewrite them to Hiterm paths.",
+                self.legacy_path_lines
+            ));
+        }
         if self.malformed_escaped_path_lines > 0 {
             details.push(format!(
-                "Found {} malformed Kaku source line(s) with escaped absolute paths (for example, \"\\/Users/...\"), which prevents loading kaku.zsh",
+                "Found {} malformed Hiterm source line(s) with escaped absolute paths (for example, \"\\/Users/...\"), which prevents loading hiterm.zsh",
                 self.malformed_escaped_path_lines
             ));
         }
         if self.commented_example {
-            details.push("Found a commented Kaku source line".to_string());
+            details.push("Found a commented Hiterm source line".to_string());
         }
         details
     }
@@ -932,7 +953,7 @@ fn check_zshrc_source_line(zshrc: &Path) -> ZshrcSourceCheck {
     // the remaining risk until legacy guarded variants are removed.
     for line in content.lines() {
         let trimmed = line.trim_start();
-        if trimmed.starts_with('#') && trimmed.contains("kaku/zsh/kaku.zsh") {
+        if trimmed.starts_with('#') && contains_zsh_source_path(trimmed) {
             result.commented_example = true;
             continue;
         }
@@ -941,6 +962,9 @@ fn check_zshrc_source_line(zshrc: &Path) -> ZshrcSourceCheck {
             continue;
         }
         if is_active_kaku_source_line(trimmed) {
+            if contains_legacy_zsh_source_path(trimmed) {
+                result.legacy_path_lines += 1;
+            }
             if is_legacy_guarded_kaku_source_line(trimmed) {
                 result.guarded_active_lines += 1;
             } else {
@@ -960,8 +984,8 @@ struct FishConfSourceCheck {
 
 fn check_fish_conf_d_source_line(path: &Path) -> FishConfSourceCheck {
     let mut result = FishConfSourceCheck::default();
-    let mut has_kaku_init_var = false;
-    let mut sources_kaku_init_var = false;
+    let mut has_managed_init_var = false;
+    let mut sources_managed_init_var = false;
     let content = match fs::read_to_string(path) {
         Ok(c) => c,
         Err(err) => {
@@ -980,21 +1004,29 @@ fn check_fish_conf_d_source_line(path: &Path) -> FishConfSourceCheck {
             continue;
         }
 
-        if trimmed.contains("kaku/fish/kaku.fish") && contains_source_command(trimmed) {
+        if (trimmed.contains(HITERM_FISH_SOURCE_PATTERN)
+            || trimmed.contains(KAKU_FISH_SOURCE_PATTERN))
+            && contains_source_command(trimmed)
+        {
             result.has_valid_source = true;
             break;
         }
 
-        if trimmed.contains("_kaku_fish_init") && trimmed.contains("kaku/fish/kaku.fish") {
-            has_kaku_init_var = true;
+        if (trimmed.contains("_hiterm_fish_init") || trimmed.contains("_kaku_fish_init"))
+            && (trimmed.contains(HITERM_FISH_SOURCE_PATTERN)
+                || trimmed.contains(KAKU_FISH_SOURCE_PATTERN))
+        {
+            has_managed_init_var = true;
         }
 
-        if contains_source_command(trimmed) && trimmed.contains("_kaku_fish_init") {
-            sources_kaku_init_var = true;
+        if contains_source_command(trimmed)
+            && (trimmed.contains("_hiterm_fish_init") || trimmed.contains("_kaku_fish_init"))
+        {
+            sources_managed_init_var = true;
         }
     }
 
-    if !result.has_valid_source && has_kaku_init_var && sources_kaku_init_var {
+    if !result.has_valid_source && has_managed_init_var && sources_managed_init_var {
         result.has_valid_source = true;
     }
 
@@ -1006,8 +1038,16 @@ fn contains_source_command(line: &str) -> bool {
         .any(|token| token == "source")
 }
 
+fn contains_zsh_source_path(line: &str) -> bool {
+    line.contains(HITERM_ZSH_SOURCE_PATTERN) || line.contains(KAKU_ZSH_SOURCE_PATTERN)
+}
+
+fn contains_legacy_zsh_source_path(line: &str) -> bool {
+    line.contains(KAKU_ZSH_SOURCE_PATTERN)
+}
+
 fn is_active_kaku_source_line(trimmed_line: &str) -> bool {
-    if trimmed_line.starts_with('#') || !trimmed_line.contains("kaku/zsh/kaku.zsh") {
+    if trimmed_line.starts_with('#') || !contains_zsh_source_path(trimmed_line) {
         return false;
     }
     contains_source_command(trimmed_line)
@@ -1024,21 +1064,27 @@ fn is_legacy_guarded_kaku_source_line(trimmed_line: &str) -> bool {
         .flat_map(|c| c.to_lowercase())
         .collect::<String>();
 
-    let has_kaku_comparison = compact.contains("==\"kaku\"")
+    let has_terminal_comparison = compact.contains("==\"kaku\"")
         || compact.contains("=='kaku'")
         || compact.contains("==kaku")
         || compact.contains("=\"kaku\"")
         || compact.contains("='kaku'")
-        || compact.contains("=kaku");
+        || compact.contains("=kaku")
+        || compact.contains("==\"hiterm\"")
+        || compact.contains("=='hiterm'")
+        || compact.contains("==hiterm")
+        || compact.contains("=\"hiterm\"")
+        || compact.contains("='hiterm'")
+        || compact.contains("=hiterm");
     let has_term_guard =
-        (compact.contains("${term") || compact.contains("$term")) && has_kaku_comparison;
-    let has_term_program_guard = compact.contains("term_program") && has_kaku_comparison;
+        (compact.contains("${term") || compact.contains("$term")) && has_terminal_comparison;
+    let has_term_program_guard = compact.contains("term_program") && has_terminal_comparison;
 
     compact.contains("wezterm_pane") || has_term_program_guard || has_term_guard
 }
 
 fn is_malformed_escaped_kaku_source_line(trimmed_line: &str) -> bool {
-    if trimmed_line.starts_with('#') || !trimmed_line.contains("kaku/zsh/kaku.zsh") {
+    if trimmed_line.starts_with('#') || !contains_zsh_source_path(trimmed_line) {
         return false;
     }
     if !contains_source_command(trimmed_line) {
@@ -1070,8 +1116,8 @@ fn probe_wrapper(wrapper: &Path) -> DoctorCheck {
                 "Skipped probe because wrapper is missing: {}",
                 wrapper.display()
             ),
-            vec!["Generate the wrapper first with `kaku init`".to_string()],
-            Some("Run `kaku init --update-only`".to_string()),
+            vec!["Generate the wrapper first with `hiterm init`".to_string()],
+            Some("Run `hiterm init --update-only`".to_string()),
         );
     }
 
@@ -1090,7 +1136,9 @@ fn probe_wrapper(wrapper: &Path) -> DoctorCheck {
                 DoctorStatus::Fail,
                 format!("Failed to execute wrapper: {}", err),
                 vec![format!("Command: {} --version", wrapper.display())],
-                Some("Restore wrapper permissions or rerun `kaku init --update-only`".to_string()),
+                Some(
+                    "Restore wrapper permissions or rerun `hiterm init --update-only`".to_string(),
+                ),
             );
         }
     };
@@ -1113,7 +1161,7 @@ fn probe_wrapper(wrapper: &Path) -> DoctorCheck {
                         "The wrapper script did not exit within the time limit.".to_string(),
                     ],
                     Some(
-                        "Check that the kaku binary is accessible and not blocked by network or permission issues".to_string(),
+                        "Check that the hiterm binary is accessible and not blocked by network or permission issues".to_string(),
                     ),
                 );
             }
@@ -1126,7 +1174,7 @@ fn probe_wrapper(wrapper: &Path) -> DoctorCheck {
             let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
             wrapper_check(
                 DoctorStatus::Ok,
-                "Wrapper can launch Kaku binary".to_string(),
+                "Wrapper can launch Hiterm binary".to_string(),
                 if stdout.is_empty() {
                     vec![format!(
                         "Command succeeded: {} --version",
@@ -1151,14 +1199,14 @@ fn probe_wrapper(wrapper: &Path) -> DoctorCheck {
                 DoctorStatus::Fail,
                 format!("Wrapper exited with status {}", output.status),
                 details,
-                Some("Check Hiterm.app location then run `kaku init --update-only`".to_string()),
+                Some("Check Hiterm.app location then run `hiterm init --update-only`".to_string()),
             )
         }
         Err(err) => wrapper_check(
             DoctorStatus::Fail,
             format!("Failed to execute wrapper: {}", err),
             vec![format!("Command: {} --version", wrapper.display())],
-            Some("Restore wrapper permissions or rerun `kaku init --update-only`".to_string()),
+            Some("Restore wrapper permissions or rerun `hiterm init --update-only`".to_string()),
         ),
     }
 }
@@ -1170,17 +1218,17 @@ fn probe_login_shell_integration() -> DoctorCheck {
         ShellKind::Fish => (
             "Login Fish Integration Probe",
             "Doctor does not execute `fish -l` because interactive login startup files can run user-defined commands, plugin managers, and network actions.",
-            "Start a new fish session and verify `echo $PATH` includes ~/.config/kaku/fish/bin if you need end-to-end runtime validation.",
+            "Start a new fish session and verify `echo $PATH` includes ~/.config/hiterm/fish/bin if you need end-to-end runtime validation.",
         ),
         ShellKind::Zsh => (
             "Login Zsh Integration Probe",
             "Doctor does not execute `/bin/zsh -lic` because interactive login startup files can run user-defined commands, plugin managers, and network actions.",
-            "Use `exec zsh -l` manually and verify `echo $KAKU_ZSH_DIR` if you need end-to-end runtime validation.",
+            "Use `exec zsh -l` manually and verify `echo $HITERM_ZSH_DIR` if you need end-to-end runtime validation.",
         ),
         _ => (
             "Login Shell Integration Probe",
-            "Doctor skips login shell probe for shells not managed by Kaku.",
-            "Kaku shell integration supports zsh and fish. Other shells are not managed.",
+            "Doctor skips login shell probe for shells not managed by Hiterm.",
+            "Hiterm shell integration supports zsh and fish. Other shells are not managed.",
         ),
     };
 
@@ -1208,7 +1256,7 @@ fn managed_bin_dir() -> PathBuf {
     };
     home_dir()
         .join(".config")
-        .join("kaku")
+        .join("hiterm")
         .join(shell_dir)
         .join("bin")
 }
@@ -1221,15 +1269,15 @@ fn managed_init_file() -> PathBuf {
     if detect_shell_kind() == ShellKind::Fish {
         home_dir()
             .join(".config")
-            .join("kaku")
+            .join("hiterm")
             .join("fish")
-            .join("kaku.fish")
+            .join("hiterm.fish")
     } else {
         home_dir()
             .join(".config")
-            .join("kaku")
+            .join("hiterm")
             .join("zsh")
-            .join("kaku.zsh")
+            .join("hiterm.zsh")
     }
 }
 
@@ -1241,7 +1289,7 @@ fn zshrc_path() -> PathBuf {
     }
 }
 
-fn kaku_bin_candidates() -> Vec<PathBuf> {
+fn hiterm_bin_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
 
     for var in ["HITERM_BIN", "KAKU_BIN"] {
@@ -1271,6 +1319,15 @@ fn kaku_bin_candidates() -> Vec<PathBuf> {
             .join("Contents")
             .join("MacOS")
             .join("hiterm"),
+    );
+    candidates.push(PathBuf::from("/Applications/Kaku.app/Contents/MacOS/kaku"));
+    candidates.push(
+        home_dir()
+            .join("Applications")
+            .join("Kaku.app")
+            .join("Contents")
+            .join("MacOS")
+            .join("kaku"),
     );
 
     candidates
@@ -1464,9 +1521,9 @@ end
     #[test]
     fn autosuggest_compatibility_requires_provider_marker() {
         let content = r#"
-typeset -g _kaku_autosuggest_cli_provider=""
-typeset -g _kaku_external_autosuggest_provider=0
-"#;
+	typeset -g _hiterm_autosuggest_cli_provider=""
+	typeset -g _hiterm_external_autosuggest_provider=0
+	"#;
 
         assert!(!zsh_init_defers_autosuggestions_to_provider(
             content, "kiro-cli"
@@ -1476,9 +1533,9 @@ typeset -g _kaku_external_autosuggest_provider=0
     #[test]
     fn autosuggest_compatibility_rejects_bundled_source_line() {
         let content = r#"
-typeset -g _kaku_autosuggest_cli_provider="kiro-cli"
-source "$KAKU_ZSH_DIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
-"#;
+	typeset -g _hiterm_autosuggest_cli_provider="kiro-cli"
+	source "$HITERM_ZSH_DIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
+	"#;
 
         assert!(zsh_init_has_autosuggest_provider_marker(
             content, "kiro-cli"
@@ -1492,9 +1549,9 @@ source "$KAKU_ZSH_DIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
     #[test]
     fn autosuggest_compatibility_accepts_provider_marker_without_bundled_source() {
         let content = r#"
-typeset -g _kaku_autosuggest_cli_provider="kiro-cli"
-typeset -g _kaku_external_autosuggest_provider=0
-"#;
+	typeset -g _hiterm_autosuggest_cli_provider="kiro-cli"
+	typeset -g _hiterm_external_autosuggest_provider=0
+	"#;
 
         assert!(zsh_init_defers_autosuggestions_to_provider(
             content, "kiro-cli"

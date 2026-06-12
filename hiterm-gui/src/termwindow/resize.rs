@@ -1044,7 +1044,7 @@ fn font_size_state_file() -> PathBuf {
     config::CONFIG_DIRS
         .first()
         .cloned()
-        .unwrap_or_else(|| config::HOME_DIR.join(".config").join("kaku"))
+        .unwrap_or_else(|| config::HOME_DIR.join(".config").join("hiterm"))
         .join(".kaku_font_size")
 }
 
@@ -1247,7 +1247,7 @@ fn effective_vertical_padding_with_policy(
         .top
         .evaluate_as_pixels(context) as usize;
 
-    // Respect explicit user padding and only apply Kaku's visual heuristics
+    // Respect explicit user padding and only apply Hiterm's visual heuristics
     // for the managed/default padding path.
     let mut top = if user_has_custom_padding {
         base_top

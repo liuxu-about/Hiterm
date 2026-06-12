@@ -1,4 +1,4 @@
-//! Small shared utilities for Kaku's AI-related binaries.
+//! Small shared utilities for Hiterm's AI-related binaries.
 
 /// Returns false for model IDs that are clearly not conversational (embeddings,
 /// TTS, image generation, ASR, moderation). Everything else is assumed to be a

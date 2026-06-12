@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for kaku release scripts.
+# Shared helpers for Hiterm release scripts.
 # Source from scripts/release.sh and scripts/prep_release.sh after REPO_ROOT is set.
 
 LIB_RED='\033[0;31m'
@@ -23,7 +23,7 @@ get_cargo_version() {
 }
 
 # Read package.version from hiterm-gui/Cargo.toml.
-get_kaku_gui_version() {
+get_hiterm_gui_version() {
     local root="${1:-${REPO_ROOT:-.}}"
     grep '^version =' "$root/hiterm-gui/Cargo.toml" | head -n1 | cut -d'"' -f2
 }

@@ -1,4 +1,4 @@
-// Shared library target for kaku-gui: exposes non-GUI modules to the `k` CLI binary.
+// Shared library target for hiterm-gui: exposes non-GUI modules used by tests.
 // GUI-only modules (overlay, termwindow, renderstate, etc.) are not included here.
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::collapsible_else_if)]

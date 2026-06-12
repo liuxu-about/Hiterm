@@ -49,8 +49,8 @@ ALLOW_FILES=(
   'hiterm-gui/src/stats\.rs'
   'hiterm-gui/src/update\.rs'
   'hiterm-gui/src/shapecache\.rs'
-  'config/src/config\.rs'          # KAKU_STARTUP_TRACE env-gated trace
-  'config/src/lua\.rs'             # KAKU_STARTUP_TRACE env-gated trace
+  'config/src/config\.rs'          # HITERM_STARTUP_TRACE env-gated trace
+  'config/src/lua\.rs'             # HITERM_STARTUP_TRACE env-gated trace
   'config/derive/'                 # proc-macro derive debug
   'term/src/test/'                 # test infrastructure helpers
 )

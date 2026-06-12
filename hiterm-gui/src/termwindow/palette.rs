@@ -26,7 +26,7 @@ use wezterm_term::{KeyCode, KeyModifiers, MouseEvent};
 use window::color::LinearRgba;
 use window::WindowOps;
 
-// Kaku palette visual defaults. Used only when the user keeps the stock
+// Hiterm palette visual defaults. Used only when the user keeps the stock
 // command_palette_* colors, so custom config still takes precedence.
 const KAKU_BG: LinearRgba = LinearRgba::with_components(0.082, 0.078, 0.106, 0.985);
 const KAKU_FG: LinearRgba = LinearRgba::with_components(0.929, 0.925, 0.933, 1.0);

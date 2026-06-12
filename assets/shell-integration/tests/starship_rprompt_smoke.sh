@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/common.sh"
 
 echo "starship_rprompt: starting (zsh=$(command -v zsh 2>/dev/null || echo MISSING), bash=$BASH_VERSION)" >&2
 
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/kaku-starship-rprompt.XXXXXX")"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/hiterm-starship-rprompt.XXXXXX")"
 cleanup() {
   rm -rf "$tmp_dir"
 }
@@ -58,10 +58,10 @@ setup_out="$(
   PATH="$tmp_dir/bin:$PATH" \
   HOME="$HOME" \
   ZDOTDIR="$ZDOTDIR" \
-  KAKU_INIT_INTERNAL=1 \
-  KAKU_SKIP_TOOL_BOOTSTRAP=1 \
-  KAKU_SKIP_TERMINFO_BOOTSTRAP=1 \
-  KAKU_VENDOR_DIR="$vendor_dir" \
+  HITERM_INIT_INTERNAL=1 \
+  HITERM_SKIP_TOOL_BOOTSTRAP=1 \
+  HITERM_SKIP_TERMINFO_BOOTSTRAP=1 \
+  HITERM_VENDOR_DIR="$vendor_dir" \
   bash "$REPO_ROOT/assets/shell-integration/setup_zsh.sh" --update-only 2>&1
 )" || setup_status=$?
 if [[ "$setup_status" -ne 0 ]]; then
@@ -70,12 +70,12 @@ if [[ "$setup_status" -ne 0 ]]; then
   exit 1
 fi
 
-kaku_zsh="$HOME/.config/kaku/zsh/kaku.zsh"
-if [[ ! -f "$kaku_zsh" ]]; then
-  echo "starship_rprompt: kaku.zsh not created at $kaku_zsh" >&2
+hiterm_zsh="$HOME/.config/hiterm/zsh/hiterm.zsh"
+if [[ ! -f "$hiterm_zsh" ]]; then
+  echo "starship_rprompt: hiterm.zsh not created at $hiterm_zsh" >&2
   exit 1
 fi
-echo "starship_rprompt: kaku.zsh created ok, running zsh" >&2
+echo "starship_rprompt: hiterm.zsh created ok, running zsh" >&2
 
 output=""
 if ! output="$(
@@ -84,9 +84,9 @@ if ! output="$(
   HOME="$HOME" \
   ZDOTDIR="$ZDOTDIR" \
   zsh -f -c '
-source "$HOME/.config/kaku/zsh/kaku.zsh"
+source "$HOME/.config/hiterm/zsh/hiterm.zsh"
 RPROMPT='\''$(starship prompt --right)'\''
-_kaku_fix_starship_rprompt
+_hiterm_fix_starship_rprompt
 print -r -- "__KAKU_RPROMPT__:$RPROMPT"
 ' 2>&1
 )"; then
@@ -124,10 +124,10 @@ if ! seeded_output="$(
   HOME="$HOME" \
   ZDOTDIR="$ZDOTDIR" \
   zsh -f -c '
-source "$HOME/.config/kaku/zsh/kaku.zsh"
+source "$HOME/.config/hiterm/zsh/hiterm.zsh"
 RPROMPT='\''$(echo fake-right-prompt)'\''
-_kaku_starship_rprompt_cmd="$RPROMPT"
-_kaku_fix_starship_rprompt
+_hiterm_starship_rprompt_cmd="$RPROMPT"
+_hiterm_fix_starship_rprompt
 print -r -- "__KAKU_SEEDED__:$RPROMPT"
 ' 2>&1
 )"; then

@@ -1,6 +1,6 @@
 //! Shared AI chat engine: conversation state, agent loop, and streaming events.
 //!
-//! Used by both the Cmd+L overlay (kaku-gui binary) and the `k` standalone CLI.
+//! Used by the Cmd+L overlay and by non-GUI tests.
 //! All types and functions here are free of GUI/termwiz dependencies.
 
 pub(crate) mod approval;
@@ -1045,7 +1045,7 @@ mod tests {
         // prompt. Catches a missing include_str! path or an over-eager
         // metadata stripper.
         let prompt = build_system_prompt();
-        assert!(prompt.contains("Kaku AI"), "missing voice fragment");
+        assert!(prompt.contains("Hiterm AI"), "missing voice fragment");
         assert!(
             prompt.contains("SHELL SAFETY") || prompt.contains("SAFETY"),
             "missing safety fragment"

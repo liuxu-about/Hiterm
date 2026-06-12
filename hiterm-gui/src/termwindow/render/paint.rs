@@ -661,7 +661,7 @@ impl crate::TermWindow {
         &mut self,
         _layers: &mut crate::quad::TripleLayerQuadAllocator,
     ) -> anyhow::Result<()> {
-        // Kaku renders unread bell state inline in the bundled format-tab-title
+        // Hiterm renders unread bell state inline in the bundled format-tab-title
         // callback, so the core tab-dot painter would be redundant.
         Ok(())
     }

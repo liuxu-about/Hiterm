@@ -104,7 +104,7 @@ fn title_area_double_click_zoom_action(window_state: WindowState) -> TitleAreaZo
 
     if cfg!(target_os = "macos") {
         // NSWindow::zoom: toggles using AppKit's actual zoom state. That is more
-        // reliable than Kaku's cached WindowState after cross-screen/multi-window moves.
+        // reliable than Hiterm's cached WindowState after cross-screen/multi-window moves.
         return TitleAreaZoomAction::Maximize;
     }
 

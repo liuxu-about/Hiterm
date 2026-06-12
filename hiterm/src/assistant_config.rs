@@ -1,9 +1,9 @@
-//! Kaku Assistant configuration management.
+//! Hiterm Assistant configuration management.
 //!
-//! This module handles the configuration file for Kaku's built-in AI assistant,
+//! This module handles the configuration file for Hiterm's built-in AI assistant,
 //! including default values, file paths, and ensuring required configuration keys exist.
 //!
-//! The configuration is stored in `assistant.toml` in the user's Kaku config directory.
+//! The configuration is stored in `assistant.toml` in the user's Hiterm config directory.
 
 use anyhow::{anyhow, Context};
 use std::path::{Path, PathBuf};
@@ -21,15 +21,15 @@ pub const DEFAULT_CHAT_MODEL: &str = "gpt-5.5";
 pub const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
 
 // Provider detection (`detect_provider_with_auth`) and the preset table live
-// in `kaku-gui/src/ai_client.rs` next to the only consumer. There used to be
-// a `#[allow(dead_code)]` second copy here that was never wired into the kaku
+// in `hiterm-gui/src/ai_client.rs` next to the only consumer. There used to be
+// a `#[allow(dead_code)]` second copy here that was never wired into the hiterm
 // binary; it just bit-rotted out of sync with the GUI one. Adding a new
 // provider preset is now a one-file edit in `ai_client.rs`.
 
 /// Returns the path to the assistant.toml configuration file.
 ///
-/// The file is located in the same directory as the user's Kaku config,
-/// typically `~/.config/kaku/assistant.toml` on macOS/Linux.
+/// The file is located in the same directory as the user's Hiterm config,
+/// typically `~/.config/hiterm/assistant.toml` on macOS/Linux.
 ///
 /// # Errors
 /// Returns an error if the user config path cannot be determined or has no parent directory.
@@ -93,14 +93,14 @@ pub fn ensure_assistant_toml_exists() -> anyhow::Result<PathBuf> {
 /// requiring the user to explicitly configure their API key.
 pub fn default_assistant_toml_template() -> String {
     format!(
-        "# Kaku Assistant configuration\n\
+        "# Hiterm Assistant configuration\n\
 #\n\
 # enabled: true enables command analysis suggestions; false disables requests.\n\
 # api_key: provider API key, example: \"sk-xxxx\".\n\
 # model: Simple Model for quick command generation and lightweight chat.\n\
-# chat_model: Deep Model for Cmd+L, k, and tool-using chat. Omit to reuse `model`.\n\
+# chat_model: Deep Model for Cmd+L and tool-using chat. Omit to reuse `model`.\n\
 # chat_model_choices: optional curated list for the chat overlay. When set,\n\
-#                     Kaku skips auto-fetching from /models and cycles only\n\
+#                     Hiterm skips auto-fetching from /models and cycles only\n\
 #                     through these entries.\n\
 #                     example: [\"gpt-5.4\", \"gpt-5.4-mini\", \"claude-sonnet-4-6\"]\n\
 # auto_fix_ignored_exit_codes: optional exit codes that should not trigger\n\
@@ -121,7 +121,7 @@ base_url = \"{DEFAULT_BASE_URL}\"\n\
 # web_search_provider: optional web search backend for the chat agent.\n\
 #   \"none\" (default) disables the web_search and read_url tools.\n\
 #   \"brave\" | \"pipellm\" | \"tavily\" enables both. Requires web_search_api_key.\n\
-#   Configure via `kaku ai` instead of editing this file directly.\n\
+#   Configure via `hiterm ai` instead of editing this file directly.\n\
 #   Capabilities used per provider:\n\
 #     brave:   web/news search, extra_snippets, freshness filter\n\
 #     pipellm: simple-search, news-search, deep RAG search, page reader\n\
@@ -237,7 +237,7 @@ fn top_level_toml_has_key(content: &str, key: &str) -> bool {
 mod tests {
     use super::*;
 
-    // detect_provider* tests live in `kaku-gui/src/ai_client.rs` next to the
+    // detect_provider* tests live in `hiterm-gui/src/ai_client.rs` next to the
     // single canonical implementation. The previously duplicated tests here
     // were exercising dead code in this binary.
 

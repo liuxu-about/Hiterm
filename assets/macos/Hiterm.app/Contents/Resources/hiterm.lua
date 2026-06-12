@@ -1,4 +1,4 @@
--- Kaku Configuration
+-- Hiterm Configuration
 
 local wezterm = require 'wezterm'
 
@@ -58,15 +58,39 @@ local function url_decode(str)
 end
 
 local function default_kaku_user_config_path()
+  local base = nil
   local xdg = os.getenv('XDG_CONFIG_HOME')
   if xdg and xdg ~= '' then
-    return xdg .. '/kaku/kaku.lua'
+    base = xdg
+  else
+    local home = os.getenv('HOME')
+    if home then
+      base = home .. '/.config'
+    end
   end
-  local home = os.getenv('HOME')
-  if home then
-    return home .. '/.config/kaku/kaku.lua'
+  if not base then
+    return nil
   end
-  return nil
+  -- Prefer the post-rename layout; fall back to a pre-migration kaku.lua.
+  local preferred = base .. '/hiterm/hiterm.lua'
+  local f = io.open(preferred, 'r')
+  if f then
+    f:close()
+    return preferred
+  end
+  local legacy = base .. '/hiterm/kaku.lua'
+  f = io.open(legacy, 'r')
+  if f then
+    f:close()
+    return legacy
+  end
+  local old_dir = base .. '/kaku/kaku.lua'
+  f = io.open(old_dir, 'r')
+  if f then
+    f:close()
+    return old_dir
+  end
+  return preferred
 end
 
 local function is_bundled_kaku_config_path(path)
@@ -75,7 +99,9 @@ local function is_bundled_kaku_config_path(path)
   end
 
   local normalized = path:gsub('\\', '/')
-  return normalized:match('/Hiterm%.app/Contents/Resources/kaku%.lua$') ~= nil
+  return normalized:match('/Hiterm%.app/Contents/Resources/hiterm%.lua$') ~= nil
+    or normalized:match('/assets/macos/Hiterm%.app/Contents/Resources/hiterm%.lua$') ~= nil
+    or normalized:match('/Hiterm%.app/Contents/Resources/kaku%.lua$') ~= nil
     or normalized:match('/assets/macos/Hiterm%.app/Contents/Resources/kaku%.lua$') ~= nil
 end
 
@@ -87,7 +113,7 @@ local function kaku_user_config_path()
     runtime_config = wezterm.config_file
   end
   if (not runtime_config or runtime_config == '') then
-    local env_config = os.getenv('KAKU_CONFIG_FILE')
+    local env_config = os.getenv('HITERM_CONFIG_FILE') or os.getenv('KAKU_CONFIG_FILE')
     if env_config and env_config ~= '' then
       runtime_config = env_config
     end
@@ -142,7 +168,7 @@ end
 
 -- Detect macOS appearance via `defaults read` as a reliable fallback when
 -- wezterm.gui is not yet available (early Lua init, TUI processes like
--- `kaku config` / `kaku ai`). Mirrors the Rust-side is_macos_dark_mode().
+-- `hiterm config` / `hiterm ai`). Mirrors the Rust-side is_macos_dark_mode().
 local function is_macos_dark_appearance()
   local handle = io.popen('defaults read -g AppleInterfaceStyle 2>/dev/null')
   if not handle then
@@ -158,10 +184,10 @@ local function resolve_appearance_color_scheme()
   if gui and type(gui.get_appearance) == 'function' then
     local ok, appearance = pcall(gui.get_appearance)
     if ok and type(appearance) == 'string' then
-      return appearance:find('Dark', 1, true) and 'Kaku Dark' or 'Kaku Light'
+      return appearance:find('Dark', 1, true) and 'Hiterm Dark' or 'Hiterm Light'
     end
   end
-  return is_macos_dark_appearance() and 'Kaku Dark' or 'Kaku Light'
+  return is_macos_dark_appearance() and 'Hiterm Dark' or 'Hiterm Light'
 end
 
 local function resolve_kaku_color_scheme(scheme)
@@ -174,7 +200,7 @@ local function resolve_kaku_color_scheme(scheme)
   return scheme
 end
 
--- Optional Claude Code theme sync with Kaku color scheme.
+-- Optional Claude Code theme sync with Hiterm color scheme.
 -- Disabled by default because it writes ~/.claude.json.
 -- Set KAKU_CLAUDE_SYNC=1 to opt in.
 local kaku_last_synced_cc_theme = nil
@@ -364,20 +390,20 @@ local function extract_path_from_cwd(cwd)
   return path
 end
 
-local active_tab_cwd_cache = {}
+active_tab_cwd_cache = {}
 -- os.time() returns integer wall-clock seconds; 1s granularity is fine for tab title throttle
-local active_tab_cwd_refresh_interval = 1
+active_tab_cwd_refresh_interval = 1
 local function now_secs()
   return os.time()
 end
-local runtime_cwd_startup_grace_secs = 3
-local runtime_cwd_warmup_until_secs = now_secs() + runtime_cwd_startup_grace_secs
+runtime_cwd_startup_grace_secs = 3
+runtime_cwd_warmup_until_secs = now_secs() + runtime_cwd_startup_grace_secs
 
-local home_dir = os.getenv("HOME")
-local kaku_state_dir = home_dir and (home_dir .. "/.config/kaku") or nil
-local lazygit_state_file = kaku_state_dir and (kaku_state_dir .. "/lazygit_state.json") or nil
-local last_cwd_file = kaku_state_dir and (kaku_state_dir .. "/last_cwd") or nil
-local last_saved_cwd = nil
+home_dir = os.getenv("HOME")
+kaku_state_dir = home_dir and (home_dir .. "/.config/hiterm") or nil
+lazygit_state_file = kaku_state_dir and (kaku_state_dir .. "/lazygit_state.json") or nil
+last_cwd_file = kaku_state_dir and (kaku_state_dir .. "/last_cwd") or nil
+last_saved_cwd = nil
 
 local function save_last_cwd(path)
   if not last_cwd_file or not path or path == '' then return end
@@ -399,20 +425,20 @@ local function read_last_cwd()
   if not path or path == '' then return nil end
   return path
 end
-local lazygit_state_cache = nil
-local lazygit_repo_probe_cache = {}
-local lazygit_repo_probe_interval_secs = 5
-local lazygit_command_probe = { value = nil, command = nil, checked_at = 0 }
-local lazygit_command_probe_interval_secs = 30
-local yazi_command_probe = { value = nil, command = nil, checked_at = 0 }
-local yazi_command_probe_interval_secs = 30
-local sshfs_command_probe = { value = nil, command = nil, checked_at = 0 }
-local sshfs_command_probe_interval_secs = 30
-local remote_files_mount_root = home_dir and (home_dir .. "/Library/Caches/dev.kaku/sshfs") or nil
-local lazygit_hint_startup_grace_secs = 3
-local lazygit_hint_warmup_until_secs = now_secs() + lazygit_hint_startup_grace_secs
-local lazygit_hint_schedule_cooldown_secs = 8
-local lazygit_hint_probe_state_by_pane = {}
+lazygit_state_cache = nil
+lazygit_repo_probe_cache = {}
+lazygit_repo_probe_interval_secs = 5
+lazygit_command_probe = { value = nil, command = nil, checked_at = 0 }
+lazygit_command_probe_interval_secs = 30
+yazi_command_probe = { value = nil, command = nil, checked_at = 0 }
+yazi_command_probe_interval_secs = 30
+sshfs_command_probe = { value = nil, command = nil, checked_at = 0 }
+sshfs_command_probe_interval_secs = 30
+remote_files_mount_root = home_dir and (home_dir .. "/Library/Caches/dev.hiterm/sshfs") or nil
+lazygit_hint_startup_grace_secs = 3
+lazygit_hint_warmup_until_secs = now_secs() + lazygit_hint_startup_grace_secs
+lazygit_hint_schedule_cooldown_secs = 8
+lazygit_hint_probe_state_by_pane = {}
 
 local function trim_trailing_whitespace(value)
   if type(value) ~= "string" then
@@ -840,7 +866,7 @@ local function ai_debug_log(message)
     return
   end
   local now = os.date("!%Y-%m-%dT%H:%M:%SZ")
-  local file = io.open("/tmp/kaku_ai_debug.log", "a")
+  local file = io.open("/tmp/hiterm_ai_debug.log", "a")
   if not file then
     return
   end
@@ -891,7 +917,7 @@ local function detect_git_branch(path)
 end
 
 -- Loads a static prompt file shipped under assets/prompts/.
--- In a built bundle the prompts live next to kaku.lua under Resources/prompts/.
+-- In a built bundle the prompts live next to hiterm.lua under Resources/prompts/.
 -- In dev mode (cargo run), fall back to the repo's assets/prompts/ path.
 -- Strips the leading <!-- ... --> metadata block. Caches the result.
 --
@@ -983,7 +1009,7 @@ local function ai_fix_curl_header_args()
   local _v = type(wezterm) == "table" and wezterm.version or ""
   local _kaku_ver = trim_surrounding_whitespace(_v)
   args[#args + 1] = "-H"
-  args[#args + 1] = "User-Agent: Kaku/" .. (_kaku_ver ~= "" and _kaku_ver or "unknown")
+  args[#args + 1] = "User-Agent: Hiterm/" .. (_kaku_ver ~= "" and _kaku_ver or "unknown")
 
   return args
 end
@@ -1105,7 +1131,7 @@ printf '%s' "$status" > "$status_path"
       "sh",
       "-c",
       script,
-      "kaku-ai-fix",
+      "hiterm-ai-fix",
       "3",
       tostring(ai_fix_timeout_secs),
       ai_fix_endpoint(),
@@ -1483,10 +1509,10 @@ local function inject_ai_notice(pane, headline, detail, suggested_command)
   end
 
   local cmd = sanitize_suggested_command(suggested_command or "")
-  local is_light = resolve_appearance_color_scheme() == 'Kaku Light'
+  local is_light = resolve_appearance_color_scheme() == 'Hiterm Light'
   local label_color = is_light and "\27[38;2;32;94;166m" or "\27[38;5;105m"
   local hint_color = is_light and "\27[38;5;244m" or "\27[38;5;249m"
-  local summary_line = label_color .. "╭─ Kaku Assistant\27[0m  \27[1m" .. summary .. "\27[0m"
+  local summary_line = label_color .. "╭─ Hiterm Assistant\27[0m  \27[1m" .. summary .. "\27[0m"
   local command_line = ""
   if cmd ~= "" then
     command_line = label_color .. "╰─\27[0m " .. cmd .. "    " .. hint_color .. "Cmd+Shift+E\27[0m"
@@ -1516,10 +1542,10 @@ local function inject_ai_status(pane, message)
   end
 
   local summary = normalize_ai_summary(message or "", "Checking this error now.")
-  local is_light = resolve_appearance_color_scheme() == 'Kaku Light'
+  local is_light = resolve_appearance_color_scheme() == 'Hiterm Light'
   local label_color = is_light and "\27[38;2;32;94;166m" or "\27[38;5;105m"
   local summary_color = is_light and "\27[38;5;244m" or "\27[38;5;249m"
-  local line = label_color .. "╰─ Kaku Assistant\27[0m  " .. summary_color .. summary .. "\27[0m"
+  local line = label_color .. "╰─ Hiterm Assistant\27[0m  " .. summary_color .. summary .. "\27[0m"
   local output = "\r\n" .. line .. "\r\n\r\n"
   pcall(function()
     pane:inject_output(output)
@@ -2162,6 +2188,8 @@ local function resolve_yazi_command()
   if home ~= "" then
     table.insert(candidates, 1, home .. "/.config/kaku/zsh/bin/yazi")
     table.insert(candidates, 1, home .. "/.config/kaku/fish/bin/yazi")
+    table.insert(candidates, 1, home .. "/.config/hiterm/zsh/bin/yazi")
+    table.insert(candidates, 1, home .. "/.config/hiterm/fish/bin/yazi")
   end
   local resolved = nil
   for _, cmd in ipairs(candidates) do
@@ -2180,13 +2208,15 @@ local function resolve_yazi_command()
   return resolved
 end
 
-local kaku_yazi_theme_marker_start = "# ===== Kaku Yazi Flavor (managed) ====="
-local kaku_yazi_theme_marker_end = "# ===== End Kaku Yazi Flavor (managed) ====="
+local kaku_yazi_theme_marker_start = "# ===== Hiterm Yazi Flavor (managed) ====="
+local kaku_yazi_theme_marker_end = "# ===== End Hiterm Yazi Flavor (managed) ====="
+local legacy_kaku_yazi_theme_marker_start = "# ===== Kaku Yazi Flavor (managed) ====="
+local legacy_kaku_yazi_theme_marker_end = "# ===== End Kaku Yazi Flavor (managed) ====="
 
 local function current_yazi_flavor(window)
   local overrides = window and window:get_config_overrides() or {}
   local scheme = resolve_kaku_color_scheme(overrides.color_scheme or config.color_scheme)
-  return scheme == 'Kaku Light' and 'kaku-light' or 'kaku-dark'
+  return scheme == 'Hiterm Light' and 'hiterm-light' or 'hiterm-dark'
 end
 
 local function strip_managed_yazi_theme_block(content)
@@ -2194,9 +2224,9 @@ local function strip_managed_yazi_theme_block(content)
   local skipping = false
 
   for line in (content .. "\n"):gmatch("(.-)\n") do
-    if line == kaku_yazi_theme_marker_start then
+    if line == kaku_yazi_theme_marker_start or line == legacy_kaku_yazi_theme_marker_start then
       skipping = true
-    elseif line == kaku_yazi_theme_marker_end then
+    elseif line == kaku_yazi_theme_marker_end or line == legacy_kaku_yazi_theme_marker_end then
       skipping = false
     elseif not skipping then
       table.insert(lines, line)
@@ -2265,7 +2295,7 @@ local function sync_managed_yazi_theme(window)
     updated = table.concat({
       '"$schema" = "https://yazi-rs.github.io/schemas/theme.json"',
       "",
-      "# Kaku manages the [flavor] section below so Yazi matches the current Kaku theme.",
+      "# Hiterm manages the [flavor] section below so Yazi matches the current Hiterm theme.",
       managed_block,
       "",
     }, "\n")
@@ -2711,7 +2741,7 @@ local function ensure_remote_mount(sshfs_cmd, remote_target, mount_path)
     return false, message
   end
 
-  local volume_name = "Kaku-" .. sanitize_mount_component(remote_target)
+  local volume_name = "Hiterm-" .. sanitize_mount_component(remote_target)
   local mount_ok, _, mount_stderr = run_process({
     sshfs_cmd,
     remote_target .. ":/",
@@ -2764,7 +2794,7 @@ local function open_remote_files(window, pane)
 
   local yazi_cmd = resolve_yazi_command()
   if not yazi_cmd then
-    show_remote_files_toast(window, "Yazi not found. Run kaku init.")
+    show_remote_files_toast(window, "Yazi not found. Run hiterm init.")
     return
   end
 
@@ -3039,14 +3069,14 @@ local function tab_path_parts(tab)
   return parent, current
 end
 
--- ===== Kaku Palette =====
+-- ===== Hiterm Palette =====
 -- Highlight hues sit between Aura's vivid defaults and Aura "Soft":
 -- a third of the way back toward vivid, so colors stay punchy but not
 -- fluorescent on a #15141b background. Foreground white is dimmed by
 -- ~10% from Aura's #edecee for lower glare without losing legibility.
 local KAKU = {
   BLACK = '#15141b',
-  -- Render ANSI black foregrounds as light text in Kaku Dark. ANSI black
+  -- Render ANSI black foregrounds as light text in Hiterm Dark. ANSI black
   -- backgrounds are mapped back to BLACK in color_overrides below.
   ANSI_BLACK = '#c8c6cc',
   WHITE = '#d5d4d6',
@@ -3814,23 +3844,25 @@ local function is_user_light_theme()
   for line in file:lines() do
     local trimmed = line:match('^%s*(.-)%s*$')
     if trimmed and not trimmed:match('^%-%-') then
-      if trimmed:match("^config%.color_scheme%s*=%s*['\"]Kaku Light['\"]") then
+      if trimmed:match("^config%.color_scheme%s*=%s*['\"]Hiterm Light['\"]")
+          or trimmed:match("^config%.color_scheme%s*=%s*['\"]Kaku Light['\"]") then
         file:close()
         return true
       end
-      if trimmed:match("^config%.color_scheme%s*=%s*['\"]Kaku Dark['\"]") then
+      if trimmed:match("^config%.color_scheme%s*=%s*['\"]Hiterm Dark['\"]")
+          or trimmed:match("^config%.color_scheme%s*=%s*['\"]Kaku Dark['\"]") then
         file:close()
         return false
       end
       if trimmed:match('^config%.color_scheme%s*=') and trimmed:match('get_appearance') then
         file:close()
-        return resolve_appearance_color_scheme() == 'Kaku Light'
+        return resolve_appearance_color_scheme() == 'Hiterm Light'
       end
     end
   end
   file:close()
   -- No explicit theme selection means the bundled default should track macOS.
-  return resolve_appearance_color_scheme() == 'Kaku Light'
+  return resolve_appearance_color_scheme() == 'Hiterm Light'
 end
 
 local initial_is_light_theme = is_user_light_theme()
@@ -3912,7 +3944,7 @@ end
 wezterm.on('window-config-reloaded', function(window, pane)
   local overrides = window:get_config_overrides() or {}
   local scheme = resolve_kaku_color_scheme(overrides.color_scheme or config.color_scheme)
-  local is_light = scheme == 'Kaku Light'
+  local is_light = scheme == 'Hiterm Light'
   sync_claude_code_theme(is_light)
   local overrides_changed = false
 
@@ -3997,8 +4029,8 @@ config.use_cap_height_to_scale_fallback_fonts = false
 config.custom_block_glyphs = true
 config.unicode_version = 14
 
--- Do NOT set config.term = 'kaku' here.
--- Remote servers lack the 'kaku' terminfo entry, causing SSH issues like
+-- Do NOT set config.term = 'hiterm' here.
+-- Remote servers may lack the Hiterm terminfo entry, causing SSH issues like
 -- broken backspace/delete keys. Let the default 'xterm-256color' apply.
 -- See: https://github.com/tw93/Kaku/issues/130
 
@@ -4043,7 +4075,7 @@ config.text_background_opacity = 1.0
 config.text_min_contrast_ratio = 3.0
 
 -- ===== Close Protection =====
--- Default is 'SmartPrompt': Cmd+Q and the Quit Kaku menu silently quit when
+-- Default is 'SmartPrompt': Cmd+Q and the Quit Hiterm menu silently quit when
 -- every pane is at a bare shell prompt, but pop a confirmation overlay when
 -- a stateful process is still running (same smart-skip logic as Cmd+W).
 -- Set to 'NeverPrompt' to quit instantly without asking, or 'AlwaysPrompt'
@@ -4082,7 +4114,7 @@ config.window_padding = get_default_padding()
 
 -- ===== Color Scheme =====
 config.color_schemes = config.color_schemes or {}
-config.color_schemes['Kaku Dark'] = {
+config.color_schemes['Hiterm Dark'] = {
   -- Background
   foreground = KAKU.WHITE,
   background = KAKU.BLACK,
@@ -4169,7 +4201,7 @@ config.color_schemes['Kaku Dark'] = {
   },
 
   -- Hermes and some Rich/prompt_toolkit surfaces emit black truecolor text
-  -- on dark terminals. Keep those foregrounds readable in Kaku Dark.
+  -- on dark terminals. Keep those foregrounds readable in Hiterm Dark.
   foreground_color_overrides = {
     ['#000000'] = KAKU.WHITE,
     ['#110f18'] = KAKU.WHITE,
@@ -4179,8 +4211,8 @@ config.color_schemes['Kaku Dark'] = {
   },
 }
 
--- ===== Kaku Light Theme =====
-config.color_schemes['Kaku Light'] = {
+-- ===== Hiterm Light Theme =====
+config.color_schemes['Hiterm Light'] = {
   foreground = '#100F0F',
   background = '#FFFCF0',
 
@@ -4264,7 +4296,7 @@ config.color_schemes['Kaku Light'] = {
   },
 
   -- Override pale agent text that is readable on dark themes but nearly
-  -- invisible against Kaku Light's cream background.
+  -- invisible against Hiterm Light's cream background.
   foreground_color_overrides = {
     ['#FFFFDB'] = '#575653',  -- Hermes pale yellow text
     ['#FFFFDC'] = '#575653',  -- Hermes pale yellow text variant
@@ -4272,7 +4304,10 @@ config.color_schemes['Kaku Light'] = {
 }
 
 -- Legacy alias for compatibility
-config.color_schemes['Kaku Theme'] = config.color_schemes['Kaku Dark']
+config.color_schemes['Hiterm Theme'] = config.color_schemes['Hiterm Dark']
+config.color_schemes['Kaku Dark'] = config.color_schemes['Hiterm Dark']
+config.color_schemes['Kaku Light'] = config.color_schemes['Hiterm Light']
+config.color_schemes['Kaku Theme'] = config.color_schemes['Hiterm Dark']
 config.color_scheme = resolve_kaku_color_scheme(config.color_scheme)
 
 config.set_environment_variables = config.set_environment_variables or {}
@@ -4283,7 +4318,7 @@ config.set_environment_variables['COLORFGBG'] = initial_is_light_theme and '0;15
 -- ===== Window Frame (theme-aware) =====
 get_window_frame_colors = function(scheme)
   scheme = resolve_kaku_color_scheme(scheme)
-  if scheme == 'Kaku Light' then
+  if scheme == 'Hiterm Light' then
     return {
       -- A step darker than the cream terminal background (#FFFCF0) so the
       -- tab bar reads as a distinct surface.
@@ -4333,7 +4368,7 @@ do
     -- colors painted on the first frame, producing a visible light strip at the
     -- top until window-config-reloaded re-runs build_managed_window_frame.
     config.window_frame = (function()
-      local initial_scheme = initial_is_light_theme and 'Kaku Light' or 'Kaku Dark'
+      local initial_scheme = initial_is_light_theme and 'Hiterm Light' or 'Hiterm Dark'
       local window_frame_colors = get_window_frame_colors(initial_scheme)
       return {
         font = wezterm.font({ family = 'JetBrains Mono', weight = 'Regular' }),
@@ -4465,14 +4500,14 @@ config.keys = (function() return {
     action = wezterm.action.SpawnTab('CurrentPaneDomain'),
   },
 
-  -- Cmd+Shift+A: open Kaku AI settings in current pane
+  -- Cmd+Shift+A: open Hiterm AI settings in current pane
   {
     key = 'A',
     mods = 'CMD|SHIFT',
     action = wezterm.action.EmitEvent('run-kaku-ai-config'),
   },
 
-  -- Cmd+Shift+E: apply latest Kaku Assistant suggestion for the active pane
+  -- Cmd+Shift+E: apply latest Hiterm Assistant suggestion for the active pane
   {
     key = 'E',
     mods = 'CMD|SHIFT',
@@ -4482,7 +4517,7 @@ config.keys = (function() return {
   -- Cmd+L: open AI chat overlay.
   -- Default chosen to avoid the macOS system "select previous input source"
   -- shortcut on Cmd+Shift+Space. To override, add your own binding in
-  -- ~/.config/kaku/kaku.lua with action = wezterm.action.EmitEvent('kaku-ai-chat').
+  -- ~/.config/hiterm/hiterm.lua with action = wezterm.action.EmitEvent('kaku-ai-chat').
   {
     key = 'l',
     mods = 'CMD',
@@ -4809,12 +4844,12 @@ wezterm.on('gui-startup', function(cmd)
 
   local current_version = read_current_config_version()
 
-  local state_file = home .. "/.config/kaku/state.json"
+  local state_file = home .. "/.config/hiterm/state.json"
   local is_first_run = false
   local needs_update = false
 
   local function ensure_state_dir()
-    os.execute("mkdir -p " .. home .. "/.config/kaku")
+    os.execute("mkdir -p " .. home .. "/.config/hiterm")
   end
 
   local function write_state(version, geometry)

@@ -8,7 +8,7 @@ use crate::config_tui;
 
 #[derive(Debug, Parser, Clone, Default)]
 pub struct ConfigCommand {
-    /// Ensure an editable Kaku config file exists, but do not open it.
+    /// Ensure an editable Hiterm config file exists, but do not open it.
     #[arg(long, hide = true)]
     ensure_only: bool,
 }

@@ -73,10 +73,10 @@ if [[ "$DRY_RUN" == "0" ]]; then
 fi
 
 current_version=$(get_cargo_version "$REPO_ROOT")
-gui_version=$(get_kaku_gui_version "$REPO_ROOT")
+gui_version=$(get_hiterm_gui_version "$REPO_ROOT")
 
 if [[ "$current_version" != "$gui_version" ]]; then
-    die "Cargo.toml versions are inconsistent: kaku=$current_version, kaku-gui=$gui_version. Fix before bumping."
+    die "Cargo.toml versions are inconsistent: hiterm=$current_version, hiterm-gui=$gui_version. Fix before bumping."
 fi
 
 case "$TARGET_BUMP" in
@@ -151,7 +151,7 @@ emit_section() {
     fi
 }
 
-draft_path=$(mktemp -t kaku-release-notes-draft.XXXXXX)
+draft_path=$(mktemp -t hiterm-release-notes-draft.XXXXXX)
 # shellcheck disable=SC2064
 trap "rm -f '$draft_path'" EXIT
 
@@ -160,8 +160,8 @@ trap "rm -f '$draft_path'" EXIT
 # V${new_version} <emoji TBD>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/tw93/Kaku/main/assets/logo.png" alt="Kaku Logo" width="120" height="120" />
-  <h1 style="margin: 12px 0 6px;">Kaku V${new_version}</h1>
+  <img src="https://raw.githubusercontent.com/liuxu-about/Hiterm/main/assets/logo.png" alt="Hiterm Logo" width="120" height="120" />
+  <h1 style="margin: 12px 0 6px;">Hiterm V${new_version}</h1>
   <p><em>A fast, out-of-the-box terminal built for AI coding.</em></p>
 </div>
 
@@ -204,7 +204,7 @@ TAIL
 
 Special thanks to <contributors> for their contributions to this release.
 
-> https://github.com/tw93/Kaku
+> https://github.com/liuxu-about/Hiterm
 FOOTER
 } > "$draft_path"
 
@@ -233,10 +233,10 @@ sed -i '' "s|^version = \"${current_version}\"$|version = \"${new_version}\"|" "
 sed -i '' "s|^version = \"${current_version}\"$|version = \"${new_version}\"|" "$REPO_ROOT/hiterm-gui/Cargo.toml"
 
 # Verify both files were actually updated.
-new_in_kaku=$(get_cargo_version "$REPO_ROOT")
-new_in_gui=$(get_kaku_gui_version "$REPO_ROOT")
-if [[ "$new_in_kaku" != "$new_version" || "$new_in_gui" != "$new_version" ]]; then
-    die "Cargo.toml bump failed (kaku=$new_in_kaku, kaku-gui=$new_in_gui). Restore: git checkout hiterm/Cargo.toml hiterm-gui/Cargo.toml"
+new_in_hiterm=$(get_cargo_version "$REPO_ROOT")
+new_in_gui=$(get_hiterm_gui_version "$REPO_ROOT")
+if [[ "$new_in_hiterm" != "$new_version" || "$new_in_gui" != "$new_version" ]]; then
+    die "Cargo.toml bump failed (hiterm=$new_in_hiterm, hiterm-gui=$new_in_gui). Restore: git checkout hiterm/Cargo.toml hiterm-gui/Cargo.toml"
 fi
 
 # Refresh Cargo.lock so the prep commit ships with a consistent lockfile.

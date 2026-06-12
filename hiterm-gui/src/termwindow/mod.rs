@@ -435,14 +435,14 @@ fn lookup_kaku_toast(event_name: &str) -> Option<&'static str> {
         ),
         (
             "kaku-toast-lazygit-missing",
-            "Lazygit not found. Run kaku init",
+            "Lazygit not found. Run hiterm init",
         ),
         (
             "kaku-toast-lazygit-dispatch-failed",
             "Lazygit: Dispatch failed",
         ),
         ("kaku-toast-yazi-no-pane", "Yazi: No active pane"),
-        ("kaku-toast-yazi-missing", "Yazi not found. Run kaku init"),
+        ("kaku-toast-yazi-missing", "Yazi not found. Run hiterm init"),
         ("kaku-toast-yazi-dispatch-failed", "Yazi: Dispatch failed"),
     ];
     KAKU_TOAST_MAP
@@ -456,17 +456,17 @@ fn lookup_ai_toast(event_name: &str) -> Option<&'static str> {
     const AI_TOAST_MAP: &[(&str, &str)] = &[
         (
             "kaku-toast-ai-ready",
-            "Kaku Assistant suggestion ready. Press Cmd+Shift+E",
+            "Hiterm Assistant suggestion ready. Press Cmd+Shift+E",
         ),
-        ("kaku-toast-ai-unavailable", "Kaku Assistant unavailable"),
+        ("kaku-toast-ai-unavailable", "Hiterm Assistant unavailable"),
         (
             "kaku-toast-ai-missing-key",
-            "Run kaku ai to set up Kaku Assistant.",
+            "Run hiterm ai to set up Hiterm Assistant.",
         ),
         ("kaku-toast-ai-no-pane", "No active pane"),
         ("kaku-toast-ai-no-suggestion", "No executable suggestion"),
         ("kaku-toast-ai-send-failed", "Failed to apply suggestion"),
-        ("kaku-toast-ai-info", "Kaku Assistant update"),
+        ("kaku-toast-ai-info", "Hiterm Assistant update"),
     ];
     AI_TOAST_MAP
         .iter()
@@ -1342,7 +1342,7 @@ impl TermWindow {
         match RenderState::new(ctx, &self.fonts, &self.render_metrics, ATLAS_SIZE) {
             Ok(render_state) => {
                 log::debug!(
-                    "OpenGL initialized! {} Kaku version: {}",
+                    "OpenGL initialized! {} Hiterm version: {}",
                     render_info,
                     config::wezterm_version(),
                 );
@@ -2307,7 +2307,7 @@ impl TermWindow {
                                 })
                                 .unwrap_or((None, None, String::new(), None));
                         ToastNotification {
-                            title: "Kaku".to_string(),
+                            title: "Hiterm".to_string(),
                             message: bell_notification_message(
                                 last_command.as_deref(),
                                 reported_program.as_deref(),
@@ -3342,7 +3342,7 @@ impl TermWindow {
             return;
         }
 
-        // `k` CLI running inside a Kaku pane signals us to open the AI chat overlay.
+        // Legacy CLI handoff running inside a Hiterm pane signals us to open the AI chat overlay.
         if name == "kaku_open_ai_chat" {
             if let Some(win) = self.window.clone() {
                 win.notify(TermWindowNotif::Apply(Box::new(move |term_window| {
@@ -4400,7 +4400,7 @@ impl TermWindow {
             ScrollToBottom => self.scroll_to_bottom(pane),
             ShowTabNavigator => self.show_tab_navigator(),
             ShowDebugOverlay => {
-                crate::frontend::run_kaku_doctor_in_new_tab();
+                crate::frontend::run_hiterm_doctor_in_new_tab();
             }
             ShowLauncher => self.show_launcher(),
             ShowLauncherArgs(args) => {
@@ -4586,20 +4586,20 @@ impl TermWindow {
                     })
                     .detach();
                 } else if name == "update-kaku" || name == "run-kaku-update" {
-                    crate::frontend::run_kaku_update_from_menu();
+                    crate::frontend::run_hiterm_update_from_menu();
                 } else if name == "restart-to-update" {
                     crate::frontend::restart_to_update();
                 } else if name == "run-kaku-cli" {
-                    pane.writer().write_all(b"kaku\n")?;
+                    pane.writer().write_all(b"hiterm\n")?;
                 } else if name == "run-kaku-ai-config" {
-                    pane.writer().write_all(b"kaku ai\n")?;
+                    pane.writer().write_all(b"hiterm ai\n")?;
                 } else if let Some(msg) = lookup_kaku_toast(name) {
                     self.show_toast(msg.to_string());
                 } else if name == "kaku-toast-ai-analyzing" {
-                    let message = "Kaku Assistant analyzing command";
+                    let message = "Hiterm Assistant analyzing command";
                     self.show_ai_progress_toast(message.to_string(), ai_toast_lifetime_ms(message));
                 } else if name == "kaku-toast-ai-generating" {
-                    let message = "Kaku generating command";
+                    let message = "Hiterm generating command";
                     self.show_ai_progress_toast(message.to_string(), ai_toast_lifetime_ms(message));
                 } else if name == "kaku-toast-ai-applied" {
                     // No notification on successful apply; command output is enough.
@@ -4611,15 +4611,15 @@ impl TermWindow {
                         self.show_ai_result_notice(message, lifetime);
                     }
                 } else if name == "open-kaku-config" {
-                    crate::frontend::open_kaku_config();
+                    crate::frontend::open_hiterm_config();
                 } else if name == crate::frontend::SET_DEFAULT_TERMINAL_EVENT {
                     match Connection::get() {
                         Some(conn) => match conn.set_default_terminal() {
                             Ok(()) => {
-                                self.show_toast("Kaku is now the default terminal".to_string());
+                                self.show_toast("Hiterm is now the default terminal".to_string());
                             }
                             Err(err) => {
-                                log::error!("Failed to set Kaku as default terminal: {err:#}");
+                                log::error!("Failed to set Hiterm as default terminal: {err:#}");
                                 self.show_toast("Failed to set default terminal".to_string());
                             }
                         },
@@ -6376,7 +6376,7 @@ mod tests {
     fn bell_notification_message_prefers_last_command() {
         assert_eq!(
             bell_notification_message(
-                Some("cargo test -p kaku-gui"),
+                Some("cargo test -p hiterm-gui"),
                 Some("zsh"),
                 "kaku",
                 Some("/bin/zsh")
@@ -6412,7 +6412,12 @@ mod tests {
     #[test]
     fn bell_notification_message_summarizes_shell_wrapped_command() {
         assert_eq!(
-            bell_notification_message(Some("zsh -lc cargo check -p kaku-gui"), None, "kaku", None),
+            bell_notification_message(
+                Some("zsh -lc cargo check -p hiterm-gui"),
+                None,
+                "hiterm",
+                None,
+            ),
             "Task complete: cargo check"
         );
     }

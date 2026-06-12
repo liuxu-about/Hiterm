@@ -1,18 +1,18 @@
-# Kaku Agent Guide
+# Hiterm Agent Guide
 
-Kaku is a macOS-native terminal emulator derived from WezTerm and shaped around AI-assisted terminal workflows. This guide is the shared operating context for agents working in this repository.
+Hiterm is a macOS-native terminal emulator derived from WezTerm and shaped around AI-assisted terminal workflows. This guide is the shared operating context for agents working in this repository.
 
 ## Repository Map
 
-- `kaku/` - CLI entry points, command flows, and user-facing configuration commands.
-- `hiterm-gui/` - GUI, rendering, window lifecycle, input, mouse handling, AI chat, and the `k` helper binary.
+- `hiterm/` - CLI entry points, command flows, and user-facing configuration commands.
+- `hiterm-gui/` - GUI, rendering, window lifecycle, input, mouse handling, and AI chat.
 - `mux/` - tabs, panes, domains, and client/server state.
 - `term/` - terminal emulation and screen buffer behavior.
 - `termwiz/` - terminal UI primitives.
 - `config/` - Lua config loading, schema behavior, proxy settings, and versioned defaults.
 - `window/` - platform windowing layer.
 - `lua-api-crates/` - Rust-to-Lua API bindings.
-- `crates/` - shared utility crates, including Kaku-specific AI helpers.
+- `crates/` - shared utility crates, including Hiterm-specific AI helpers.
 - `assets/` - app resources, bundled config, shell integration, and vendor assets.
 - `scripts/` - build, release, and validation helpers.
 - `docs/` - user and developer documentation.
@@ -73,11 +73,11 @@ For AI-facing behavior, inspect in this order:
 1. CLI and assistant configuration under `hiterm/src/ai_config/`, `hiterm/src/assistant_config.rs`, and `config/src/proxy.rs`.
 2. GUI AI state and transport under `hiterm-gui/src/ai_*`, `hiterm-gui/src/ai_chat_engine/`, and `hiterm-gui/src/cli_chat/`.
 3. Overlay UI under `hiterm-gui/src/overlay/ai_chat/`.
-4. Shared helpers in `crates/kaku-ai-utils/`.
+4. Shared helpers in `crates/hiterm-ai-utils/`.
 
 For `Ctrl+letter` not working in a raw-mode TUI (the most common shape: `Ctrl+C` / `Ctrl+R` works in plain shell but not inside a TUI overlay), inspect in this order:
 
-1. AppKit menu `keyEquivalent` intercepting `keyDown` before the terminal sees it. Enable `config.debug_key_events = true`, restart the app, then `grep 'key_event.*CTRL' ~/.local/share/kaku/kaku-gui-log-<pid>.txt`. If the log shows only `key_is_down: false` and no matching `key_is_down: true`, the AppKit menu absorbed the event; do not chase termwiz or PTY.
+1. AppKit menu `keyEquivalent` intercepting `keyDown` before the terminal sees it. Enable `config.debug_key_events = true`, restart the app, then `grep 'key_event.*CTRL' ~/.local/share/hiterm/hiterm-gui-log-<pid>.txt`. If the log shows only `key_is_down: false` and no matching `key_is_down: true`, the AppKit menu absorbed the event; do not chase termwiz or PTY.
 2. Cooked-mode tests (`cat -v` showing `^C`) do **not** rule out menu interception. Reproduce inside a raw-mode TUI before forming a hypothesis.
 3. Only after step 1 rules out menu interception, inspect termwiz encoding (`crates/termwiz/src/input.rs`), then PTY / termios state.
 
@@ -110,11 +110,11 @@ For GUI or rendering issues, read `hiterm-gui/AGENTS.md` first and verify with `
 ## Current Risk Areas
 
 - AI chat and shell flows are active product surfaces. Preserve `fast_model`, proxy config, inline `#` query status, syntax highlighting, approval flow, and conversation state behavior.
-- Config release work currently centers on `config_version` 23. Config schema changes must update bundled defaults, docs, release checks, and migration behavior together. v21 adds `smart_tab_mode`, retypes `tab`/`pane`/`window_close_confirmation` from bool to the `CloseConfirmation` enum (`NeverPrompt`/`SmartPrompt`/`AlwaysPrompt`, with bool still accepted for backward compat), defaults the bundled `kaku.lua` for all close-confirmation fields to `SmartPrompt`, and accepts the removed `language` option as a deprecated field for backward compat. v22 adds the dark-theme zsh comment-color guard for user-preloaded highlighting plugins. v23 flips the bundled `smart_tab_mode` default to `suggestion_first` without a schema migration; users who set `completion_first` keep it.
+- Config release work currently centers on `config_version` 24. Config schema changes must update bundled defaults, docs, release checks, and migration behavior together. v21 adds `smart_tab_mode`, retypes `tab`/`pane`/`window_close_confirmation` from bool to the `CloseConfirmation` enum (`NeverPrompt`/`SmartPrompt`/`AlwaysPrompt`, with bool still accepted for backward compat), defaults the bundled `hiterm.lua` for all close-confirmation fields to `SmartPrompt`, and accepts the removed `language` option as a deprecated field for backward compat. v22 adds the dark-theme zsh comment-color guard for user-preloaded highlighting plugins. v23 flips the bundled `smart_tab_mode` default to `suggestion_first` without a schema migration; users who set `completion_first` keep it. v24 moves shell/config integration toward Hiterm names, removes the bundled `k` AI-chat shell command, and adds OSC 133 prompt/input/output markers for restored-session stability.
 - GUI regressions can come from overlay resize, pane split/removal, macOS worker thread lifetime, WebGPU surface reconfigure, tab bar spacing, and alternate-screen wheel scroll behavior.
 - Startup performance depends on caching shell user vars, Lua bytecode, early appearance queries, GLSL version, and built-in fonts. Do not invalidate those caches without measurement.
-- Notification actions that call back into Kaku should resolve bundled executables relative to the running app, not an assumed system path.
-- `assets/shell-integration` scripts run in the user's shell, not just at build time. Bash heredocs that generate zsh (e.g. `setup_zsh.sh` writing `kaku.zsh`) expand backticks and `$(...)` at generation time, so escape any that must reach the output literally (#450), and never put `local` outside a function (#432/#441). CI gates this: shellcheck (`--severity=error`, catches SC2168) over the bash scripts plus a `zsh -n` parse check of the generated `kaku.zsh` in the setup smoke.
+- Notification actions that call back into Hiterm should resolve bundled executables relative to the running app, not an assumed system path.
+- `assets/shell-integration` scripts run in the user's shell, not just at build time. Bash heredocs that generate zsh (e.g. `setup_zsh.sh` writing `hiterm.zsh`) expand backticks and `$(...)` at generation time, so escape any that must reach the output literally (#450), and never put `local` outside a function (#432/#441). CI gates this: shellcheck (`--severity=error`, catches SC2168) over the bash scripts plus a `zsh -n` parse check of the generated `hiterm.zsh` in the setup smoke.
 
 ## Release Notes
 

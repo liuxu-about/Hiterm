@@ -1,5 +1,5 @@
 #!/bin/bash
-# Kaku config version check
+# Hiterm config version check
 
 set -euo pipefail
 
@@ -8,7 +8,7 @@ YELLOW='\033[1;33m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-CONFIG_DIR="$HOME/.config/kaku"
+CONFIG_DIR="$HOME/.config/hiterm"
 STATE_FILE="$CONFIG_DIR/state.json"
 LEGACY_VERSION_FILE="$CONFIG_DIR/.kaku_config_version"
 LEGACY_GEOMETRY_FILE="$CONFIG_DIR/.kaku_window_geometry"
@@ -24,8 +24,8 @@ source "$COMMON_SCRIPT"
 
 CURRENT_CONFIG_VERSION="$(read_bundled_config_version "$SCRIPT_DIR")"
 
-detect_kaku_setup_script() {
-	case "${KAKU_TARGET_SHELL:-${SHELL:-/bin/zsh}}" in
+detect_hiterm_setup_script() {
+	case "${HITERM_TARGET_SHELL:-${KAKU_TARGET_SHELL:-${SHELL:-/bin/zsh}}}" in
 		*fish|fish)
 			printf 'setup_fish.sh'
 			;;
@@ -36,7 +36,7 @@ detect_kaku_setup_script() {
 }
 
 RESOURCE_DIR="$SCRIPT_DIR"
-SETUP_SCRIPT="$RESOURCE_DIR/$(detect_kaku_setup_script)"
+SETUP_SCRIPT="$RESOURCE_DIR/$(detect_hiterm_setup_script)"
 TOOLS_SCRIPT="$RESOURCE_DIR/install_cli_tools.sh"
 
 user_version="$(read_config_version)"
@@ -71,7 +71,7 @@ if [[ $user_version -eq 0 || $user_version -ge $CURRENT_CONFIG_VERSION ]]; then
 	exit 0
 fi
 
-echo -e "${BOLD}Kaku shell integration update${NC}  ${YELLOW}v$user_version${NC} → ${GREEN}v$CURRENT_CONFIG_VERSION${NC}"
+echo -e "${BOLD}Hiterm shell integration update${NC}  ${YELLOW}v$user_version${NC} → ${GREEN}v$CURRENT_CONFIG_VERSION${NC}"
 echo ""
 
 echo -e "${BOLD}What's new:${NC}"
@@ -95,9 +95,9 @@ fi
 
 # Apply updates
 if [[ -f "$SETUP_SCRIPT" ]]; then
-	if ! KAKU_SKIP_TOOL_BOOTSTRAP=1 bash "$SETUP_SCRIPT" --update-only; then
+	if ! HITERM_SKIP_TOOL_BOOTSTRAP=1 bash "$SETUP_SCRIPT" --update-only; then
 		echo ""
-		echo -e "${YELLOW}Update failed. Run 'kaku init' manually to retry.${NC}"
+		echo -e "${YELLOW}Update failed. Run 'hiterm init' manually to retry.${NC}"
 		echo ""
 		echo "Press any key to continue..."
 		read -n 1 -s
@@ -109,7 +109,7 @@ else
 fi
 
 if [[ -f "$TOOLS_SCRIPT" ]]; then
-	if ! KAKU_AUTO_INSTALL_TOOLS=1 bash "$TOOLS_SCRIPT"; then
+	if ! HITERM_AUTO_INSTALL_TOOLS=1 bash "$TOOLS_SCRIPT"; then
 		echo ""
 		echo -e "${YELLOW}Optional tool installation failed.${NC}"
 	fi
@@ -118,7 +118,7 @@ fi
 persist_config_version
 
 echo ""
-echo -e "\033[1;32m🎃 Kaku environment is ready! Enjoy coding.\033[0m"
+echo -e "\033[1;32mHiterm environment is ready. Enjoy coding.\033[0m"
 echo ""
 echo "Press any key to continue..."
 read -n 1 -s

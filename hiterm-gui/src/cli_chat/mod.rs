@@ -26,9 +26,9 @@ pub struct CliArgs {
     pub resume: Option<Option<String>>,
 }
 
-/// Main entry point for the `k` binary.
+/// Main entry point for CLI chat flows.
 pub fn run(args: CliArgs) -> anyhow::Result<()> {
-    // When running inside a Kaku pane with no extra args, trigger the Cmd+L
+    // When running inside a Hiterm pane with no extra args, trigger the Cmd+L
     // overlay directly via OSC 1337 SetUserVar and exit. This gives the exact
     // same experience as pressing Cmd+L from the keyboard.
     let inside_kaku = std::env::var_os("HITERM_UNIX_SOCKET").is_some()

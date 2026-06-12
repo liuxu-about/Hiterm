@@ -2,7 +2,7 @@
 //!
 //! Lives in its own submodule because it is pure, has no AI / LLM coupling,
 //! and is the natural first slice of the long-term `ai_tools/` split (see
-//! `kaku-gui/AGENTS.md`). Keeping it isolated also makes the security check
+//! `hiterm-gui/AGENTS.md`). Keeping it isolated also makes the security check
 //! easy to audit independently of the dispatcher in `mod.rs`.
 
 use anyhow::{Context, Result};
@@ -54,8 +54,8 @@ pub(crate) fn reject_if_sensitive(path: &Path) -> Result<()> {
             ".ssh",
             ".aws/credentials",
             ".gnupg",
-            ".config/kaku/assistant.toml",
-            ".config/kaku/secrets",
+            ".config/hiterm/assistant.toml",
+            ".config/hiterm/secrets",
         ] {
             blocked.push(home.join(rel));
         }
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn reject_if_sensitive_blocks_assistant_config() {
         let home = std::env::var("HOME").expect("HOME not set");
-        let assistant_config = PathBuf::from(&home).join(".config/kaku/assistant.toml");
+        let assistant_config = PathBuf::from(&home).join(".config/hiterm/assistant.toml");
         let err = reject_if_sensitive(&assistant_config).expect_err("must reject assistant config");
         assert!(err.to_string().contains("protected secret location"));
     }

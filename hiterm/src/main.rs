@@ -27,7 +27,6 @@ use wezterm_gui_subcommands::*;
 
 mod ai_config;
 mod assistant_config;
-mod chat;
 mod cli;
 mod config_cmd;
 mod config_tui;
@@ -43,11 +42,11 @@ mod utils;
 
 #[derive(Debug, Parser)]
 #[command(
-    about = "Kaku Terminal Emulator\nhttp://github.com/tw93/Kaku",
+    about = "Hiterm Terminal Emulator\nhttps://github.com/liuxu-about/Hiterm",
     version = wezterm_version()
 )]
 pub struct Opt {
-    /// Skip loading kaku.lua
+    /// Skip loading hiterm.lua
     #[arg(long, short = 'n')]
     skip_config: bool,
 
@@ -125,33 +124,27 @@ enum SubCommand {
     #[command(name = "ai", about = "Manage AI settings")]
     Ai(ai_config::AiConfigCommand),
 
-    #[command(
-        name = "chat",
-        about = "Start the AI chat in this terminal (alias for `k`)"
-    )]
-    Chat(chat::ChatCommand),
-
-    #[command(name = "config", about = "Configure Kaku settings")]
+    #[command(name = "config", about = "Configure Hiterm settings")]
     Config(config_cmd::ConfigCommand),
 
-    #[command(name = "init", about = "Initialize Kaku shell integration")]
+    #[command(name = "init", about = "Initialize Hiterm shell integration")]
     Init(init::InitCommand),
 
     #[command(
         name = "doctor",
-        about = "Check Kaku shell integration, environment, and runtime health"
+        about = "Check Hiterm shell integration, environment, and runtime health"
     )]
     Doctor(doctor::DoctorCommand),
 
     #[command(
         name = "update",
-        about = "Download and install the latest Kaku release automatically"
+        about = "Download and install the latest Hiterm release automatically"
     )]
     Update(update::UpdateCommand),
 
     #[command(
         name = "reset",
-        about = "Reset Kaku shell integration and managed defaults"
+        about = "Reset Hiterm shell integration and managed defaults"
     )]
     Reset(reset::ResetCommand),
 
@@ -171,7 +164,10 @@ enum SubCommand {
     SetCwd(SetCwdCommand),
 
     #[cfg(feature = "remote")]
-    #[command(name = "remote", about = "Show QR code to connect Kaku iOS app")]
+    #[command(
+        name = "remote",
+        about = "Show QR code to connect the iOS companion app"
+    )]
     Remote,
 
     /// Generate shell completion information
@@ -281,6 +277,8 @@ fn terminate_with_error(err: anyhow::Error) -> ! {
 }
 
 fn main() {
+    #[cfg(unix)]
+    config::migrate_legacy_kaku_dirs();
     config::designate_this_as_the_main_thread();
     config::assign_error_callback(mux::connui::show_configuration_error_message);
     if let Err(e) = run() {
@@ -372,7 +370,6 @@ fn run() -> anyhow::Result<()> {
             opts.config_override.clone(),
             opts.skip_config,
         ),
-        SubCommand::Chat(cmd) => cmd.run(),
     }
 }
 
@@ -396,7 +393,6 @@ fn select_main_menu_command() -> anyhow::Result<Option<SubCommand>> {
 
     #[derive(Clone, Copy)]
     enum MenuChoice {
-        Chat,
         Ai,
         Config,
         Init,
@@ -405,9 +401,8 @@ fn select_main_menu_command() -> anyhow::Result<Option<SubCommand>> {
         Reset,
     }
 
-    const MENU_ITEMS: [(&str, &str, MenuChoice); 7] = [
-        ("chat", "Start AI chat in this terminal", MenuChoice::Chat),
-        ("ai", "Manage AI tools and Kaku Assistant", MenuChoice::Ai),
+    const MENU_ITEMS: [(&str, &str, MenuChoice); 6] = [
+        ("ai", "Manage AI tools and Hiterm Assistant", MenuChoice::Ai),
         (
             "config",
             "Manage terminal and assistant settings",
@@ -426,7 +421,7 @@ fn select_main_menu_command() -> anyhow::Result<Option<SubCommand>> {
         ),
         (
             "reset",
-            "Remove Kaku shell integration and managed defaults",
+            "Remove Hiterm shell integration and managed defaults",
             MenuChoice::Reset,
         ),
     ];
@@ -452,7 +447,7 @@ fn select_main_menu_command() -> anyhow::Result<Option<SubCommand>> {
         out.push_str(&format!("{green} | ' / __ _ | | __ _   _ {reset}\r\n"));
         out.push_str(&format!("{green} |  < / _` || |/ /| | | |{reset}\r\n"));
         out.push_str(&format!(
-            "{green} | . \\ (_| ||   < | |_| |{reset}  {purple_bold}https://github.com/tw93/Kaku{reset}\r\n"
+            "{green} | . \\ (_| ||   < | |_| |{reset}  {purple_bold}https://github.com/liuxu-about/Hiterm{reset}\r\n"
         ));
         out.push_str(&format!(
             "{green} |_|\\_\\__,_||_|\\_\\ \\__,_|{reset}  {green}A fast, out-of-the-box terminal built for AI coding.{reset}\r\n"
@@ -483,7 +478,6 @@ fn select_main_menu_command() -> anyhow::Result<Option<SubCommand>> {
 
     fn to_subcommand(choice: MenuChoice) -> SubCommand {
         match choice {
-            MenuChoice::Chat => SubCommand::Chat(chat::ChatCommand::default()),
             MenuChoice::Ai => SubCommand::Ai(ai_config::AiConfigCommand::default()),
             MenuChoice::Config => SubCommand::Config(config_cmd::ConfigCommand::default()),
             MenuChoice::Init => SubCommand::Init(init::InitCommand::default()),

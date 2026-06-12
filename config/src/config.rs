@@ -263,9 +263,9 @@ pub struct Config {
     #[dynamic(default)]
     pub set_environment_variables: HashMap<String, String>,
 
-    /// Controls how the Tab key behaves in zsh inside Kaku sessions.
-    /// The environment variables `KAKU_SMART_TAB_DISABLE` and
-    /// `KAKU_TAB_ACCEPT_SUGGEST_FIRST` are set automatically based on this.
+    /// Controls how the Tab key behaves in zsh inside Hiterm sessions.
+    /// The environment variables `HITERM_SMART_TAB_DISABLE` and
+    /// `HITERM_TAB_ACCEPT_SUGGEST_FIRST` are set automatically based on this.
     #[dynamic(default)]
     pub smart_tab_mode: SmartTabMode,
 
@@ -476,7 +476,7 @@ pub struct Config {
     #[dynamic(default)]
     pub disable_default_mouse_bindings: bool,
     /// When false, completing a mouse text selection will not copy text
-    /// to the clipboard. Kaku may show a one-time in-window hint so the
+    /// to the clipboard. Hiterm may show a one-time in-window hint so the
     /// selection behavior is less surprising.
     #[dynamic(default = "default_true")]
     pub copy_on_select: bool,
@@ -493,7 +493,7 @@ pub struct Config {
     #[dynamic(default = "default_macos_forward_mods")]
     pub macos_forward_to_ime_modifier_mask: Modifiers,
 
-    /// Global hotkey to show or hide Kaku on macOS.
+    /// Global hotkey to show or hide Hiterm on macOS.
     /// Set this to nil to disable the system-wide hotkey.
     #[dynamic(default = "default_macos_global_hotkey")]
     pub macos_global_hotkey: Option<KeyNoAction>,
@@ -558,7 +558,7 @@ pub struct Config {
     pub enable_scroll_bar: bool,
 
     /// When true, mouse wheel events in alternate-screen apps such as nano
-    /// and vim are sent to the app instead of scrolling Kaku's primary
+    /// and vim are sent to the app instead of scrolling Hiterm's primary
     /// scrollback peek.
     #[dynamic(default)]
     pub alternate_screen_wheel_scrolls_terminal: bool,
@@ -577,13 +577,13 @@ pub struct Config {
     #[dynamic(default)]
     pub selection_wheel_scroll_behavior: SelectionWheelScrollBehavior,
 
-    /// Deprecated and ignored. The i18n support was removed and Kaku's
+    /// Deprecated and ignored. The i18n support was removed and Hiterm's
     /// built-in UI is English-only. Kept as a deprecated field (rather than
     /// dropped) so that `kaku.lua` files carrying `config.language` from
     /// V0.11.0 still load on upgrade with a warning instead of a hard error.
     #[dynamic(
         default,
-        deprecated = "the language option was removed; Kaku's built-in UI is English-only"
+        deprecated = "the language option was removed; Hiterm's built-in UI is English-only"
     )]
     pub language: String,
 
@@ -1009,7 +1009,7 @@ pub struct Config {
     #[dynamic(default = "default_ulimit_nproc")]
     pub ulimit_nproc: u64,
 
-    /// Configuration for the Kaku Remote iOS bridge.
+    /// Configuration for the Hiterm Remote iOS bridge.
     /// When enabled, a WebSocket server is started so the iOS app can
     /// view and control panes over the local network.
     #[dynamic(default)]
@@ -1193,7 +1193,9 @@ impl Config {
 
         let mut paths = vec![];
         for dir in CONFIG_DIRS.iter() {
-            paths.push(PathPossibility::optional(dir.join("kaku.lua")))
+            paths.push(PathPossibility::optional(dir.join("hiterm.lua")));
+            // Pre-rename installs may still have kaku.lua.
+            paths.push(PathPossibility::optional(dir.join("kaku.lua")));
         }
 
         if cfg!(windows) {
@@ -1207,7 +1209,7 @@ impl Config {
             // dir as the executable that will take precedence.
             if let Ok(exe_name) = std::env::current_exe() {
                 if let Some(exe_dir) = exe_name.parent() {
-                    paths.insert(0, PathPossibility::optional(exe_dir.join("kaku.lua")));
+                    paths.insert(0, PathPossibility::optional(exe_dir.join("hiterm.lua")));
                 }
             }
         }
@@ -1216,7 +1218,7 @@ impl Config {
             if let Ok(exe_name) = std::env::current_exe() {
                 if let Some(contents_dir) = exe_name.parent().and_then(|p| p.parent()) {
                     paths.push(PathPossibility::optional(
-                        contents_dir.join("Resources").join("kaku.lua"),
+                        contents_dir.join("Resources").join("hiterm.lua"),
                     ));
                 }
             }
@@ -1246,9 +1248,11 @@ impl Config {
             }
         }
 
-        // We didn't find (or were asked to skip) a kaku.lua file, so
+        // We didn't find (or were asked to skip) a config file, so
         // update the environment to make it simpler to understand this
         // state.
+        std::env::remove_var("HITERM_CONFIG_FILE");
+        std::env::remove_var("HITERM_CONFIG_DIR");
         std::env::remove_var("KAKU_CONFIG_FILE");
         std::env::remove_var("KAKU_CONFIG_DIR");
 
@@ -1279,9 +1283,9 @@ impl Config {
     }
 
     /// Runtime signature embedded in every cache entry.
-    /// Changing the Kaku version automatically invalidates all cached bytecode,
+    /// Changing the Hiterm version automatically invalidates all cached bytecode,
     /// preventing cross-version mismatches.
-    const CACHE_SIGNATURE: &'static str = concat!("kaku/", env!("CARGO_PKG_VERSION"), "/lua54");
+    const CACHE_SIGNATURE: &'static str = concat!("hiterm/", env!("CARGO_PKG_VERSION"), "/lua54");
 
     /// Magic header for the bytecode cache file format.
     const CACHE_MAGIC: &'static [u8; 4] = b"KLBC";
@@ -1442,7 +1446,7 @@ impl Config {
                         anyhow::anyhow!(
                             "Config error: You may have forgotten to define the config variable.\n\
                              \n\
-                             In kaku.lua, you need to create the config table first:\n\
+                             In hiterm.lua, you need to create the config table first:\n\
                              \n\
                              local wezterm = require 'wezterm'\n\
                              local config = {{}}  -- or wezterm.config_builder()\n\
@@ -2043,7 +2047,7 @@ impl Config {
         #[cfg(unix)]
         cmd.umask(umask::UmaskSaver::saved_umask());
         cmd.env("TERM", &self.term);
-        if self.term == "kaku" {
+        if self.term == "hiterm" || self.term == "kaku" {
             if let Some(terminfo_dir) = bundled_terminfo_dir() {
                 if let Some(terminfo_dirs) =
                     merged_terminfo_dirs(std::env::var_os("TERMINFO_DIRS"), &terminfo_dir)
@@ -2055,11 +2059,11 @@ impl Config {
         cmd.env("COLORTERM", "truecolor");
         // TERM_PROGRAM and TERM_PROGRAM_VERSION are an emerging
         // de-facto standard for identifying the terminal.
-        cmd.env("TERM_PROGRAM", "Kaku");
+        cmd.env("TERM_PROGRAM", "Hiterm");
         cmd.env("TERM_PROGRAM_VERSION", crate::wezterm_version());
         // Sync East Asian Ambiguous width with go-runewidth (used by bubbletea/lipgloss
         // Go TUI programs). Without this, go-runewidth auto-detects CJK locale and treats
-        // ambiguous-width chars as wide=2, while Kaku defaults to narrow=1, causing
+        // ambiguous-width chars as wide=2, while Hiterm defaults to narrow=1, causing
         // character misalignment and missing text in Go TUI apps.
         cmd.env(
             "RUNEWIDTH_EASTASIAN",
@@ -2551,6 +2555,8 @@ mod tests {
 
     fn smart_tab_test_command() -> portable_pty::CommandBuilder {
         let mut cmd = portable_pty::CommandBuilder::new_default_prog();
+        cmd.env_remove(super::HITERM_SMART_TAB_DISABLE);
+        cmd.env_remove(super::HITERM_TAB_ACCEPT_SUGGEST_FIRST);
         cmd.env_remove(super::KAKU_SMART_TAB_DISABLE);
         cmd.env_remove(super::KAKU_TAB_ACCEPT_SUGGEST_FIRST);
         cmd
@@ -2565,14 +2571,19 @@ mod tests {
         config.apply_cmd_defaults(&mut cmd, None, None);
 
         assert_eq!(
-            cmd.get_env("KAKU_SMART_TAB_DISABLE"),
+            cmd.get_env("HITERM_SMART_TAB_DISABLE"),
             Some(std::ffi::OsStr::new("1")),
-            "SmartTabMode::Off must set KAKU_SMART_TAB_DISABLE=1"
+            "SmartTabMode::Off must set HITERM_SMART_TAB_DISABLE=1"
         );
         assert_eq!(
-            cmd.get_env("KAKU_TAB_ACCEPT_SUGGEST_FIRST"),
+            cmd.get_env("KAKU_SMART_TAB_DISABLE"),
+            Some(std::ffi::OsStr::new("1")),
+            "SmartTabMode::Off must still set KAKU_SMART_TAB_DISABLE=1 for legacy shell integration"
+        );
+        assert_eq!(
+            cmd.get_env("HITERM_TAB_ACCEPT_SUGGEST_FIRST"),
             None,
-            "SmartTabMode::Off must not set KAKU_TAB_ACCEPT_SUGGEST_FIRST"
+            "SmartTabMode::Off must not set HITERM_TAB_ACCEPT_SUGGEST_FIRST"
         );
     }
 
@@ -2585,14 +2596,19 @@ mod tests {
         config.apply_cmd_defaults(&mut cmd, None, None);
 
         assert_eq!(
-            cmd.get_env("KAKU_TAB_ACCEPT_SUGGEST_FIRST"),
+            cmd.get_env("HITERM_TAB_ACCEPT_SUGGEST_FIRST"),
             Some(std::ffi::OsStr::new("1")),
-            "SmartTabMode::SuggestionFirst must set KAKU_TAB_ACCEPT_SUGGEST_FIRST=1"
+            "SmartTabMode::SuggestionFirst must set HITERM_TAB_ACCEPT_SUGGEST_FIRST=1"
         );
         assert_eq!(
-            cmd.get_env("KAKU_SMART_TAB_DISABLE"),
+            cmd.get_env("KAKU_TAB_ACCEPT_SUGGEST_FIRST"),
+            Some(std::ffi::OsStr::new("1")),
+            "SmartTabMode::SuggestionFirst must still set KAKU_TAB_ACCEPT_SUGGEST_FIRST=1 for legacy shell integration"
+        );
+        assert_eq!(
+            cmd.get_env("HITERM_SMART_TAB_DISABLE"),
             None,
-            "SmartTabMode::SuggestionFirst must not set KAKU_SMART_TAB_DISABLE"
+            "SmartTabMode::SuggestionFirst must not set HITERM_SMART_TAB_DISABLE"
         );
     }
 
@@ -2605,14 +2621,14 @@ mod tests {
         config.apply_cmd_defaults(&mut cmd, None, None);
 
         assert_eq!(
-            cmd.get_env("KAKU_SMART_TAB_DISABLE"),
+            cmd.get_env("HITERM_SMART_TAB_DISABLE"),
             None,
-            "SmartTabMode::CompletionFirst must not set KAKU_SMART_TAB_DISABLE"
+            "SmartTabMode::CompletionFirst must not set HITERM_SMART_TAB_DISABLE"
         );
         assert_eq!(
-            cmd.get_env("KAKU_TAB_ACCEPT_SUGGEST_FIRST"),
+            cmd.get_env("HITERM_TAB_ACCEPT_SUGGEST_FIRST"),
             None,
-            "SmartTabMode::CompletionFirst must not set KAKU_TAB_ACCEPT_SUGGEST_FIRST"
+            "SmartTabMode::CompletionFirst must not set HITERM_TAB_ACCEPT_SUGGEST_FIRST"
         );
     }
 
@@ -2622,14 +2638,14 @@ mod tests {
         config.smart_tab_mode = super::SmartTabMode::SuggestionFirst;
 
         let mut cmd = smart_tab_test_command();
-        cmd.env(super::KAKU_SMART_TAB_DISABLE, "1");
+        cmd.env(super::HITERM_SMART_TAB_DISABLE, "1");
         config.apply_cmd_defaults(&mut cmd, None, None);
 
         assert_eq!(
-            cmd.get_env(super::KAKU_SMART_TAB_DISABLE),
+            cmd.get_env(super::HITERM_SMART_TAB_DISABLE),
             Some(std::ffi::OsStr::new("1"))
         );
-        assert_eq!(cmd.get_env(super::KAKU_TAB_ACCEPT_SUGGEST_FIRST), None);
+        assert_eq!(cmd.get_env(super::HITERM_TAB_ACCEPT_SUGGEST_FIRST), None);
     }
 
     #[test]
@@ -2638,12 +2654,12 @@ mod tests {
         config.smart_tab_mode = super::SmartTabMode::Off;
 
         let mut cmd = smart_tab_test_command();
-        cmd.env(super::KAKU_TAB_ACCEPT_SUGGEST_FIRST, "1");
+        cmd.env(super::HITERM_TAB_ACCEPT_SUGGEST_FIRST, "1");
         config.apply_cmd_defaults(&mut cmd, None, None);
 
-        assert_eq!(cmd.get_env(super::KAKU_SMART_TAB_DISABLE), None);
+        assert_eq!(cmd.get_env(super::HITERM_SMART_TAB_DISABLE), None);
         assert_eq!(
-            cmd.get_env(super::KAKU_TAB_ACCEPT_SUGGEST_FIRST),
+            cmd.get_env(super::HITERM_TAB_ACCEPT_SUGGEST_FIRST),
             Some(std::ffi::OsStr::new("1"))
         );
     }
@@ -2721,26 +2737,26 @@ fn default_font_size() -> f64 {
 
 pub(crate) fn compute_cache_dir() -> anyhow::Result<PathBuf> {
     if let Some(runtime) = dirs_next::cache_dir() {
-        return Ok(runtime.join("kaku"));
+        return Ok(runtime.join("hiterm"));
     }
 
-    Ok(crate::HOME_DIR.join(".local/share/kaku"))
+    Ok(crate::HOME_DIR.join(".local/share/hiterm"))
 }
 
 pub(crate) fn compute_data_dir() -> anyhow::Result<PathBuf> {
     if let Some(runtime) = dirs_next::data_dir() {
-        return Ok(runtime.join("kaku"));
+        return Ok(runtime.join("hiterm"));
     }
 
-    Ok(crate::HOME_DIR.join(".local/share/kaku"))
+    Ok(crate::HOME_DIR.join(".local/share/hiterm"))
 }
 
 pub(crate) fn compute_runtime_dir() -> anyhow::Result<PathBuf> {
     if let Some(runtime) = dirs_next::runtime_dir() {
-        return Ok(runtime.join("kaku"));
+        return Ok(runtime.join("hiterm"));
     }
 
-    Ok(crate::HOME_DIR.join(".local/share/kaku"))
+    Ok(crate::HOME_DIR.join(".local/share/hiterm"))
 }
 
 pub fn pki_dir() -> anyhow::Result<PathBuf> {
@@ -2981,12 +2997,12 @@ pub enum VerticalWindowContentAlignment {
 pub enum SelectionWheelScrollBehavior {
     /// Scroll the viewport and stretch the selection so its endpoint tracks
     /// the cursor under the new viewport. This is the macOS `NSTextView`
-    /// idiom and the new Kaku default.
+    /// idiom and the new Hiterm default.
     #[default]
     Extend,
     /// Scroll the viewport but do not update the selection endpoint.
     ScrollOnly,
-    /// Drop the wheel event. Equivalent to Kaku v0.10 and earlier behavior.
+    /// Drop the wheel event. Equivalent to Hiterm v0.10 and earlier behavior.
     Ignore,
 }
 
@@ -3210,7 +3226,7 @@ fn smart_tab_env_is_explicit(cmd: &CommandBuilder) -> bool {
         || cmd.get_env(KAKU_TAB_ACCEPT_SUGGEST_FIRST).is_some()
 }
 
-/// Controls how the Tab key behaves in zsh inside Kaku sessions.
+/// Controls how the Tab key behaves in zsh inside Hiterm sessions.
 #[derive(Debug, ToDynamic, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SmartTabMode {
     /// Tab shows the completion list; use arrow keys to accept autosuggestions.

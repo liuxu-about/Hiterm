@@ -31,7 +31,7 @@ use url::Url;
 use super::connection::QuitOrigin;
 use super::keycodes::{layout_printable_vkeys, phys_to_vkey};
 
-const CLS_NAME: &str = "KakuAppDelegate";
+const CLS_NAME: &str = "HitermAppDelegate";
 
 type OSStatus = i32;
 type EventHotKeyRef = *mut c_void;

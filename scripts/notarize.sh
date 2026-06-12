@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Notarization script for Kaku macOS app
+# Notarization script for Hiterm macOS app
 # Usage: ./scripts/notarize.sh [--staple-only]
 #
 # Prerequisites:
 # 1. App must be signed with Developer ID
 # 2. Preferred: App Store Connect API Key (rcodesign, avoids notarytool SIGBUS on macOS 26):
-#    - Store the JSON key path in Keychain: security add-generic-password -s "kaku-asc-api-key-path" -a "kaku" -w "/path/to/asc_api_key.json"
+#    - Store the JSON key path in Keychain: security add-generic-password -s "hiterm-asc-api-key-path" -a "hiterm" -w "/path/to/asc_api_key.json"
 #    - Generate with: rcodesign encode-app-store-connect-api-key -o asc_api_key.json <issuer-id> <key-id> AuthKey_*.p8
 # 3. Fallback: notarytool Keychain profile:
-#    - xcrun notarytool store-credentials kaku-notarytool --apple-id <apple-id> --team-id <team-id>
-#    - Store the profile name in Keychain: security add-generic-password -s "kaku-notarytool-profile" -a "kaku" -w "kaku-notarytool"
+#    - xcrun notarytool store-credentials hiterm-notarytool --apple-id <apple-id> --team-id <team-id>
+#    - Store the profile name in Keychain: security add-generic-password -s "hiterm-notarytool-profile" -a "hiterm" -w "hiterm-notarytool"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
@@ -54,7 +54,7 @@ require_developer_id_signature() {
 
 	if ! grep -q "^Authority=Developer ID Application:" <<<"$metadata"; then
 		echo "Error: App must be signed with a Developer ID Application certificate before notarization." >&2
-		echo "Rebuild with ./scripts/build.sh after installing a single Developer ID Application certificate, or set KAKU_SIGNING_IDENTITY explicitly." >&2
+		echo "Rebuild with ./scripts/build.sh after installing a single Developer ID Application certificate, or set HITERM_SIGNING_IDENTITY explicitly." >&2
 		echo "$metadata" | grep -E "^(Authority=|TeamIdentifier=|Signature=)" >&2 || true
 		return 1
 	fi
@@ -92,7 +92,7 @@ else
 fi
 
 refresh_update_archive() {
-	local update_zip_name="kaku_for_update.zip"
+	local update_zip_name="hiterm_for_update.zip"
 	local update_zip_path="$OUT_DIR/$update_zip_name"
 	local update_sha_path="$OUT_DIR/${update_zip_name}.sha256"
 
@@ -132,7 +132,10 @@ staple_and_verify() {
 }
 
 # Preferred: rcodesign with App Store Connect API Key (avoids notarytool SIGBUS on macOS 26)
-ASC_API_KEY_PATH="${KAKU_ASC_API_KEY_PATH:-}"
+ASC_API_KEY_PATH="${HITERM_ASC_API_KEY_PATH:-${KAKU_ASC_API_KEY_PATH:-}}"
+if [[ -z "$ASC_API_KEY_PATH" ]]; then
+	ASC_API_KEY_PATH=$(security find-generic-password -s "hiterm-asc-api-key-path" -w 2>/dev/null || true)
+fi
 if [[ -z "$ASC_API_KEY_PATH" ]]; then
 	ASC_API_KEY_PATH=$(security find-generic-password -s "kaku-asc-api-key-path" -w 2>/dev/null || true)
 fi
@@ -157,7 +160,11 @@ if [[ -n "$ASC_API_KEY_PATH" && -f "$ASC_API_KEY_PATH" ]] && command -v rcodesig
 fi
 
 # Fallback: notarytool with Keychain profile
-NOTARYTOOL_PROFILE="${KAKU_NOTARYTOOL_PROFILE:-}"
+NOTARYTOOL_PROFILE="${HITERM_NOTARYTOOL_PROFILE:-${KAKU_NOTARYTOOL_PROFILE:-}}"
+
+if [[ -z "$NOTARYTOOL_PROFILE" ]]; then
+	NOTARYTOOL_PROFILE=$(security find-generic-password -s "hiterm-notarytool-profile" -w 2>/dev/null || true)
+fi
 
 if [[ -z "$NOTARYTOOL_PROFILE" ]]; then
 	NOTARYTOOL_PROFILE=$(security find-generic-password -s "kaku-notarytool-profile" -w 2>/dev/null || true)
@@ -170,11 +177,11 @@ if [[ -z "$NOTARYTOOL_PROFILE" ]]; then
 	echo "Preferred (rcodesign, avoids notarytool SIGBUS on macOS 26):"
 	echo "  1. Create an API key at https://appstoreconnect.apple.com/access/integrations/api"
 	echo "  2. rcodesign encode-app-store-connect-api-key -o asc_api_key.json <issuer-id> <key-id> AuthKey_*.p8"
-	echo "  3. security add-generic-password -s 'kaku-asc-api-key-path' -a 'kaku' -w '/path/to/asc_api_key.json'"
+	echo "  3. security add-generic-password -s 'hiterm-asc-api-key-path' -a 'hiterm' -w '/path/to/asc_api_key.json'"
 	echo ""
 	echo "Fallback (notarytool Keychain profile, with secure password prompt):"
-	echo "  xcrun notarytool store-credentials kaku-notarytool --apple-id <apple-id> --team-id <team-id>"
-	echo "  security add-generic-password -s 'kaku-notarytool-profile' -a 'kaku' -w 'kaku-notarytool'"
+	echo "  xcrun notarytool store-credentials hiterm-notarytool --apple-id <apple-id> --team-id <team-id>"
+	echo "  security add-generic-password -s 'hiterm-notarytool-profile' -a 'hiterm' -w 'hiterm-notarytool'"
 	exit 1
 fi
 

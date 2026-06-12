@@ -20,7 +20,7 @@ TARGET_APP="$TARGET_APP_NORM"
 NEW_APP="$NEW_APP_NORM"
 BACKUP_APP="${TARGET_APP}.backup.$(date +%s)"
 TARGET_GUI="$TARGET_APP/Contents/MacOS/hiterm-gui"
-TARGET_CLI="$TARGET_APP/Contents/MacOS/kaku"
+TARGET_CLI="$TARGET_APP/Contents/MacOS/hiterm"
 
 # Validate that paths end with Hiterm.app for safety (allow trailing slashes).
 # Final component match mirrors Rust Path::ends_with("Hiterm.app") semantics.
@@ -46,14 +46,14 @@ rollback() {
   fi
 }
 
-install_kaku_wrapper_fallback() {
+install_hiterm_wrapper_fallback() {
   local home_dir shell_candidate wrapper_shell wrapper_path wrapper_dir
   home_dir="${HOME:-}"
   if [[ -z "$home_dir" ]]; then
     return 1
   fi
 
-  shell_candidate="${KAKU_TARGET_SHELL:-${SHELL:-/bin/zsh}}"
+  shell_candidate="${HITERM_TARGET_SHELL:-${KAKU_TARGET_SHELL:-${SHELL:-/bin/zsh}}}"
   case "$shell_candidate" in
     *fish|fish)
       wrapper_shell="fish"
@@ -63,7 +63,7 @@ install_kaku_wrapper_fallback() {
       ;;
   esac
 
-  wrapper_path="$home_dir/.config/kaku/$wrapper_shell/bin/kaku"
+  wrapper_path="$home_dir/.config/hiterm/$wrapper_shell/bin/hiterm"
   wrapper_dir="${wrapper_path%/*}"
   /bin/mkdir -p "$wrapper_dir"
 
@@ -71,20 +71,20 @@ install_kaku_wrapper_fallback() {
 #!/bin/bash
 set -euo pipefail
 
-if [[ -n "\${KAKU_BIN:-}" && -x "\${KAKU_BIN}" ]]; then
-  exec "\${KAKU_BIN}" "\$@"
+if [[ -n "\${HITERM_BIN:-\${KAKU_BIN:-}}" && -x "\${HITERM_BIN:-\${KAKU_BIN:-}}" ]]; then
+  exec "\${HITERM_BIN:-\${KAKU_BIN:-}}" "\$@"
 fi
 
 for candidate in \
   "$TARGET_CLI" \
-  "/Applications/Hiterm.app/Contents/MacOS/kaku" \
-  "\${HOME:-}/Applications/Hiterm.app/Contents/MacOS/kaku"; do
+  "/Applications/Hiterm.app/Contents/MacOS/hiterm" \
+  "\${HOME:-}/Applications/Hiterm.app/Contents/MacOS/hiterm"; do
   if [[ -n "\$candidate" && -x "\$candidate" ]]; then
     exec "\$candidate" "\$@"
   fi
 done
 
-  echo "kaku: Hiterm.app not found. Expected /Applications/Hiterm.app." >&2
+  echo "hiterm: Hiterm.app not found. Expected /Applications/Hiterm.app." >&2
   exit 127
 EOF
 
@@ -97,7 +97,7 @@ log "start apply update"
 # pgrep/pkill -f treats the pattern as a regex, but TARGET_GUI/TARGET_CLI may contain
 # regex metacharacters. Match against the full command line via ps and shell pattern
 # literals instead. Use ps -axww so long command lines are not truncated.
-collect_kaku_pids() {
+collect_hiterm_pids() {
   ps -axww -o pid= -o args= | while read -r pid args; do
     [[ -z "$pid" ]] && continue
     [[ "$pid" == "$$" ]] && continue
@@ -107,13 +107,13 @@ collect_kaku_pids() {
   done | sort -u
 }
 
-KAKU_PIDS=""
+HITERM_PIDS=""
 for _ in $(seq 1 20); do
-  KAKU_PIDS=$(collect_kaku_pids | tr '\n' ' ')
-  if [[ -z "$KAKU_PIDS" ]]; then
+  HITERM_PIDS=$(collect_hiterm_pids | tr '\n' ' ')
+  if [[ -z "$HITERM_PIDS" ]]; then
     break
   fi
-  for pid in $KAKU_PIDS; do
+  for pid in $HITERM_PIDS; do
     if ! kill -TERM "$pid" 2>/dev/null; then
       log "failed to send TERM to pid $pid"
     fi
@@ -121,9 +121,9 @@ for _ in $(seq 1 20); do
   sleep 1
 done
 # Final force-kill if any remain
-KAKU_PIDS=$(collect_kaku_pids | tr '\n' ' ')
-if [[ -n "$KAKU_PIDS" ]]; then
-  for pid in $KAKU_PIDS; do
+HITERM_PIDS=$(collect_hiterm_pids | tr '\n' ' ')
+if [[ -n "$HITERM_PIDS" ]]; then
+  for pid in $HITERM_PIDS; do
     if ! kill -KILL "$pid" 2>/dev/null; then
       log "failed to send KILL to pid $pid"
     fi
@@ -151,18 +151,18 @@ log "refresh shell integration"
 if "$TARGET_CLI" init --update-only >>"$LOG_FILE" 2>&1; then
   log "shell integration refreshed"
 else
-  log "warning: failed to refresh shell integration via kaku init"
-  if fallback_wrapper_path="$(install_kaku_wrapper_fallback)"; then
-    log "installed fallback kaku wrapper at ${fallback_wrapper_path:-~/.config/kaku/<unknown>/bin/kaku}"
+  log "warning: failed to refresh shell integration via hiterm init"
+  if fallback_wrapper_path="$(install_hiterm_wrapper_fallback)"; then
+    log "installed fallback hiterm wrapper at ${fallback_wrapper_path:-~/.config/hiterm/<unknown>/bin/hiterm}"
   else
-    log "warning: failed to install fallback kaku wrapper"
+    log "warning: failed to install fallback hiterm wrapper"
   fi
 fi
 
 # Write update completed marker with new version
 NEW_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$TARGET_APP/Contents/Info.plist" 2>/dev/null || echo "")
 if [[ -n "$NEW_VERSION" ]]; then
-  DATA_DIR="${XDG_DATA_HOME:-$HOME/Library/Application Support}/kaku"
+  DATA_DIR="${XDG_DATA_HOME:-$HOME/Library/Application Support}/hiterm"
   /bin/mkdir -p "$DATA_DIR" 2>/dev/null
   printf '%s\n' "$NEW_VERSION" > "$DATA_DIR/update_completed"
   log "wrote update_completed marker: $NEW_VERSION"
@@ -187,13 +187,13 @@ else
   log "open path failed (exit code: $?), trying open -a"
   sleep 1
   # Method 2: open by app name
-  if /usr/bin/open -a Kaku 2>>"$LOG_FILE"; then
+  if /usr/bin/open -a Hiterm 2>>"$LOG_FILE"; then
     log "relaunch via open -a succeeded"
   else
     log "open -a failed (exit code: $?), trying osascript"
     sleep 1
     # Method 3: AppleScript as last resort
-    /usr/bin/osascript -e 'tell application "Kaku" to activate' 2>>"$LOG_FILE" || log "osascript also failed"
+    /usr/bin/osascript -e 'tell application "Hiterm" to activate' 2>>"$LOG_FILE" || log "osascript also failed"
   fi
 fi
 

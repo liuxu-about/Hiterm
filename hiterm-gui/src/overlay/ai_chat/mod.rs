@@ -1,4 +1,4 @@
-//! AI conversation overlay for Kaku.
+//! AI conversation overlay for Hiterm.
 //!
 //! Activated via Cmd+L. Renders a full-pane chat TUI using raw termwiz
 //! change sequences, communicating with the LLM via a background thread and
@@ -16,7 +16,7 @@ mod render;
 mod state;
 mod types;
 
-// Vocabulary used in this overlay (see also `kaku-gui/AGENTS.md`):
+// Vocabulary used in this overlay (see also `hiterm-gui/AGENTS.md`):
 // - **Soul** = persistent user-authored identity files + curator memory
 //   (`crate::soul`). Loaded into the system prompt and a per-request env
 //   message.
@@ -98,7 +98,7 @@ pub fn ai_chat_overlay(
                     x: Position::Absolute(0),
                     y: Position::Absolute(0),
                 },
-                Change::Text(format!("Kaku AI: {}", e)),
+                Change::Text(format!("Hiterm AI: {}", e)),
             ])?;
             std::thread::sleep(Duration::from_secs(3));
             return Ok(());

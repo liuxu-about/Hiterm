@@ -11,7 +11,7 @@ fail() {
   exit 1
 }
 
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/kaku-setup-zsh-smoke.XXXXXX")"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/hiterm-setup-zsh-smoke.XXXXXX")"
 trap 'rm -rf "$tmp_dir"' EXIT
 
 tmp_home="$tmp_dir/home"
@@ -32,10 +32,10 @@ output_log="$tmp_dir/output.log"
 error_log="$tmp_dir/error.log"
 
 if ! HOME="$tmp_home" \
-  KAKU_INIT_INTERNAL=1 \
-  KAKU_SKIP_TOOL_BOOTSTRAP=1 \
-  KAKU_SKIP_TERMINFO_BOOTSTRAP=1 \
-  KAKU_VENDOR_DIR="$tmp_vendor" \
+  HITERM_INIT_INTERNAL=1 \
+  HITERM_SKIP_TOOL_BOOTSTRAP=1 \
+  HITERM_SKIP_TERMINFO_BOOTSTRAP=1 \
+  HITERM_VENDOR_DIR="$tmp_vendor" \
   bash "$SHELL_DIR/setup_zsh.sh" --update-only >"$output_log" 2>"$error_log"; then
   cat "$output_log" >&2
   cat "$error_log" >&2
@@ -49,17 +49,17 @@ if grep -Fq "local: can only be used in a function" "$output_log" "$error_log"; 
 fi
 
 [[ -f "$tmp_home/.config/starship.toml" ]] || fail "starship.toml was not initialized"
-[[ -f "$tmp_home/.config/kaku/zsh/kaku.zsh" ]] || fail "kaku.zsh was not generated"
+[[ -f "$tmp_home/.config/hiterm/zsh/hiterm.zsh" ]] || fail "hiterm.zsh was not generated"
 [[ -f "$tmp_home/.zshrc" ]] || fail ".zshrc was not patched"
 
-if ! grep -Fq "fg=249" "$tmp_home/.config/kaku/zsh/kaku.zsh"; then
-  fail "generated kaku.zsh did not set readable comment color fg=249"
+if ! grep -Fq "fg=249" "$tmp_home/.config/hiterm/zsh/hiterm.zsh"; then
+  fail "generated hiterm.zsh did not set readable comment color fg=249"
 fi
-if grep -Fq "fg=244" "$tmp_home/.config/kaku/zsh/kaku.zsh"; then
-  fail "generated kaku.zsh still contains old comment color fg=244"
+if grep -Fq "fg=244" "$tmp_home/.config/hiterm/zsh/hiterm.zsh"; then
+  fail "generated hiterm.zsh still contains old comment color fg=244"
 fi
-if ! grep -Fq "_kaku_semantic_precmd" "$tmp_home/.config/kaku/zsh/kaku.zsh"; then
-  fail "generated kaku.zsh did not install OSC 133 semantic prompt hooks"
+if ! grep -Fq "_hiterm_semantic_precmd" "$tmp_home/.config/hiterm/zsh/hiterm.zsh"; then
+  fail "generated hiterm.zsh did not install OSC 133 semantic prompt hooks"
 fi
 
 # The generated file is sourced by the user's real zsh, so it must parse under
@@ -67,12 +67,12 @@ fi
 # generation time, #450) or a stray top-level construct surfaces here even when
 # setup_zsh.sh itself exited 0.
 if command -v zsh >/dev/null 2>&1; then
-  if ! zsh -n "$tmp_home/.config/kaku/zsh/kaku.zsh" 2>"$tmp_dir/zsh_parse.log"; then
+  if ! zsh -n "$tmp_home/.config/hiterm/zsh/hiterm.zsh" 2>"$tmp_dir/zsh_parse.log"; then
     cat "$tmp_dir/zsh_parse.log" >&2
-    fail "generated kaku.zsh failed 'zsh -n' parse check"
+    fail "generated hiterm.zsh failed 'zsh -n' parse check"
   fi
 else
-  echo "warning: zsh not found; skipping kaku.zsh parse check" >&2
+  echo "warning: zsh not found; skipping hiterm.zsh parse check" >&2
 fi
 
 echo "setup_zsh update-only smoke test passed"

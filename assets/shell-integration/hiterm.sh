@@ -36,15 +36,16 @@ case "$TERM" in
   ;;
 esac
 
-# Remote machines typically don't have the "kaku" terminfo entry, so when
-# SSHing from a Kaku local shell (TERM=kaku), zsh plugins on the remote side
+# Remote machines typically don't have the Hiterm terminfo entry, so when
+# SSHing from a Hiterm local shell, zsh plugins on the remote side
 # (autosuggestions, syntax-highlighting) can fall back to broken rendering
 # paths, causing garbled display (e.g. "ls -lh" appearing as "lss s -lh").
-# Override TERM for ssh sessions the same way Kaku's built-in SSH domain does.
-# Set KAKU_SSH_SKIP_TERM_FIX=1 to disable. If the user already defined ssh(),
+# Override TERM for ssh sessions the same way Hiterm's built-in SSH domain does.
+# Set HITERM_SSH_SKIP_TERM_FIX=1 to disable. KAKU_SSH_SKIP_TERM_FIX remains
+# accepted for pre-rename shell configs. If the user already defined ssh(),
 # keep their function untouched.
-_kaku_wrapped_ssh() {
-    if [[ -z "${KAKU_SSH_SKIP_TERM_FIX-}" && "${TERM:-}" == "kaku" ]]; then
+_hiterm_wrapped_ssh() {
+    if [[ -z "${HITERM_SSH_SKIP_TERM_FIX-${KAKU_SSH_SKIP_TERM_FIX-}}" && ( "${TERM:-}" == "hiterm" || "${TERM:-}" == "kaku" ) ]]; then
       TERM=xterm-256color command ssh "$@"
     else
       command ssh "$@"
@@ -52,24 +53,24 @@ _kaku_wrapped_ssh() {
   }
 
 if [ -n "${ZSH_NAME-}" ] && alias ssh >/dev/null 2>&1; then
-  _kaku_existing_ssh_alias="${aliases[ssh]-}"
+  _hiterm_existing_ssh_alias="${aliases[ssh]-}"
   function ssh {
-    local -a _kaku_alias_words
-    _kaku_alias_words=(${(z)_kaku_existing_ssh_alias})
-    if [[ "${_kaku_alias_words[1]-}" == "ssh" ]]; then
-      _kaku_wrapped_ssh "${(@)_kaku_alias_words[2,-1]}" "$@"
-    elif [[ "${_kaku_alias_words[1]-}" == "command" && "${_kaku_alias_words[2]-}" == "ssh" ]]; then
-      _kaku_wrapped_ssh "${(@)_kaku_alias_words[3,-1]}" "$@"
-    elif [[ -z "${KAKU_SSH_SKIP_TERM_FIX-}" && "${TERM:-}" == "kaku" ]]; then
-      TERM=xterm-256color "${_kaku_alias_words[@]}" "$@"
+    local -a _hiterm_alias_words
+    _hiterm_alias_words=(${(z)_hiterm_existing_ssh_alias})
+    if [[ "${_hiterm_alias_words[1]-}" == "ssh" ]]; then
+      _hiterm_wrapped_ssh "${(@)_hiterm_alias_words[2,-1]}" "$@"
+    elif [[ "${_hiterm_alias_words[1]-}" == "command" && "${_hiterm_alias_words[2]-}" == "ssh" ]]; then
+      _hiterm_wrapped_ssh "${(@)_hiterm_alias_words[3,-1]}" "$@"
+    elif [[ -z "${HITERM_SSH_SKIP_TERM_FIX-${KAKU_SSH_SKIP_TERM_FIX-}}" && ( "${TERM:-}" == "hiterm" || "${TERM:-}" == "kaku" ) ]]; then
+      TERM=xterm-256color "${_hiterm_alias_words[@]}" "$@"
     else
-      "${_kaku_alias_words[@]}" "$@"
+      "${_hiterm_alias_words[@]}" "$@"
     fi
   }
   unalias ssh
 elif ! typeset -f ssh >/dev/null 2>&1; then
   function ssh {
-    _kaku_wrapped_ssh "$@"
+    _hiterm_wrapped_ssh "$@"
   }
 fi
 
@@ -615,24 +616,33 @@ if [[ -z "${WEZTERM_SHELL_SKIP_CWD-}" ]] ; then
   fi
 fi
 
-# Check for available Kaku updates on shell startup
-__kaku_check_update_notification() {
+# Check for available Hiterm updates on shell startup
+__hiterm_check_update_notification() {
   # macOS uses ~/Library/Application Support, Linux uses XDG_DATA_HOME
-  local check_file
+  local check_file legacy_check_file
   if [[ "$OSTYPE" == darwin* ]]; then
-    check_file="$HOME/Library/Application Support/kaku/check_update"
+    check_file="$HOME/Library/Application Support/hiterm/check_update"
+    legacy_check_file="$HOME/Library/Application Support/kaku/check_update"
   else
-    check_file="${XDG_DATA_HOME:-$HOME/.local/share}/kaku/check_update"
+    check_file="${XDG_DATA_HOME:-$HOME/.local/share}/hiterm/check_update"
+    legacy_check_file="${XDG_DATA_HOME:-$HOME/.local/share}/kaku/check_update"
+  fi
+  if [[ ! -f "$check_file" && -f "$legacy_check_file" ]]; then
+    check_file="$legacy_check_file"
   fi
   [[ -f "$check_file" ]] || return 0
 
-  local latest_tag current_version notified_file
+  local latest_tag current_version notified_file hiterm_cli
   # Extract tag_name from JSON
   latest_tag=$(grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' "$check_file" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
   [[ -z "$latest_tag" ]] && return 0
 
   # Get current version
-  if command -v kaku >/dev/null 2>&1; then
+  if command -v hiterm >/dev/null 2>&1; then
+    hiterm_cli="hiterm"
+    current_version=$(hiterm --version 2>/dev/null | head -1 | awk '{print $2}')
+  elif command -v kaku >/dev/null 2>&1; then
+    hiterm_cli="kaku"
     current_version=$(kaku --version 2>/dev/null | head -1 | awk '{print $2}')
   fi
   [[ -z "$current_version" ]] && return 0
@@ -648,9 +658,9 @@ __kaku_check_update_notification() {
   # Check if already notified for this version
   local data_dir
   if [[ "$OSTYPE" == darwin* ]]; then
-    data_dir="$HOME/Library/Application Support/kaku"
+    data_dir="$HOME/Library/Application Support/hiterm"
   else
-    data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/kaku"
+    data_dir="${XDG_DATA_HOME:-$HOME/.local/share}/hiterm"
   fi
   notified_file="$data_dir/update_notified_${latest_clean}"
   [[ -f "$notified_file" ]] && return 0
@@ -660,7 +670,7 @@ __kaku_check_update_notification() {
   newer=$(printf '%s\n%s\n' "$current_clean" "$latest_clean" | sort -V | tail -n1)
   if [[ "$newer" == "$latest_clean" && "$newer" != "$current_clean" ]]; then
     local key
-    printf '\033[1;36mKaku %s is available. Press Enter to update, any other key to skip.\033[0m ' "$latest_clean"
+    printf '\033[1;36mHiterm %s is available. Press Enter to update, any other key to skip.\033[0m ' "$latest_clean"
     # Use zsh-compatible read: -r (raw), -s (silent), -k 1 (one char) for zsh; -n 1 for bash
     if [[ -n "${ZSH_VERSION:-}" ]]; then
       read -rsk1 key
@@ -669,13 +679,13 @@ __kaku_check_update_notification() {
     fi
     echo
     if [[ -z "$key" ]]; then
-      kaku update
+      "$hiterm_cli" update
     fi
     # Mark as notified
     mkdir -p "$(dirname "$notified_file")" 2>/dev/null
     touch "$notified_file" 2>/dev/null
   fi
 }
-__kaku_check_update_notification
+__hiterm_check_update_notification
 
 true

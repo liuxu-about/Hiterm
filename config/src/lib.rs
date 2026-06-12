@@ -539,11 +539,94 @@ pub fn is_executable_file(path: &Path) -> bool {
 }
 
 pub fn user_config_path() -> PathBuf {
-    CONFIG_DIRS
+    let dir = CONFIG_DIRS
         .first()
         .cloned()
-        .unwrap_or_else(|| HOME_DIR.join(".config").join("kaku"))
-        .join("kaku.lua")
+        .unwrap_or_else(|| HOME_DIR.join(".config").join("hiterm"));
+    let preferred = dir.join("hiterm.lua");
+    if preferred.exists() {
+        return preferred;
+    }
+    // Pre-rename installs (or an interrupted migration) still have kaku.lua.
+    let legacy = dir.join("kaku.lua");
+    if legacy.exists() {
+        return legacy;
+    }
+    preferred
+}
+
+/// One-time migration from the pre-rename `kaku` locations to `hiterm`.
+/// Each legacy directory is renamed and replaced by a symlink at the old
+/// path, so running shells, generated rc lines, and anything else holding
+/// an absolute `kaku` path keeps resolving to the same data. Idempotent:
+/// once the new path exists (or the old one is already a symlink) nothing
+/// happens. Call from the binaries' `main()` before any config or data
+/// access; the path statics in this crate already point at the new names.
+#[cfg(unix)]
+pub fn migrate_legacy_kaku_dirs() {
+    fn migrate(old: &Path, new: &Path) {
+        let Ok(meta) = std::fs::symlink_metadata(old) else {
+            return; // nothing to migrate
+        };
+        if meta.file_type().is_symlink() || new.exists() {
+            return; // already migrated, or the new tree is in use
+        }
+        if let Some(parent) = new.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        match std::fs::rename(old, new) {
+            Ok(()) => {
+                if let Err(e) = std::os::unix::fs::symlink(new, old) {
+                    log::warn!(
+                        "migrated {} -> {} but failed to leave a compat symlink: {e:#}",
+                        old.display(),
+                        new.display()
+                    );
+                }
+            }
+            Err(e) => {
+                log::warn!(
+                    "failed to migrate {} -> {}: {e:#}",
+                    old.display(),
+                    new.display()
+                );
+            }
+        }
+    }
+
+    let home = &*HOME_DIR;
+    migrate(
+        &home.join(".config").join("kaku"),
+        &home.join(".config").join("hiterm"),
+    );
+    migrate(
+        &home.join(".local/share/kaku"),
+        &home.join(".local/share/hiterm"),
+    );
+    migrate(
+        &home.join(".cache").join("kaku"),
+        &home.join(".cache").join("hiterm"),
+    );
+    if let Some(cache) = dirs_next::cache_dir() {
+        migrate(&cache.join("kaku"), &cache.join("hiterm"));
+    }
+    if let Some(data) = dirs_next::data_dir() {
+        migrate(&data.join("kaku"), &data.join("hiterm"));
+    }
+
+    // The user config file itself: kaku.lua becomes hiterm.lua, again with
+    // a symlink so editors/scripts opening the old name still work. Resolve
+    // through the (possibly just-created) symlinked config dir.
+    let config_dir = home.join(".config").join("hiterm");
+    let old_file = config_dir.join("kaku.lua");
+    let new_file = config_dir.join("hiterm.lua");
+    if let Ok(meta) = std::fs::symlink_metadata(&old_file) {
+        if !meta.file_type().is_symlink() && !new_file.exists() {
+            if std::fs::rename(&old_file, &new_file).is_ok() {
+                let _ = std::os::unix::fs::symlink(&new_file, &old_file);
+            }
+        }
+    }
 }
 
 fn effective_config_file_path_from(
@@ -564,7 +647,7 @@ fn effective_config_file_path_from(
 ///
 /// Priority:
 /// 1) explicit `--config-file` override
-/// 2) path of the loaded config (`KAKU_CONFIG_FILE`)
+/// 2) path of the loaded config (`HITERM_CONFIG_FILE`, then legacy `KAKU_CONFIG_FILE`)
 /// 3) default user config path
 pub fn effective_config_file_path() -> PathBuf {
     let config_file_override = CONFIG_FILE_OVERRIDE.lock().unwrap().clone();
@@ -705,21 +788,21 @@ fn minimal_user_config_template() -> &'static str {
 
 local function resolve_bundled_config()
   local resource_dir = wezterm.executable_dir:gsub('MacOS/?$', 'Resources')
-  local bundled = resource_dir .. '/kaku.lua'
+  local bundled = resource_dir .. '/hiterm.lua'
   local f = io.open(bundled, 'r')
   if f then
     f:close()
     return bundled
   end
 
-  local dev_bundled = wezterm.executable_dir .. '/../../assets/macos/Hiterm.app/Contents/Resources/kaku.lua'
+  local dev_bundled = wezterm.executable_dir .. '/../../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua'
   f = io.open(dev_bundled, 'r')
   if f then
     f:close()
     return dev_bundled
   end
 
-  local app_bundled = '/Applications/Hiterm.app/Contents/Resources/kaku.lua'
+  local app_bundled = '/Applications/Hiterm.app/Contents/Resources/hiterm.lua'
   f = io.open(app_bundled, 'r')
   if f then
     f:close()
@@ -727,7 +810,7 @@ local function resolve_bundled_config()
   end
 
   local home = os.getenv('HOME') or ''
-  local home_bundled = home .. '/Applications/Hiterm.app/Contents/Resources/kaku.lua'
+  local home_bundled = home .. '/Applications/Hiterm.app/Contents/Resources/hiterm.lua'
   f = io.open(home_bundled, 'r')
   if f then
     f:close()
@@ -745,18 +828,18 @@ if bundled then
   if ok and type(loaded) == 'table' then
     config = loaded
   else
-    wezterm.log_error('Kaku: failed to load bundled defaults from ' .. bundled)
+    wezterm.log_error('Hiterm: failed to load bundled defaults from ' .. bundled)
   end
 else
-  wezterm.log_error('Kaku: bundled defaults not found')
+  wezterm.log_error('Hiterm: bundled defaults not found')
 end
 
--- Kaku follows macOS appearance by default. Uncomment one line to force a theme:
--- config.color_scheme = 'Kaku Dark'
--- config.color_scheme = 'Kaku Light'
+-- Hiterm follows macOS appearance by default. Uncomment one line to force a theme:
+-- config.color_scheme = 'Hiterm Dark'
+-- config.color_scheme = 'Hiterm Light'
 
 -- User overrides:
--- Kaku intentionally keeps WezTerm-compatible Lua API names
+-- Hiterm intentionally keeps WezTerm-compatible Lua API names
 -- for maximum compatibility, so `wezterm.*` here is expected.
 -- Full API docs: https://wezfurlong.org/wezterm/config/lua/
 --
@@ -819,7 +902,7 @@ fn xdg_config_home_from(home_dir: &Path, xdg_config_home: Option<OsString>) -> P
         .filter(|value| !value.is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(|| home_dir.join(".config"))
-        .join("kaku")
+        .join("hiterm")
 }
 
 fn config_dirs_from(
@@ -835,7 +918,7 @@ fn config_dirs_from(
             std::env::split_paths(&d)
                 // `XDG_CONFIG_DIRS` may contain empty segments (e.g. `::`).
                 .filter(|path| !path.as_os_str().is_empty())
-                .map(|path| path.join("kaku")),
+                .map(|path| path.join("hiterm")),
         );
     }
 
@@ -859,21 +942,21 @@ mod tests {
     fn empty_xdg_config_home_uses_default_home_config_dir() {
         let home = PathBuf::from("/tmp/kaku-home");
         let path = xdg_config_home_from(&home, Some(OsString::new()));
-        assert_eq!(path, home.join(".config").join("kaku"));
+        assert_eq!(path, home.join(".config").join("hiterm"));
     }
 
     #[test]
     fn missing_xdg_config_home_uses_default_home_config_dir() {
         let home = PathBuf::from("/tmp/kaku-home");
         let path = xdg_config_home_from(&home, None);
-        assert_eq!(path, home.join(".config").join("kaku"));
+        assert_eq!(path, home.join(".config").join("hiterm"));
     }
 
     #[test]
     fn valid_xdg_config_home_is_used() {
         let home = PathBuf::from("/tmp/kaku-home");
         let path = xdg_config_home_from(&home, Some(OsString::from("/custom/config")));
-        assert_eq!(path, PathBuf::from("/custom/config").join("kaku"));
+        assert_eq!(path, PathBuf::from("/custom/config").join("hiterm"));
     }
 
     #[cfg(unix)]
@@ -888,9 +971,9 @@ mod tests {
         assert_eq!(
             dirs,
             vec![
-                home.join(".config").join("kaku"),
-                PathBuf::from("/etc/xdg").join("kaku"),
-                PathBuf::from("/usr/local/etc/xdg").join("kaku"),
+                home.join(".config").join("hiterm"),
+                PathBuf::from("/etc/xdg").join("hiterm"),
+                PathBuf::from("/usr/local/etc/xdg").join("hiterm"),
             ]
         );
     }
@@ -900,7 +983,7 @@ mod tests {
     fn missing_xdg_config_dirs_returns_primary_only() {
         let home = PathBuf::from("/tmp/kaku-home");
         let dirs = config_dirs_from(&home, Some(OsString::from("/custom/config")), None);
-        assert_eq!(dirs, vec![PathBuf::from("/custom/config").join("kaku")]);
+        assert_eq!(dirs, vec![PathBuf::from("/custom/config").join("hiterm")]);
     }
 
     #[cfg(unix)]
@@ -912,7 +995,7 @@ mod tests {
             Some(OsString::from("/custom/config")),
             Some(OsString::new()),
         );
-        assert_eq!(dirs, vec![PathBuf::from("/custom/config").join("kaku")]);
+        assert_eq!(dirs, vec![PathBuf::from("/custom/config").join("hiterm")]);
     }
 
     #[test]
@@ -944,7 +1027,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_defaults_missing_theme_to_appearance() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -960,16 +1043,16 @@ mod tests {
         let content = minimal_user_config_template();
 
         assert!(
-            content.contains("Kaku follows macOS appearance by default"),
+            content.contains("Hiterm follows macOS appearance by default"),
             "generated user config should explain the default theme behavior"
         );
         assert!(
-            !content.contains("\nconfig.color_scheme = 'Kaku Dark'\n"),
+            !content.contains("\nconfig.color_scheme = 'Hiterm Dark'\n"),
             "generated user config must not pin first-run users to dark mode"
         );
         assert!(
-            content.contains("-- config.color_scheme = 'Kaku Dark'")
-                && content.contains("-- config.color_scheme = 'Kaku Light'"),
+            content.contains("-- config.color_scheme = 'Hiterm Dark'")
+                && content.contains("-- config.color_scheme = 'Hiterm Light'"),
             "generated user config should still show explicit theme examples"
         );
     }
@@ -977,7 +1060,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_uses_config_for_remember_last_cwd() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -989,7 +1072,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_sets_colorfgbg_from_user_theme_scan() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1004,7 +1087,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_closes_fullscreen_last_window_on_cmd_w() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1017,7 +1100,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_defaults_close_confirmation_to_smart_prompt() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1031,7 +1114,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_defaults_smart_tab_to_suggestion_first() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1043,7 +1126,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_defaults_to_opaque_window_background() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1056,7 +1139,7 @@ mod tests {
     #[test]
     fn bundled_kaku_lua_enables_minimum_text_contrast() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1068,7 +1151,7 @@ mod tests {
     #[test]
     fn bundled_kaku_dark_maps_black_foregrounds_to_readable_text() {
         let bundled = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../assets/macos/Hiterm.app/Contents/Resources/kaku.lua");
+            .join("../assets/macos/Hiterm.app/Contents/Resources/hiterm.lua");
         let content = std::fs::read_to_string(&bundled).expect("read bundled kaku.lua");
 
         assert!(
@@ -1077,7 +1160,7 @@ mod tests {
                 && content.contains("['#000000'] = KAKU.WHITE")
                 && content.contains("['#15141b'] = KAKU.WHITE")
                 && content.contains("['#1c1c1c'] = KAKU.WHITE"),
-            "Kaku Dark should render Hermes black foregrounds as readable light text"
+            "Hiterm Dark should render Hermes black foregrounds as readable light text"
         );
     }
 }

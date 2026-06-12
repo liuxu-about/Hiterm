@@ -1,4 +1,4 @@
-//! Lightweight startup timing markers gated by `KAKU_STARTUP_TRACE`.
+//! Lightweight startup timing markers gated by `HITERM_STARTUP_TRACE`.
 
 use std::sync::OnceLock;
 use std::time::Instant;

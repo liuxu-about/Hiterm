@@ -1,6 +1,6 @@
-//! AI client for Kaku's built-in chat overlay.
+//! AI client for Hiterm's built-in chat overlay.
 //!
-//! Reads API config from `~/.config/kaku/assistant.toml` and provides
+//! Reads API config from `~/.config/hiterm/assistant.toml` and provides
 //! a synchronous streaming chat completion client (OpenAI-compatible API).
 //! Supports function/tool calling for agentic workflows.
 //!
@@ -78,7 +78,7 @@ impl AssistantConfig {
         // mangle Gemini requests.
         if auth_type == "gemini_key" {
             anyhow::bail!(
-                "Gemini provider was removed in V0.10.0. Open `kaku ai` and \
+                "Gemini provider was removed in V0.10.0. Open `hiterm ai` and \
                  switch to a different provider (OpenAI, Copilot, Codex, or a \
                  custom OpenAI-compatible endpoint), then update {}.",
                 path.display()

@@ -1,11 +1,11 @@
-//! Built-in tools for the Kaku AI chat overlay.
+//! Built-in tools for the Hiterm AI chat overlay.
 //!
 //! `ai_tools/` is split into focused submodules so each concern can be read
 //! and audited independently. The public surface is unchanged: callers use
 //! `execute`, `all_tools`, `to_api_schema`, `cleanup_spill_files`, and the
 //! two path helpers.
 //!
-//! Submodule layout (matches the long-term plan in `kaku-gui/AGENTS.md`):
+//! Submodule layout (matches the long-term plan in `hiterm-gui/AGENTS.md`):
 //!
 //! | module        | responsibility                                      |
 //! |---------------|-----------------------------------------------------|

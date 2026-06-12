@@ -10,7 +10,7 @@ fail() {
   exit 1
 }
 
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/kaku-kiro-autosuggest.XXXXXX")"
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/hiterm-kiro-autosuggest.XXXXXX")"
 cleanup() {
   rm -rf "$tmp_dir"
 }
@@ -41,10 +41,10 @@ setup_out="$(
   PATH="$setup_path" \
   HOME="$HOME" \
   ZDOTDIR="$ZDOTDIR" \
-  KAKU_INIT_INTERNAL=1 \
-  KAKU_SKIP_TOOL_BOOTSTRAP=1 \
-  KAKU_SKIP_TERMINFO_BOOTSTRAP=1 \
-  KAKU_VENDOR_DIR="$vendor_dir" \
+  HITERM_INIT_INTERNAL=1 \
+  HITERM_SKIP_TOOL_BOOTSTRAP=1 \
+  HITERM_SKIP_TERMINFO_BOOTSTRAP=1 \
+  HITERM_VENDOR_DIR="$vendor_dir" \
   bash "$REPO_ROOT/assets/shell-integration/setup_zsh.sh" --update-only 2>&1
 )" || setup_status=$?
 if [[ "$setup_status" -ne 0 ]]; then
@@ -52,17 +52,17 @@ if [[ "$setup_status" -ne 0 ]]; then
   fail "setup_zsh.sh failed with exit $setup_status"
 fi
 
-kaku_zsh="$HOME/.config/kaku/zsh/kaku.zsh"
-[[ -f "$kaku_zsh" ]] || fail "managed init file not created at $kaku_zsh"
+hiterm_zsh="$HOME/.config/hiterm/zsh/hiterm.zsh"
+[[ -f "$hiterm_zsh" ]] || fail "managed init file not created at $hiterm_zsh"
 
-grep -Fq 'typeset -g _kaku_autosuggest_cli_provider="kiro-cli"' "$kaku_zsh" \
+grep -Fq 'typeset -g _hiterm_autosuggest_cli_provider="kiro-cli"' "$hiterm_zsh" \
   || fail "managed init did not record kiro-cli compatibility mode"
 
-if grep -Fq 'source "$KAKU_ZSH_DIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"' "$kaku_zsh"; then
+if grep -Fq 'source "$HITERM_ZSH_DIR/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"' "$hiterm_zsh"; then
   fail "managed init still sources bundled zsh-autosuggestions in kiro compatibility mode"
 fi
 
-grep -Fq 'if [[ "${_kaku_external_autosuggest_provider:-0}" != "1" ]] && (( ${+widgets[autosuggest-accept]} )) && [[ -n "${POSTDISPLAY:-}" ]]; then' "$kaku_zsh" \
+grep -Fq 'if [[ "${_hiterm_external_autosuggest_provider:-0}" != "1" ]] && (( ${+widgets[autosuggest-accept]} )) && [[ -n "${POSTDISPLAY:-}" ]]; then' "$hiterm_zsh" \
   || fail "managed Tab widget is missing the external autosuggest compatibility guard"
 
 runtime_out=""
@@ -72,13 +72,13 @@ if ! runtime_out="$(
   HOME="$HOME" \
   ZDOTDIR="$ZDOTDIR" \
   zsh -f -c '
-source "$HOME/.config/kaku/zsh/kaku.zsh"
-print -r -- "__KAKU_AUTOSUGGEST_PROVIDER__:${_kaku_autosuggest_cli_provider:-}"
-print -r -- "__KAKU_EXTERNAL_AUTOSUGGEST__:${_kaku_external_autosuggest_provider:-0}"
+source "$HOME/.config/hiterm/zsh/hiterm.zsh"
+print -r -- "__KAKU_AUTOSUGGEST_PROVIDER__:${_hiterm_autosuggest_cli_provider:-}"
+print -r -- "__KAKU_EXTERNAL_AUTOSUGGEST__:${_hiterm_external_autosuggest_provider:-0}"
 ' 2>&1
 )"; then
   echo "$runtime_out" >&2
-  fail "sourcing generated kaku.zsh failed"
+  fail "sourcing generated hiterm.zsh failed"
 fi
 
 case "$runtime_out" in

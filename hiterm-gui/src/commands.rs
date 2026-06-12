@@ -254,8 +254,8 @@ impl CommandDef {
             ShowTabNavigator,
             // Help menu
             ShowDebugOverlay,
-            OpenUri("https://github.com/tw93/Kaku".to_string()),
-            OpenUri("https://github.com/tw93/Kaku/issues/".to_string()),
+            OpenUri("https://github.com/liuxu-about/Hiterm".to_string()),
+            OpenUri("https://github.com/liuxu-about/Hiterm/issues/".to_string()),
         ];
 
         let mut result = vec![];
@@ -796,9 +796,11 @@ impl CommandDef {
                     _ => 500,
                 },
                 "Help" => match action {
-                    OpenUri(uri) if uri == "https://github.com/tw93/Kaku" => 10,
-                    OpenUri(uri) if uri == "https://github.com/tw93/Kaku/discussions/" => 20,
-                    OpenUri(uri) if uri == "https://github.com/tw93/Kaku/issues/" => 30,
+                    OpenUri(uri) if uri == "https://github.com/liuxu-about/Hiterm" => 10,
+                    OpenUri(uri) if uri == "https://github.com/liuxu-about/Hiterm/discussions/" => {
+                        20
+                    }
+                    OpenUri(uri) if uri == "https://github.com/liuxu-about/Hiterm/issues/" => 30,
                     ShowDebugOverlay => 90,
                     _ => 500,
                 },
@@ -861,7 +863,7 @@ impl CommandDef {
                     // items (Tile/Move & Resize/Bring All to Front; Help
                     // Search field) whose NSMenuItem lifetime AppKit
                     // mis-handles, PAC-faulting during key-equivalent
-                    // routing. Kaku owns its own tab/window switcher and
+                    // routing. Hiterm owns its own tab/window switcher and
                     // has no help book, so the AppKit-managed children
                     // have no value here.
                     if cmd.menubar[0] == "Hiterm" {
@@ -896,11 +898,9 @@ impl CommandDef {
                         }
                         menu.add_item(&settings_item);
 
-                        // "Check for Updates..." is deliberately absent: the
-                        // update feed still points at upstream Kaku releases,
-                        // so offering it from this fork would stage a package
-                        // that can never apply. Hiterm updates by rebuilding
-                        // from source.
+                        // "Check for Updates..." is deliberately absent from
+                        // the menu; the background updater surfaces available
+                        // builds via notifications.
 
                         // Show "Restart to Update" when a staged update is ready.
                         if let Some(info) = crate::update::staged_update_available() {
@@ -1291,8 +1291,8 @@ pub fn derive_command_from_key_assignment(action: &KeyAssignment) -> Option<Comm
             icon: None,
         },
         ShowDebugOverlay => CommandDef {
-            brief: "Kaku Doctor".into(),
-            doc: "Run kaku doctor in the current pane".into(),
+            brief: "Hiterm Doctor".into(),
+            doc: "Run hiterm doctor in the current pane".into(),
             keys: vec![(Modifiers::CTRL.union(Modifiers::SHIFT), "l".into())],
             args: &[ArgType::ActiveWindow],
             menubar: &["Shell"],
@@ -1591,7 +1591,7 @@ pub fn derive_command_from_key_assignment(action: &KeyAssignment) -> Option<Comm
             } else if name == "kaku-ai-apply-last-fix" {
                 CommandDef {
                     brief: "Apply Last AI Fix".into(),
-                    doc: "Apply the latest Kaku Assistant suggestion for the active pane".into(),
+                    doc: "Apply the latest Hiterm Assistant suggestion for the active pane".into(),
                     keys: vec![(Modifiers::SUPER.union(Modifiers::SHIFT), "e".into())],
                     args: &[ArgType::ActiveWindow],
                     menubar: &["Shell"],
@@ -2224,23 +2224,23 @@ pub fn derive_command_from_key_assignment(action: &KeyAssignment) -> Option<Comm
             icon: None,
         },
         OpenUri(uri) => match uri.as_ref() {
-            "https://github.com/tw93/Kaku" => CommandDef {
+            "https://github.com/liuxu-about/Hiterm" => CommandDef {
                 brief: "Star on GitHub".into(),
-                doc: "Star Kaku on GitHub".into(),
+                doc: "Star Hiterm on GitHub".into(),
                 keys: vec![],
                 args: &[],
                 menubar: &["Help"],
                 icon: None,
             },
-            "https://github.com/tw93/Kaku/discussions/" => CommandDef {
+            "https://github.com/liuxu-about/Hiterm/discussions/" => CommandDef {
                 brief: "Discuss on GitHub".into(),
-                doc: "Visit Kaku's GitHub discussion".into(),
+                doc: "Visit Hiterm's GitHub discussion".into(),
                 keys: vec![],
                 args: &[],
                 menubar: &[],
                 icon: None,
             },
-            "https://github.com/tw93/Kaku/issues/" => CommandDef {
+            "https://github.com/liuxu-about/Hiterm/issues/" => CommandDef {
                 brief: "Report Issue".into(),
                 doc: "Submit bug report or feature request".into(),
                 keys: vec![],
@@ -2605,7 +2605,7 @@ pub fn derive_command_from_key_assignment(action: &KeyAssignment) -> Option<Comm
 fn compute_default_actions() -> Vec<KeyAssignment> {
     // These are ordered by their position within the various menus
     let mut actions = vec![
-        // ----------------- Kaku
+        // ----------------- Hiterm
         #[cfg(target_os = "macos")]
         HideApplication,
         #[cfg(target_os = "macos")]
@@ -2725,8 +2725,8 @@ fn compute_default_actions() -> Vec<KeyAssignment> {
         ToggleCurrentTabPanesInputBroadcast,
         ToggleAllPanesInputBroadcast,
         // ----------------- Help
-        OpenUri("https://github.com/tw93/Kaku".to_string()),
-        OpenUri("https://github.com/tw93/Kaku/issues/".to_string()),
+        OpenUri("https://github.com/liuxu-about/Hiterm".to_string()),
+        OpenUri("https://github.com/liuxu-about/Hiterm/issues/".to_string()),
         ShowDebugOverlay,
         // ----------------- Misc
         OpenLinkAtMouseCursor,

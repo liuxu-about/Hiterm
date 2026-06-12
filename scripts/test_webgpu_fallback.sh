@@ -23,7 +23,7 @@ EOF
 STRICT=0
 FORCE_KILL_EXISTING=0
 BINARY="/Applications/Hiterm.app/Contents/MacOS/hiterm-gui"
-BASE_CONFIG="/Applications/Hiterm.app/Contents/Resources/kaku.lua"
+BASE_CONFIG="/Applications/Hiterm.app/Contents/Resources/hiterm.lua"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -107,7 +107,7 @@ if [[ -n "$before_pids" ]]; then
     before_pids=""
   else
     echo "Found existing hiterm-gui process(es): $before_pids" >&2
-    echo "Close Kaku first, or rerun with --force-kill-existing." >&2
+    echo "Close Hiterm first, or rerun with --force-kill-existing." >&2
     exit 1
   fi
 fi

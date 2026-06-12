@@ -1,6 +1,6 @@
 #!/bin/bash
-# Kaku Fish Setup Script
-# Configures a "batteries-included" Fish environment using Kaku's bundled resources.
+# Hiterm Fish Setup Script
+# Configures a "batteries-included" Fish environment using Hiterm's bundled resources.
 # It is designed to be safe: can be re-run at any time.
 
 set -euo pipefail
@@ -25,13 +25,17 @@ NC='\033[0m'
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Thin entrypoint: delegate to `kaku init` whenever possible.
-if [[ "${KAKU_INIT_INTERNAL:-0}" != "1" ]]; then
-	if [[ -n "${KAKU_BIN:-}" && -x "${KAKU_BIN}" ]]; then
-		exec "${KAKU_BIN}" init "$@"
+# Thin entrypoint: delegate to `hiterm init` whenever possible.
+if [[ "${HITERM_INIT_INTERNAL:-${KAKU_INIT_INTERNAL:-0}}" != "1" ]]; then
+	HITERM_INIT_BIN="${HITERM_BIN:-${KAKU_BIN:-}}"
+	if [[ -n "${HITERM_INIT_BIN}" && -x "${HITERM_INIT_BIN}" ]]; then
+		exec "${HITERM_INIT_BIN}" init "$@"
 	fi
 
 	for candidate in \
+		"$SCRIPT_DIR/../MacOS/hiterm" \
+		"/Applications/Hiterm.app/Contents/MacOS/hiterm" \
+		"$HOME/Applications/Hiterm.app/Contents/MacOS/hiterm" \
 		"$SCRIPT_DIR/../MacOS/kaku" \
 		"/Applications/Kaku.app/Contents/MacOS/kaku" \
 		"$HOME/Applications/Kaku.app/Contents/MacOS/kaku"; do
@@ -46,18 +50,23 @@ if [[ -d "$SCRIPT_DIR/vendor" ]]; then
 	RESOURCES_DIR="$SCRIPT_DIR"
 elif [[ -d "$SCRIPT_DIR/../vendor" ]]; then
 	RESOURCES_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+elif [[ -d "/Applications/Hiterm.app/Contents/Resources/vendor" ]]; then
+	RESOURCES_DIR="/Applications/Hiterm.app/Contents/Resources"
+elif [[ -d "$HOME/Applications/Hiterm.app/Contents/Resources/vendor" ]]; then
+	RESOURCES_DIR="$HOME/Applications/Hiterm.app/Contents/Resources"
 elif [[ -d "/Applications/Kaku.app/Contents/Resources/vendor" ]]; then
 	RESOURCES_DIR="/Applications/Kaku.app/Contents/Resources"
 elif [[ -d "$HOME/Applications/Kaku.app/Contents/Resources/vendor" ]]; then
 	RESOURCES_DIR="$HOME/Applications/Kaku.app/Contents/Resources"
 else
-	echo -e "${YELLOW}Error: Could not locate Kaku resources (vendor directory missing).${NC}"
+	echo -e "${YELLOW}Error: Could not locate Hiterm resources (vendor directory missing).${NC}"
 	exit 1
 fi
 
 VENDOR_DIR="$RESOURCES_DIR/vendor"
-if [[ -n "${KAKU_VENDOR_DIR:-}" && -d "${KAKU_VENDOR_DIR}" ]]; then
-	VENDOR_DIR="${KAKU_VENDOR_DIR}"
+HITERM_VENDOR_OVERRIDE="${HITERM_VENDOR_DIR:-${KAKU_VENDOR_DIR:-}}"
+if [[ -n "${HITERM_VENDOR_OVERRIDE}" && -d "${HITERM_VENDOR_OVERRIDE}" ]]; then
+	VENDOR_DIR="${HITERM_VENDOR_OVERRIDE}"
 fi
 
 TOOL_INSTALL_SCRIPT="$SCRIPT_DIR/install_cli_tools.sh"
@@ -65,10 +74,10 @@ if [[ ! -f "$TOOL_INSTALL_SCRIPT" ]]; then
 	TOOL_INSTALL_SCRIPT="$RESOURCES_DIR/install_cli_tools.sh"
 fi
 
-USER_CONFIG_DIR="$HOME/.config/kaku/fish"
-KAKU_INIT_FILE="$USER_CONFIG_DIR/kaku.fish"
-KAKU_TMUX_DIR="$HOME/.config/kaku/tmux"
-KAKU_TMUX_FILE="$KAKU_TMUX_DIR/kaku.tmux.conf"
+USER_CONFIG_DIR="$HOME/.config/hiterm/fish"
+HITERM_INIT_FILE="$USER_CONFIG_DIR/hiterm.fish"
+HITERM_TMUX_DIR="$HOME/.config/hiterm/tmux"
+HITERM_TMUX_FILE="$HITERM_TMUX_DIR/hiterm.tmux.conf"
 STARSHIP_CONFIG="$HOME/.config/starship.toml"
 YAZI_CONFIG_DIR="$HOME/.config/yazi"
 YAZI_CONFIG_FILE="$YAZI_CONFIG_DIR/yazi.toml"
@@ -76,18 +85,18 @@ YAZI_KEYMAP_FILE="$YAZI_CONFIG_DIR/keymap.toml"
 YAZI_THEME_FILE="$YAZI_CONFIG_DIR/theme.toml"
 YAZI_FLAVORS_DIR="$YAZI_CONFIG_DIR/flavors"
 YAZI_WRAPPER_FILE="$USER_CONFIG_DIR/bin/yazi"
-KAKU_YAZI_THEME_MARKER_START="# ===== Kaku Yazi Flavor (managed) ====="
-KAKU_YAZI_THEME_MARKER_END="# ===== End Kaku Yazi Flavor (managed) ====="
+HITERM_YAZI_THEME_MARKER_START="# ===== Hiterm Yazi Flavor (managed) ====="
+HITERM_YAZI_THEME_MARKER_END="# ===== End Hiterm Yazi Flavor (managed) ====="
 FISH_CONF_D_DIR="$HOME/.config/fish/conf.d"
-FISH_CONF_D_FILE="$FISH_CONF_D_DIR/kaku.fish"
+FISH_CONF_D_FILE="$FISH_CONF_D_DIR/hiterm.fish"
 TMUXRC="$HOME/.tmux.conf"
-BACKUP_SUFFIX=".kaku-backup-$(date +%s)"
+BACKUP_SUFFIX=".hiterm-backup-$(date +%s)"
 TMUXRC_BACKED_UP=0
 
 if [[ -d "$SCRIPT_DIR/yazi-flavors" ]]; then
-	KAKU_YAZI_FLAVOR_SOURCE_DIR="$SCRIPT_DIR/yazi-flavors"
+	HITERM_YAZI_FLAVOR_SOURCE_DIR="$SCRIPT_DIR/yazi-flavors"
 else
-	KAKU_YAZI_FLAVOR_SOURCE_DIR="$RESOURCES_DIR/yazi-flavors"
+	HITERM_YAZI_FLAVOR_SOURCE_DIR="$RESOURCES_DIR/yazi-flavors"
 fi
 
 backup_tmuxrc_once() {
@@ -97,38 +106,52 @@ backup_tmuxrc_once() {
 	fi
 }
 
-default_kaku_config_path() {
+default_hiterm_config_path() {
+	local base
 	if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
-		printf '%s\n' "${XDG_CONFIG_HOME}/kaku/kaku.lua"
+		base="${XDG_CONFIG_HOME}"
 	else
-		printf '%s\n' "${HOME}/.config/kaku/kaku.lua"
+		base="${HOME}/.config"
+	fi
+
+	local preferred="${base}/hiterm/hiterm.lua"
+	local legacy_name="${base}/hiterm/kaku.lua"
+	local legacy_dir="${base}/kaku/kaku.lua"
+	if [[ -f "$preferred" ]]; then
+		printf '%s\n' "$preferred"
+	elif [[ -f "$legacy_name" ]]; then
+		printf '%s\n' "$legacy_name"
+	elif [[ -f "$legacy_dir" ]]; then
+		printf '%s\n' "$legacy_dir"
+	else
+		printf '%s\n' "$preferred"
 	fi
 }
 
-active_kaku_config_path() {
-	if [[ -n "${KAKU_CONFIG_FILE:-}" ]]; then
-		printf '%s\n' "${KAKU_CONFIG_FILE}"
+active_hiterm_config_path() {
+	if [[ -n "${HITERM_CONFIG_FILE:-${KAKU_CONFIG_FILE:-}}" ]]; then
+		printf '%s\n' "${HITERM_CONFIG_FILE:-${KAKU_CONFIG_FILE:-}}"
 	else
-		default_kaku_config_path
+		default_hiterm_config_path
 	fi
 }
 
-system_kaku_flavor() {
-	local flavor="kaku-dark"
+system_hiterm_flavor() {
+	local flavor="hiterm-dark"
 	if command -v defaults >/dev/null 2>&1; then
 		local appearance
 		appearance="$(defaults read -g AppleInterfaceStyle 2>/dev/null || true)"
 		if [[ "$appearance" != "Dark" ]]; then
-			flavor="kaku-light"
+			flavor="hiterm-light"
 		fi
 	fi
 	printf '%s\n' "$flavor"
 }
 
-resolve_kaku_flavor_from_config() {
+resolve_hiterm_flavor_from_config() {
 	local config_file="$1"
 	local system_flavor
-	system_flavor="$(system_kaku_flavor)"
+	system_flavor="$(system_hiterm_flavor)"
 
 	if [[ -f "$config_file" ]]; then
 		local scheme_line
@@ -138,15 +161,15 @@ resolve_kaku_flavor_from_config() {
 				/^[[:space:]]*config\.color_scheme[[:space:]]*=/ { print; exit }
 			' "$config_file"
 		)"
-		if [[ -n "$scheme_line" ]]; then
-			if [[ "$scheme_line" == *"Kaku Light"* ]]; then
-				printf '%s\n' "kaku-light"
-				return
-			fi
-			if [[ "$scheme_line" == *"Kaku Dark"* || "$scheme_line" == *"Kaku Theme"* ]]; then
-				printf '%s\n' "kaku-dark"
-				return
-			fi
+			if [[ -n "$scheme_line" ]]; then
+				if [[ "$scheme_line" == *"Hiterm Light"* || "$scheme_line" == *"Kaku Light"* ]]; then
+					printf '%s\n' "hiterm-light"
+					return
+				fi
+				if [[ "$scheme_line" == *"Hiterm Dark"* || "$scheme_line" == *"Hiterm Theme"* || "$scheme_line" == *"Kaku Dark"* || "$scheme_line" == *"Kaku Theme"* ]]; then
+					printf '%s\n' "hiterm-dark"
+					return
+				fi
 			if [[ "$scheme_line" == *"'Auto'"* || "$scheme_line" == *'"Auto"'* ]]; then
 				printf '%s\n' "$system_flavor"
 				return
@@ -155,7 +178,7 @@ resolve_kaku_flavor_from_config() {
 				printf '%s\n' "$system_flavor"
 				return
 			fi
-			printf '%s\n' "kaku-dark"
+			printf '%s\n' "hiterm-dark"
 			return
 		fi
 	fi
@@ -163,22 +186,22 @@ resolve_kaku_flavor_from_config() {
 	printf '%s\n' "$system_flavor"
 }
 
-current_kaku_yazi_flavor() {
-	resolve_kaku_flavor_from_config "$(active_kaku_config_path)"
+current_hiterm_yazi_flavor() {
+	resolve_hiterm_flavor_from_config "$(active_hiterm_config_path)"
 }
 
-kaku_yazi_theme_block() {
-	local flavor="${1:-$(current_kaku_yazi_flavor)}"
+hiterm_yazi_theme_block() {
+	local flavor="${1:-$(current_hiterm_yazi_flavor)}"
 	cat <<EOF
-$KAKU_YAZI_THEME_MARKER_START
+$HITERM_YAZI_THEME_MARKER_START
 [flavor]
 dark = "$flavor"
 light = "$flavor"
-$KAKU_YAZI_THEME_MARKER_END
+$HITERM_YAZI_THEME_MARKER_END
 EOF
 }
 
-is_legacy_kaku_yazi_theme_file() {
+is_legacy_hiterm_yazi_theme_file() {
 	if [[ ! -f "$YAZI_THEME_FILE" ]]; then
 		return 1
 	fi
@@ -192,17 +215,17 @@ is_legacy_kaku_yazi_theme_file() {
 	[[ "$normalized" == "$expected" ]]
 }
 
-sync_kaku_yazi_flavors() {
-	if [[ ! -d "$KAKU_YAZI_FLAVOR_SOURCE_DIR" ]]; then
-		echo -e "${YELLOW}Warning: bundled Yazi flavors are missing at $KAKU_YAZI_FLAVOR_SOURCE_DIR.${NC}"
+sync_hiterm_yazi_flavors() {
+	if [[ ! -d "$HITERM_YAZI_FLAVOR_SOURCE_DIR" ]]; then
+		echo -e "${YELLOW}Warning: bundled Yazi flavors are missing at $HITERM_YAZI_FLAVOR_SOURCE_DIR.${NC}"
 		return
 	fi
 
 	mkdir -p "$YAZI_FLAVORS_DIR"
 
 	local flavor source_dir target_dir
-	for flavor in kaku-dark.yazi kaku-light.yazi; do
-		source_dir="$KAKU_YAZI_FLAVOR_SOURCE_DIR/$flavor"
+	for flavor in hiterm-dark.yazi hiterm-light.yazi; do
+		source_dir="$HITERM_YAZI_FLAVOR_SOURCE_DIR/$flavor"
 		target_dir="$YAZI_FLAVORS_DIR/$flavor"
 
 		if [[ ! -d "$source_dir" ]]; then
@@ -219,35 +242,35 @@ sync_kaku_yazi_flavors() {
 		cp "$source_dir/flavor.toml" "$target_dir/flavor.toml"
 	done
 
-	echo -e "  ${GREEN}✓${NC} ${BOLD}Config${NC}      Refreshed Kaku yazi flavors ${NC}(dark + light)${NC}"
+	echo -e "  ${GREEN}✓${NC} ${BOLD}Config${NC}      Refreshed Hiterm yazi flavors ${NC}(dark + light)${NC}"
 }
 
-ensure_kaku_yazi_theme() {
+ensure_hiterm_yazi_theme() {
 	mkdir -p "$YAZI_CONFIG_DIR"
 	local managed_flavor
-	managed_flavor="$(current_kaku_yazi_flavor)"
+	managed_flavor="$(current_hiterm_yazi_flavor)"
 
-	if [[ ! -f "$YAZI_THEME_FILE" ]] || is_legacy_kaku_yazi_theme_file; then
+	if [[ ! -f "$YAZI_THEME_FILE" ]] || is_legacy_hiterm_yazi_theme_file; then
 		cat <<EOF >"$YAZI_THEME_FILE"
 \$schema = "https://yazi-rs.github.io/schemas/theme.json"
 
-# Kaku manages the [flavor] section below so Yazi matches the current Kaku theme.
+# Hiterm manages the [flavor] section below so Yazi matches the current Hiterm theme.
 # Add your own theme overrides in other sections if needed.
-$(kaku_yazi_theme_block "$managed_flavor")
+$(hiterm_yazi_theme_block "$managed_flavor")
 EOF
-		echo -e "  ${GREEN}✓${NC} ${BOLD}Config${NC}      Initialized yazi theme ${NC}(managed Kaku flavor: $managed_flavor)${NC}"
+		echo -e "  ${GREEN}✓${NC} ${BOLD}Config${NC}      Initialized yazi theme ${NC}(managed Hiterm flavor: $managed_flavor)${NC}"
 		return
 	fi
 
-	if grep -Eq '^[[:space:]]*\[flavor\][[:space:]]*$' "$YAZI_THEME_FILE" && ! grep -Fq "$KAKU_YAZI_THEME_MARKER_START" "$YAZI_THEME_FILE"; then
+	if grep -Eq '^[[:space:]]*\[flavor\][[:space:]]*$' "$YAZI_THEME_FILE" && ! grep -Fq "$HITERM_YAZI_THEME_MARKER_START" "$YAZI_THEME_FILE"; then
 		echo -e "  ${BLUE}•${NC} ${BOLD}Config${NC}      Preserved existing yazi [flavor] section ${NC}(user-managed)${NC}"
 		return
 	fi
 
 	local tmp_theme
-	tmp_theme="$(mktemp "${TMPDIR:-/tmp}/kaku-yazi-theme.XXXXXX")"
+	tmp_theme="$(mktemp "${TMPDIR:-/tmp}/hiterm-yazi-theme.XXXXXX")"
 
-	awk -v start="$KAKU_YAZI_THEME_MARKER_START" -v end="$KAKU_YAZI_THEME_MARKER_END" '
+	awk -v start="$HITERM_YAZI_THEME_MARKER_START" -v end="$HITERM_YAZI_THEME_MARKER_END" '
 		index($0, start) { skip = 1; next }
 		index($0, end)   { skip = 0; next }
 		!skip { print }
@@ -256,13 +279,13 @@ EOF
 	{
 		cat "$tmp_theme"
 		printf '\n'
-		kaku_yazi_theme_block "$managed_flavor"
+		hiterm_yazi_theme_block "$managed_flavor"
 		printf '\n'
 	} >"${tmp_theme}.next"
 
 	mv "${tmp_theme}.next" "$YAZI_THEME_FILE"
 	rm -f "$tmp_theme"
-	echo -e "  ${GREEN}✓${NC} ${BOLD}Config${NC}      Updated yazi theme ${NC}(managed Kaku flavor: $managed_flavor)${NC}"
+	echo -e "  ${GREEN}✓${NC} ${BOLD}Config${NC}      Updated yazi theme ${NC}(managed Hiterm flavor: $managed_flavor)${NC}"
 }
 
 install_yazi_wrapper() {
@@ -272,43 +295,57 @@ install_yazi_wrapper() {
 set -euo pipefail
 
 YAZI_THEME_FILE="${HOME}/.config/yazi/theme.toml"
-MARKER_START="# ===== Kaku Yazi Flavor (managed) ====="
-MARKER_END="# ===== End Kaku Yazi Flavor (managed) ====="
+MARKER_START="# ===== Hiterm Yazi Flavor (managed) ====="
+MARKER_END="# ===== End Hiterm Yazi Flavor (managed) ====="
 WRAPPER_PATH="${BASH_SOURCE[0]}"
 WRAPPER_DIR="$(cd "$(dirname "$WRAPPER_PATH")" && pwd)"
 
-system_kaku_flavor() {
-	local flavor="kaku-dark"
+system_hiterm_flavor() {
+	local flavor="hiterm-dark"
 	if command -v defaults >/dev/null 2>&1; then
 		local appearance
 		appearance="$(defaults read -g AppleInterfaceStyle 2>/dev/null || true)"
 		if [[ "$appearance" != "Dark" ]]; then
-			flavor="kaku-light"
+			flavor="hiterm-light"
 		fi
 	fi
 	printf '%s\n' "$flavor"
 }
 
-default_kaku_config_path() {
+default_hiterm_config_path() {
+	local base
 	if [[ -n "${XDG_CONFIG_HOME:-}" ]]; then
-		printf '%s\n' "${XDG_CONFIG_HOME}/kaku/kaku.lua"
+		base="${XDG_CONFIG_HOME}"
 	else
-		printf '%s\n' "${HOME}/.config/kaku/kaku.lua"
+		base="${HOME}/.config"
+	fi
+
+	local preferred="${base}/hiterm/hiterm.lua"
+	local legacy_name="${base}/hiterm/kaku.lua"
+	local legacy_dir="${base}/kaku/kaku.lua"
+	if [[ -f "$preferred" ]]; then
+		printf '%s\n' "$preferred"
+	elif [[ -f "$legacy_name" ]]; then
+		printf '%s\n' "$legacy_name"
+	elif [[ -f "$legacy_dir" ]]; then
+		printf '%s\n' "$legacy_dir"
+	else
+		printf '%s\n' "$preferred"
 	fi
 }
 
-active_kaku_config_path() {
-	if [[ -n "${KAKU_CONFIG_FILE:-}" ]]; then
-		printf '%s\n' "${KAKU_CONFIG_FILE}"
+active_hiterm_config_path() {
+	if [[ -n "${HITERM_CONFIG_FILE:-${KAKU_CONFIG_FILE:-}}" ]]; then
+		printf '%s\n' "${HITERM_CONFIG_FILE:-${KAKU_CONFIG_FILE:-}}"
 	else
-		default_kaku_config_path
+		default_hiterm_config_path
 	fi
 }
 
-resolve_kaku_flavor_from_config() {
+resolve_hiterm_flavor_from_config() {
 	local config_file="$1"
 	local system_flavor
-	system_flavor="$(system_kaku_flavor)"
+	system_flavor="$(system_hiterm_flavor)"
 
 	if [[ -f "$config_file" ]]; then
 		local scheme_line
@@ -319,12 +356,12 @@ resolve_kaku_flavor_from_config() {
 			' "$config_file"
 		)"
 		if [[ -n "$scheme_line" ]]; then
-			if [[ "$scheme_line" == *"Kaku Light"* ]]; then
-				printf '%s\n' "kaku-light"
+			if [[ "$scheme_line" == *"Hiterm Light"* || "$scheme_line" == *"Kaku Light"* ]]; then
+				printf '%s\n' "hiterm-light"
 				return
 			fi
-			if [[ "$scheme_line" == *"Kaku Dark"* || "$scheme_line" == *"Kaku Theme"* ]]; then
-				printf '%s\n' "kaku-dark"
+			if [[ "$scheme_line" == *"Hiterm Dark"* || "$scheme_line" == *"Hiterm Theme"* || "$scheme_line" == *"Kaku Dark"* || "$scheme_line" == *"Kaku Theme"* ]]; then
+				printf '%s\n' "hiterm-dark"
 				return
 			fi
 			if [[ "$scheme_line" == *"'Auto'"* || "$scheme_line" == *'"Auto"'* ]]; then
@@ -335,7 +372,7 @@ resolve_kaku_flavor_from_config() {
 				printf '%s\n' "$system_flavor"
 				return
 			fi
-			printf '%s\n' "kaku-dark"
+			printf '%s\n' "hiterm-dark"
 			return
 		fi
 	fi
@@ -344,7 +381,7 @@ resolve_kaku_flavor_from_config() {
 }
 
 current_flavor() {
-	resolve_kaku_flavor_from_config "$(active_kaku_config_path)"
+	resolve_hiterm_flavor_from_config "$(active_hiterm_config_path)"
 }
 
 managed_block() {
@@ -366,7 +403,7 @@ ensure_theme() {
 		cat <<BLOCK >"$YAZI_THEME_FILE"
 \$schema = "https://yazi-rs.github.io/schemas/theme.json"
 
-# Kaku manages the [flavor] section below so Yazi matches the current Kaku theme.
+# Hiterm manages the [flavor] section below so Yazi matches the current Hiterm theme.
 $(managed_block "$flavor")
 BLOCK
 		return
@@ -377,7 +414,7 @@ BLOCK
 	fi
 
 	local tmp_theme
-	tmp_theme="$(mktemp "${TMPDIR:-/tmp}/kaku-yazi-wrapper.XXXXXX")"
+	tmp_theme="$(mktemp "${TMPDIR:-/tmp}/hiterm-yazi-wrapper.XXXXXX")"
 	awk -v start="$MARKER_START" -v end="$MARKER_END" '
 		index($0, start) { skip = 1; next }
 		index($0, end)   { skip = 0; next }
@@ -447,8 +484,8 @@ if [[ ! -d "$VENDOR_DIR" ]]; then
 	exit 1
 fi
 
-install_kaku_terminfo() {
-	if [[ "${KAKU_SKIP_TERMINFO_BOOTSTRAP:-0}" == "1" ]]; then
+install_hiterm_terminfo() {
+	if [[ "${HITERM_SKIP_TERMINFO_BOOTSTRAP:-${KAKU_SKIP_TERMINFO_BOOTSTRAP:-0}}" == "1" ]]; then
 		return
 	fi
 
@@ -496,16 +533,16 @@ install_kaku_terminfo() {
 	echo -e "${YELLOW}Warning: failed to install kaku terminfo automatically.${NC}"
 }
 
-install_kaku_terminfo
+install_hiterm_terminfo
 
-echo -e "${BOLD}Setting up Kaku Fish Shell Environment${NC}"
+echo -e "${BOLD}Setting up Hiterm Fish Shell Environment${NC}"
 
 # 1. Prepare User Config Directory
 mkdir -p "$USER_CONFIG_DIR"
 mkdir -p "$USER_CONFIG_DIR/bin"
 
 # 2. Optional external tools bootstrap (Homebrew-managed)
-if [[ "${KAKU_SKIP_TOOL_BOOTSTRAP:-0}" != "1" ]]; then
+if [[ "${HITERM_SKIP_TOOL_BOOTSTRAP:-${KAKU_SKIP_TOOL_BOOTSTRAP:-0}}" != "1" ]]; then
 	if [[ -f "$TOOL_INSTALL_SCRIPT" ]]; then
 		if ! bash "$TOOL_INSTALL_SCRIPT"; then
 			echo -e "${YELLOW}Warning: optional CLI tool bootstrap failed.${NC}"
@@ -558,18 +595,18 @@ EOF
 	echo -e "  ${GREEN}✓${NC} ${BOLD}Config${NC}      Initialized yazi keymap ${NC}(~/.config/yazi/keymap.toml)${NC}"
 fi
 
-sync_kaku_yazi_flavors
-ensure_kaku_yazi_theme
+sync_hiterm_yazi_flavors
+ensure_hiterm_yazi_theme
 install_yazi_wrapper
 
 # 3. Configure tmux (Optional)
-TMUX_SOURCE_LINE='source-file "$HOME/.config/kaku/tmux/kaku.tmux.conf" # Kaku tmux Integration'
+TMUX_SOURCE_LINE='source-file "$HOME/.config/hiterm/tmux/hiterm.tmux.conf" # Hiterm tmux Integration'
 
-write_kaku_tmux_file() {
-	mkdir -p "$KAKU_TMUX_DIR"
-	cat <<'EOF' >"$KAKU_TMUX_FILE"
-# Kaku tmux Integration - DO NOT EDIT MANUALLY
-# This file is managed by Kaku.app. Any changes may be overwritten.
+write_hiterm_tmux_file() {
+	mkdir -p "$HITERM_TMUX_DIR"
+	cat <<'EOF' >"$HITERM_TMUX_FILE"
+# Hiterm tmux Integration - DO NOT EDIT MANUALLY
+# This file is managed by Hiterm.app. Any changes may be overwritten.
 
 set -g mouse on
 bind-key -n S-WheelUpPane if-shell -F '#{pane_in_mode}' 'send-keys -X -N 5 scroll-up' 'copy-mode -e -u'
@@ -578,13 +615,13 @@ EOF
 	echo -e "  ${GREEN}✓${NC} ${BOLD}Script${NC}      Generated managed tmux integration"
 }
 
-normalize_kaku_tmux_source_line() {
+normalize_hiterm_tmux_source_line() {
 	if [[ ! -f "$TMUXRC" ]]; then
 		return
 	fi
 
 	local tmp_file
-	tmp_file="$(mktemp "${TMPDIR:-/tmp}/kaku-tmuxrc.XXXXXX")"
+	tmp_file="$(mktemp "${TMPDIR:-/tmp}/hiterm-tmuxrc.XXXXXX")"
 
 	if awk -v source_line="$TMUX_SOURCE_LINE" '
 BEGIN { replaced = 0; extra = 0 }
@@ -595,7 +632,7 @@ BEGIN { replaced = 0; extra = 0 }
 	}
 
 	if ($0 ~ /^[[:space:]]*source-file[[:space:]]+/ &&
-	    $0 ~ /kaku\/tmux\/kaku\.tmux\.conf/) {
+	    $0 ~ /(hiterm\/tmux\/hiterm\.tmux\.conf|kaku\/tmux\/kaku\.tmux\.conf)/) {
 		if (!replaced) {
 			print source_line
 			replaced = 1
@@ -619,7 +656,7 @@ END {
 		if ! cmp -s "$TMUXRC" "$tmp_file"; then
 			backup_tmuxrc_once
 			mv "$tmp_file" "$TMUXRC"
-			echo -e "  ${GREEN}✓${NC} ${BOLD}Integrate${NC}   Updated Kaku source line in .tmux.conf"
+			echo -e "  ${GREEN}✓${NC} ${BOLD}Integrate${NC}   Updated Hiterm source line in .tmux.conf"
 		else
 			rm -f "$tmp_file"
 		fi
@@ -629,20 +666,20 @@ END {
 			if ! cmp -s "$TMUXRC" "$tmp_file"; then
 				backup_tmuxrc_once
 				mv "$tmp_file" "$TMUXRC"
-				echo -e "  ${GREEN}✓${NC} ${BOLD}Integrate${NC}   Removed duplicate Kaku source line(s) from .tmux.conf"
+				echo -e "  ${GREEN}✓${NC} ${BOLD}Integrate${NC}   Removed duplicate Hiterm source line(s) from .tmux.conf"
 			else
 				rm -f "$tmp_file"
 			fi
 		else
 			rm -f "$tmp_file"
 			if [[ "$awk_status" != "3" ]]; then
-				echo -e "${YELLOW}Warning: failed to normalize Kaku source line in .tmux.conf; leaving it unchanged.${NC}"
+				echo -e "${YELLOW}Warning: failed to normalize Hiterm source line in .tmux.conf; leaving it unchanged.${NC}"
 			fi
 		fi
 	fi
 }
 
-has_kaku_tmux_source_line() {
+has_hiterm_tmux_source_line() {
 	if [[ ! -f "$TMUXRC" ]]; then
 		return 1
 	fi
@@ -651,10 +688,10 @@ has_kaku_tmux_source_line() {
 		return 0
 	fi
 
-	grep -Eq '^[[:space:]]*source-file[[:space:]].*kaku/tmux/kaku\.tmux\.conf([[:space:]]|$)' "$TMUXRC"
+	grep -Eq '^[[:space:]]*source-file[[:space:]].*(hiterm/tmux/hiterm\.tmux\.conf|kaku/tmux/kaku\.tmux\.conf)([[:space:]]|$)' "$TMUXRC"
 }
 
-ensure_kaku_tmux_integration() {
+ensure_hiterm_tmux_integration() {
 	local tmux_cmd=""
 	if command -v tmux >/dev/null 2>&1; then
 		tmux_cmd="tmux"
@@ -671,10 +708,10 @@ ensure_kaku_tmux_integration() {
 		return
 	fi
 
-	write_kaku_tmux_file
-	normalize_kaku_tmux_source_line
+	write_hiterm_tmux_file
+	normalize_hiterm_tmux_source_line
 
-	if has_kaku_tmux_source_line; then
+	if has_hiterm_tmux_source_line; then
 		echo -e "  ${GREEN}✓${NC} ${BOLD}Integrate${NC}   Already linked in .tmux.conf"
 	else
 		backup_tmuxrc_once
@@ -686,15 +723,15 @@ ensure_kaku_tmux_integration() {
 	fi
 }
 
-ensure_kaku_tmux_integration
+ensure_hiterm_tmux_integration
 
-# 4. Generate Kaku Fish Init File
-cat <<'EOF' >"$KAKU_INIT_FILE"
-# Kaku Fish Integration - DO NOT EDIT MANUALLY
-# This file is managed by Kaku.app. Any changes may be overwritten.
+# 4. Generate Hiterm Fish Init File
+cat <<'EOF' >"$HITERM_INIT_FILE"
+# Hiterm Fish Integration - DO NOT EDIT MANUALLY
+# This file is managed by Hiterm.app. Any changes may be overwritten.
 
 # === PATH ===
-fish_add_path "$HOME/.config/kaku/fish/bin"
+fish_add_path "$HOME/.config/hiterm/fish/bin"
 
 # === Starship prompt ===
 if command -q starship
@@ -710,40 +747,44 @@ end
 # Auto-set TERM to xterm-256color for SSH connections since remote hosts
 # typically lack the kaku terminfo entry.
 function ssh
-    if test "$TERM" = kaku; and not set -q KAKU_SSH_SKIP_TERM_FIX
-        TERM=xterm-256color command ssh $argv
-    else
-        command ssh $argv
+    if test "$TERM" = hiterm; or test "$TERM" = kaku
+        if not set -q HITERM_SSH_SKIP_TERM_FIX; and not set -q KAKU_SSH_SKIP_TERM_FIX
+            TERM=xterm-256color command ssh $argv
+            return
+        end
     end
+    command ssh $argv
 end
 
 # === sudo TERM fix ===
 # sudo resets TERMINFO_DIRS, so root processes may fail with "unknown terminal kaku".
 function sudo
-    if test "$TERM" = kaku; and not set -q KAKU_SUDO_SKIP_TERM_FIX
-        TERM=xterm-256color command sudo $argv
-    else
-        command sudo $argv
+    if test "$TERM" = hiterm; or test "$TERM" = kaku
+        if not set -q HITERM_SUDO_SKIP_TERM_FIX; and not set -q KAKU_SUDO_SKIP_TERM_FIX
+            TERM=xterm-256color command sudo $argv
+            return
+        end
     end
+    command sudo $argv
 end
 
 # === OSC 7: Working directory reporting ===
-function __kaku_osc7 --on-event fish_prompt
+function __hiterm_osc7 --on-event fish_prompt
     printf '\033]7;file://%s%s\033\\' (hostname) $PWD
 end
 
 # === OSC 133: Semantic prompt zones ===
-function __kaku_semantic_preexec --on-event fish_preexec
+function __hiterm_semantic_preexec --on-event fish_preexec
     printf '\033]133;C;\007'
 end
-function __kaku_semantic_precmd --on-event fish_prompt
+function __hiterm_semantic_precmd --on-event fish_prompt
     printf '\033]133;A\007'
 end
 
 # === OSC 1337: User variables (AI fix hooks) ===
-function __kaku_set_user_var
+function __hiterm_set_user_var
     # Only emit when inside a Kaku/WezTerm pane
-    if test "$TERM" != kaku; and not set -q WEZTERM_PANE
+    if test "$TERM" != hiterm; and test "$TERM" != kaku; and not set -q WEZTERM_PANE
         return
     end
     if set -q WEZTERM_SHELL_SKIP_USER_VARS; and test "$WEZTERM_SHELL_SKIP_USER_VARS" = 1
@@ -761,44 +802,44 @@ function __kaku_set_user_var
 end
 
 # Capture last command for AI suggestion (preexec fires before command runs)
-function __kaku_ai_preexec --on-event fish_preexec
-    if set -q KAKU_AUTO_DISABLE
+function __hiterm_ai_preexec --on-event fish_preexec
+    if set -q HITERM_AUTO_DISABLE; or set -q KAKU_AUTO_DISABLE
         return
     end
-    __kaku_set_user_var kaku_last_cmd $argv[1]
-    set -g _kaku_ai_cmd_pending 1
+    __hiterm_set_user_var kaku_last_cmd $argv[1]
+    set -g _hiterm_ai_cmd_pending 1
 end
 
 # Capture exit code for AI suggestion (fish_prompt fires after command finishes)
-function __kaku_ai_precmd --on-event fish_prompt
+function __hiterm_ai_precmd --on-event fish_prompt
     set -l last_exit $status
-    if set -q KAKU_AUTO_DISABLE
-        set -g _kaku_ai_cmd_pending 0
+    if set -q HITERM_AUTO_DISABLE; or set -q KAKU_AUTO_DISABLE
+        set -g _hiterm_ai_cmd_pending 0
         return
     end
-    if not set -q _kaku_ai_cmd_pending; or test "$_kaku_ai_cmd_pending" != 1
+    if not set -q _hiterm_ai_cmd_pending; or test "$_hiterm_ai_cmd_pending" != 1
         return
     end
-    __kaku_set_user_var kaku_last_exit_code $last_exit
-    set -g _kaku_ai_cmd_pending 0
+    __hiterm_set_user_var kaku_last_exit_code $last_exit
+    set -g _hiterm_ai_cmd_pending 0
 end
 
 # AI generate: intercept Enter on "# query" lines.
 # fish_preexec does not fire for comment-only lines, so we bind \r to
 # catch the commandline buffer before fish discards the comment.
-set -g __kaku_ai_waiting 0
-set -g __kaku_ai_waiting_ts 0
+set -g __hiterm_ai_waiting 0
+set -g __hiterm_ai_waiting_ts 0
 
-function __kaku_ai_query_execute
-    if not set -q KAKU_AUTO_DISABLE
+function __hiterm_ai_query_execute
+    if not set -q HITERM_AUTO_DISABLE; and not set -q KAKU_AUTO_DISABLE
         set -l cmd (commandline)
         # Only intercept a single-line comment (no newline in buffer)
         if string match -qr '^#[^\n]*$' -- $cmd
             # Block repeat Enter while waiting, auto-reset after 30 seconds
-            if test "$__kaku_ai_waiting" = 1
+            if test "$__hiterm_ai_waiting" = 1
                 set -l now (date +%s)
-                if test (math "$now - $__kaku_ai_waiting_ts") -gt 30
-                    set -g __kaku_ai_waiting 0
+                if test (math "$now - $__hiterm_ai_waiting_ts") -gt 30
+                    set -g __hiterm_ai_waiting 0
                 else
                     return
                 end
@@ -821,9 +862,9 @@ function __kaku_ai_query_execute
             set -l query (string trim -- $body)
             if test -n "$query"
                 builtin history append -- $cmd
-                set -g __kaku_ai_waiting 1
-                set -g __kaku_ai_waiting_ts (date +%s)
-                __kaku_set_user_var kaku_ai_query "[mode:$mode] $query"
+                set -g __hiterm_ai_waiting 1
+                set -g __hiterm_ai_waiting_ts (date +%s)
+                __hiterm_set_user_var kaku_ai_query "[mode:$mode] $query"
                 # Clear the submitted comment immediately so generated commands
                 # cannot append after the stale "# query" buffer.
                 commandline -r ""
@@ -832,11 +873,11 @@ function __kaku_ai_query_execute
             end
         end
     end
-    set -g __kaku_ai_waiting 0
+    set -g __hiterm_ai_waiting 0
     commandline -f execute
 end
-bind \r __kaku_ai_query_execute
-bind \n __kaku_ai_query_execute
+bind \r __hiterm_ai_query_execute
+bind \n __hiterm_ai_query_execute
 
 # === Common abbreviations ===
 abbr -a ll 'ls -lhF'
@@ -873,7 +914,7 @@ abbr -a .... 'cd ../../..'
 
 # yazi launcher - cd into the directory yazi is in when you exit.
 function y
-    set -l yazi_cmd "$HOME/.config/kaku/fish/bin/yazi"
+    set -l yazi_cmd "$HOME/.config/hiterm/fish/bin/yazi"
     if not test -x "$yazi_cmd"
         set yazi_cmd (command -v yazi 2>/dev/null; or true)
     end
@@ -890,22 +931,24 @@ function y
 end
 EOF
 
-echo -e "  ${GREEN}✓${NC} ${BOLD}Script${NC}      Generated kaku.fish init script"
+echo -e "  ${GREEN}✓${NC} ${BOLD}Script${NC}      Generated hiterm.fish init script"
+rm -f "$USER_CONFIG_DIR/kaku.fish"
 
 # 5. Install fish conf.d entry point
 mkdir -p "$FISH_CONF_D_DIR"
 cat <<EOF >"$FISH_CONF_D_FILE"
-# Kaku shell integration -- managed. Remove with: kaku reset
-set -l _kaku_fish_init "\$HOME/.config/kaku/fish/kaku.fish"
-if test -f \$_kaku_fish_init
-    source \$_kaku_fish_init
+# Hiterm shell integration -- managed. Remove with: hiterm reset
+set -l _hiterm_fish_init "\$HOME/.config/hiterm/fish/hiterm.fish"
+if test -f \$_hiterm_fish_init
+    source \$_hiterm_fish_init
 end
 EOF
 
-echo -e "  ${GREEN}✓${NC} ${BOLD}Integrate${NC}   Installed ${NC}~/.config/fish/conf.d/kaku.fish${NC}"
+echo -e "  ${GREEN}✓${NC} ${BOLD}Integrate${NC}   Installed ${NC}~/.config/fish/conf.d/hiterm.fish${NC}"
+rm -f "$FISH_CONF_D_DIR/kaku.fish"
 
 echo ""
-echo -e "${GREEN}${BOLD}Kaku Fish setup complete!${NC}"
+echo -e "${GREEN}${BOLD}Hiterm Fish setup complete!${NC}"
 echo ""
-echo "Restart fish or run: source ~/.config/fish/conf.d/kaku.fish"
-echo "Roll back anytime with: kaku reset"
+echo "Restart fish or run: source ~/.config/fish/conf.d/hiterm.fish"
+echo "Roll back anytime with: hiterm reset"

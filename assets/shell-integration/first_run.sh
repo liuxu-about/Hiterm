@@ -1,10 +1,10 @@
 #!/bin/bash
-# Kaku First Run Experience
-# This script is launched automatically on the first run of Kaku.
+# Hiterm First Run Experience
+# This script is launched automatically on the first run of Hiterm.
 
 set -euo pipefail
 
-CONFIG_DIR="$HOME/.config/kaku"
+CONFIG_DIR="$HOME/.config/hiterm"
 STATE_FILE="$CONFIG_DIR/state.json"
 LEGACY_VERSION_FILE="$CONFIG_DIR/.kaku_config_version"
 LEGACY_GEOMETRY_FILE="$CONFIG_DIR/.kaku_window_geometry"
@@ -27,10 +27,10 @@ trap persist_config_version EXIT
 # Resources directory resolution
 if [[ -f "$SCRIPT_DIR/setup_zsh.sh" ]]; then
 	RESOURCES_DIR="$SCRIPT_DIR"
-elif [[ -f "/Applications/Kaku.app/Contents/Resources/setup_zsh.sh" ]]; then
-	RESOURCES_DIR="/Applications/Kaku.app/Contents/Resources"
-elif [[ -f "$HOME/Applications/Kaku.app/Contents/Resources/setup_zsh.sh" ]]; then
-	RESOURCES_DIR="$HOME/Applications/Kaku.app/Contents/Resources"
+elif [[ -f "/Applications/Hiterm.app/Contents/Resources/setup_zsh.sh" ]]; then
+	RESOURCES_DIR="/Applications/Hiterm.app/Contents/Resources"
+elif [[ -f "$HOME/Applications/Hiterm.app/Contents/Resources/setup_zsh.sh" ]]; then
+	RESOURCES_DIR="$HOME/Applications/Hiterm.app/Contents/Resources"
 else
 	# Fallback for dev environment
 	RESOURCES_DIR="$SCRIPT_DIR"
@@ -45,8 +45,11 @@ else
 fi
 TOOLS_SCRIPT="$RESOURCES_DIR/install_cli_tools.sh"
 
-resolve_kaku_cli() {
+resolve_hiterm_cli() {
 	local candidates=(
+		"$RESOURCES_DIR/../MacOS/hiterm"
+		"/Applications/Hiterm.app/Contents/MacOS/hiterm"
+		"$HOME/Applications/Hiterm.app/Contents/MacOS/hiterm"
 		"$RESOURCES_DIR/../MacOS/kaku"
 		"/Applications/Kaku.app/Contents/MacOS/kaku"
 		"$HOME/Applications/Kaku.app/Contents/MacOS/kaku"
@@ -60,8 +63,8 @@ resolve_kaku_cli() {
 		fi
 	done
 
-	if command -v kaku >/dev/null 2>&1; then
-		command -v kaku
+	if command -v hiterm >/dev/null 2>&1; then
+		command -v hiterm
 		return 0
 	fi
 
@@ -80,40 +83,40 @@ echo " |  < / _\` || |/ /| | | |"
 echo " | . \ (_| ||   < | |_| |"
 echo " |_|\_\__,_||_|\_\ \__,_|"
 echo -e "\033[0m"
-echo "Welcome to Kaku!"
+echo "Welcome to Hiterm!"
 echo "A fast, out-of-the-box terminal built for AI coding."
 echo "--------------------------------------------------------"
-echo "Would you like to install Kaku's enhanced shell features?"
+echo "Would you like to install Hiterm's enhanced shell features?"
 echo "This includes:"
 if [[ "$_login_shell" == "fish" ]]; then
 echo "  - Starship prompt (if installed)"
 echo "  - Zoxide integration (if installed)"
 echo "  - OSC 7/133/1337 sequences for AI fix hooks"
-echo "  - Kaku Yazi theme sync"
+echo "  - Hiterm Yazi theme sync"
 echo "  - Optional CLI tools via Homebrew: Starship, Delta, Lazygit, Yazi"
 echo ""
 echo "Shell config model (fish):"
-echo "  - Kaku writes managed config to ~/.config/kaku/fish/kaku.fish"
-echo "  - ~/.config/fish/conf.d/kaku.fish sources it automatically"
+echo "  - Hiterm writes managed config to ~/.config/hiterm/fish/hiterm.fish"
+echo "  - ~/.config/fish/conf.d/hiterm.fish sources it automatically"
 else
 echo "  - z - Smart Directory Jumper"
 echo "  - zsh-completions - Rich Tab Completions"
 echo "  - Zsh Syntax Highlighting"
 echo "  - Zsh Autosuggestions"
-echo "  - Kaku Theme"
+echo "  - Hiterm Theme"
 echo "  - Optional CLI tools via Homebrew: Starship, Delta, Lazygit, Yazi"
-echo "  - If Homebrew is missing, Kaku can offer to install it"
+echo "  - If Homebrew is missing, Hiterm can offer to install it"
 echo ""
 echo "Shell config model (zsh):"
-echo "  - Kaku writes managed shell config to ~/.config/kaku/zsh/kaku.zsh"
-echo "  - .zshrc gets one PATH line plus one source line for the managed Kaku shell config"
+echo "  - Hiterm writes managed shell config to ~/.config/hiterm/zsh/hiterm.zsh"
+echo "  - .zshrc gets one PATH line plus one source line for the managed Hiterm shell config"
 fi
-echo "  - You can roll back anytime with: kaku reset"
+echo "  - You can roll back anytime with: hiterm reset"
 echo "--------------------------------------------------------"
 echo ""
 
 # Interactive Prompt
-read -p "Set up Kaku now? Press Enter to continue, type n to skip: " -n 1 -r
+read -p "Set up Hiterm now? Press Enter to continue, type n to skip: " -n 1 -r
 echo ""
 
 INSTALL_SHELL=false
@@ -125,32 +128,32 @@ INSTALL_THEME="$INSTALL_SHELL"
 
 # Process Shell Features
 if [[ "$INSTALL_SHELL" == "true" ]]; then
-	if kaku_bin="$(resolve_kaku_cli)"; then
-		if ! KAKU_SKIP_TOOL_BOOTSTRAP=1 "$kaku_bin" init; then
+	if hiterm_bin="$(resolve_hiterm_cli)"; then
+		if ! HITERM_SKIP_TOOL_BOOTSTRAP=1 "$hiterm_bin" init; then
 			echo ""
 			echo "Warning: shell setup failed. You can retry manually:"
-			echo "  KAKU_SKIP_TOOL_BOOTSTRAP=1 \"$kaku_bin\" init"
+			echo "  HITERM_SKIP_TOOL_BOOTSTRAP=1 \"$hiterm_bin\" init"
 			if [[ -f "$SETUP_SCRIPT" ]]; then
 				echo "Fallback:"
-				echo "  KAKU_SKIP_TOOL_BOOTSTRAP=1 bash \"$SETUP_SCRIPT\""
+				echo "  HITERM_SKIP_TOOL_BOOTSTRAP=1 bash \"$SETUP_SCRIPT\""
 			fi
 		fi
 	elif [[ -f "$SETUP_SCRIPT" ]]; then
 		echo ""
-		echo "Warning: Kaku CLI not found during first-run setup. Falling back to $(basename "$SETUP_SCRIPT")."
-		if ! KAKU_SKIP_TOOL_BOOTSTRAP=1 bash "$SETUP_SCRIPT"; then
+		echo "Warning: Hiterm CLI not found during first-run setup. Falling back to $(basename "$SETUP_SCRIPT")."
+		if ! HITERM_SKIP_TOOL_BOOTSTRAP=1 bash "$SETUP_SCRIPT"; then
 			echo ""
 			echo "Warning: shell setup failed. You can retry manually:"
-			echo "  KAKU_SKIP_TOOL_BOOTSTRAP=1 bash \"$SETUP_SCRIPT\""
+			echo "  HITERM_SKIP_TOOL_BOOTSTRAP=1 bash \"$SETUP_SCRIPT\""
 		fi
 	else
-		echo "Error: neither kaku CLI nor $(basename "$SETUP_SCRIPT") was found for shell setup."
+		echo "Error: neither hiterm CLI nor $(basename "$SETUP_SCRIPT") was found for shell setup."
 	fi
 else
 	echo ""
 	echo "Skipping shell setup. You can run it manually later:"
-	if kaku_bin="$(resolve_kaku_cli)"; then
-		echo "  \"$kaku_bin\" init"
+	if hiterm_bin="$(resolve_hiterm_cli)"; then
+		echo "  \"$hiterm_bin\" init"
 	elif [[ -f "$SETUP_SCRIPT" ]]; then
 		echo "  bash \"$SETUP_SCRIPT\""
 	fi
@@ -159,26 +162,26 @@ fi
 mkdir -p "$CONFIG_DIR"
 
 ensure_user_config_via_cli() {
-	local kaku_lua_dest="$HOME/.config/kaku/kaku.lua"
-	if [[ -f "$kaku_lua_dest" ]]; then
-		echo "Keeping existing user config: $kaku_lua_dest"
+	local hiterm_lua_dest="$HOME/.config/hiterm/hiterm.lua"
+	if [[ -f "$hiterm_lua_dest" ]]; then
+		echo "Keeping existing user config: $hiterm_lua_dest"
 		return 0
 	fi
 
-	local kaku_bin
-	if ! kaku_bin="$(resolve_kaku_cli)"; then
-		echo "Warning: kaku CLI not found, skipped config initialization."
+	local hiterm_bin
+	if ! hiterm_bin="$(resolve_hiterm_cli)"; then
+		echo "Warning: Hiterm CLI not found, skipped config initialization."
 		return 0
 	fi
 
-	if "$kaku_bin" config --ensure-only >/dev/null 2>&1; then
-		echo "Created minimal user config: $kaku_lua_dest"
+	if "$hiterm_bin" config --ensure-only >/dev/null 2>&1; then
+		echo "Created minimal user config: $hiterm_lua_dest"
 	else
-		echo "Warning: failed to initialize user config via '$kaku_bin config --ensure-only'."
+		echo "Warning: failed to initialize user config via '$hiterm_bin config --ensure-only'."
 	fi
 }
 
-# Process Kaku Theme
+# Process Hiterm Theme
 if [[ "$INSTALL_THEME" == "true" ]]; then
 	ensure_user_config_via_cli
 fi
@@ -187,7 +190,7 @@ fi
 if [[ "$INSTALL_SHELL" == "true" ]]; then
 	if [[ -f "$TOOLS_SCRIPT" ]]; then
 		echo ""
-		if ! KAKU_AUTO_INSTALL_TOOLS=1 bash "$TOOLS_SCRIPT"; then
+		if ! HITERM_AUTO_INSTALL_TOOLS=1 bash "$TOOLS_SCRIPT"; then
 			echo "Warning: optional tool installation failed."
 		fi
 	else
@@ -195,7 +198,7 @@ if [[ "$INSTALL_SHELL" == "true" ]]; then
 	fi
 fi
 
-echo -e "\n\033[1;32m🎃 Kaku environment is ready! Enjoy coding.\033[0m"
+echo -e "\n\033[1;32m🎃 Hiterm environment is ready! Enjoy coding.\033[0m"
 
 # Persist explicitly here so successful first-run/upgrade paths are recorded.
 persist_config_version

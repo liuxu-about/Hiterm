@@ -2,7 +2,7 @@ use crate::ai_conversations;
 use termwiz::cell::{AttributeChange, CellAttributes};
 use termwiz::color::{ColorAttribute, SrgbaTuple};
 
-/// Colors sampled from Kaku's active theme, captured on the GUI thread and
+/// Colors sampled from Hiterm's active theme, captured on the GUI thread and
 /// passed into the overlay thread so rendering adapts to the user's palette.
 #[derive(Clone)]
 pub struct ChatPalette {

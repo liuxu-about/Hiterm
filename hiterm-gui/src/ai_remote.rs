@@ -25,7 +25,7 @@ pub fn register_if_configured() {
         Err(err) => {
             log::info!(
                 "kaku-remote AI: not registering remote AI handler ({}). \
-                 Configure ~/.config/kaku/assistant.toml and restart.",
+                 Configure ~/.config/hiterm/assistant.toml and restart.",
                 err
             );
             return;
@@ -173,6 +173,6 @@ fn capture_pane_context(pane_id: usize) -> Option<String> {
     Some(format!("cwd: {}\n\nrecent buffer:\n{}", cwd, buffer))
 }
 
-const SYSTEM_PROMPT: &str = "You are Kaku, an assistant embedded inside a terminal emulator. \
+const SYSTEM_PROMPT: &str = "You are Hiterm, an assistant embedded inside a terminal emulator. \
 When a user attaches terminal context, use it to ground your answer. \
 Reply concisely; prefer code fences for commands the user might want to run.";

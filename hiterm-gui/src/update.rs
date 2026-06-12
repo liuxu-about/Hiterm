@@ -39,12 +39,12 @@ pub struct StagedUpdateInfo {
 const STAGED_DIR_NAME: &str = "staged_update";
 const STAGED_LOCK_NAME: &str = "staged_update.lock";
 const STAGED_META_NAME: &str = "metadata.json";
-const UPDATE_ZIP_NAME: &str = "kaku_for_update.zip";
-const UPDATE_SHA_NAME: &str = "kaku_for_update.zip.sha256";
+const UPDATE_ZIP_NAME: &str = "hiterm_for_update.zip";
+const UPDATE_SHA_NAME: &str = "hiterm_for_update.zip.sha256";
 const LATEST_ZIP_URL: &str =
-    "https://github.com/tw93/Kaku/releases/latest/download/kaku_for_update.zip";
+    "https://github.com/liuxu-about/Hiterm/releases/latest/download/hiterm_for_update.zip";
 const LATEST_SHA_URL: &str =
-    "https://github.com/tw93/Kaku/releases/latest/download/kaku_for_update.zip.sha256";
+    "https://github.com/liuxu-about/Hiterm/releases/latest/download/hiterm_for_update.zip.sha256";
 /// Staged updates older than this are considered expired.
 const STAGED_MAX_AGE_SECS: u64 = 7 * 24 * 3600;
 
@@ -128,7 +128,7 @@ fn now_unix_secs() -> u64 {
 
 /// RAII guard around an exclusive `flock` on the staging lock file.
 ///
-/// Two Kaku processes started at once would otherwise race on
+/// Two Hiterm processes started at once would otherwise race on
 /// `staged_update/`: one tears it down with `remove_dir_all` while the other
 /// is mid-extract. Holding `flock(LOCK_EX | LOCK_NB)` for the duration of
 /// `download_and_stage_update` serializes them. The kernel automatically
@@ -158,7 +158,7 @@ impl StagedUpdateLock {
         if rc != 0 {
             let err = std::io::Error::last_os_error();
             if matches!(err.raw_os_error(), Some(libc::EWOULDBLOCK)) {
-                anyhow::bail!("another Kaku process is already staging an update");
+                anyhow::bail!("another Hiterm process is already staging an update");
             }
             return Err(anyhow!(
                 "failed to acquire staging lock {}: {}",
@@ -181,7 +181,7 @@ fn curl_get_release_json(url: &str, proxy: &Option<String>) -> anyhow::Result<Re
         .arg("--connect-timeout")
         .arg("15")
         .arg("--user-agent")
-        .arg(format!("kaku/{}", wezterm_version()))
+        .arg(format!("hiterm/{}", wezterm_version()))
         .arg(url);
     apply_to_command(&mut cmd, proxy);
 
@@ -198,7 +198,7 @@ fn curl_get_release_json(url: &str, proxy: &Option<String>) -> anyhow::Result<Re
 pub fn get_latest_release_info() -> anyhow::Result<Release> {
     let proxy = detect_system_proxy();
     curl_get_release_json(
-        "https://api.github.com/repos/tw93/Kaku/releases/latest",
+        "https://api.github.com/repos/liuxu-about/Hiterm/releases/latest",
         &proxy,
     )
     .or_else(|_| get_latest_tag_via_redirect(&proxy))
@@ -218,7 +218,7 @@ fn get_latest_tag_via_redirect(proxy: &Option<String>) -> anyhow::Result<Release
         .arg("%{url_effective}")
         .arg("--output")
         .arg("/dev/null")
-        .arg("https://github.com/tw93/Kaku/releases/latest");
+        .arg("https://github.com/liuxu-about/Hiterm/releases/latest");
     apply_to_command(&mut cmd, proxy);
 
     let output = cmd.output().map_err(|e| anyhow!("curl failed: {}", e))?;
@@ -238,7 +238,7 @@ fn get_latest_tag_via_redirect(proxy: &Option<String>) -> anyhow::Result<Release
     Ok(Release {
         url: String::new(),
         body: String::new(),
-        html_url: "https://github.com/tw93/Kaku/releases/latest".to_string(),
+        html_url: "https://github.com/liuxu-about/Hiterm/releases/latest".to_string(),
         tag_name: tag.to_string(),
         assets: vec![],
     })
@@ -248,7 +248,7 @@ fn get_latest_tag_via_redirect(proxy: &Option<String>) -> anyhow::Result<Release
 pub fn get_nightly_release_info() -> anyhow::Result<Release> {
     let proxy = detect_system_proxy();
     curl_get_release_json(
-        "https://api.github.com/repos/tw93/Kaku/releases/tags/nightly",
+        "https://api.github.com/repos/liuxu-about/Hiterm/releases/tags/nightly",
         &proxy,
     )
 }
@@ -330,7 +330,7 @@ fn curl_download_to_file(
         .arg("--connect-timeout")
         .arg("20")
         .arg("--user-agent")
-        .arg(format!("kaku/{}", wezterm_version()))
+        .arg(format!("hiterm/{}", wezterm_version()))
         .arg("--output")
         .arg(output_path)
         .arg(url);
@@ -357,7 +357,7 @@ fn curl_get_text(url: &str, proxy: &Option<String>) -> anyhow::Result<String> {
         .arg("--connect-timeout")
         .arg("15")
         .arg("--user-agent")
-        .arg(format!("kaku/{}", wezterm_version()))
+        .arg(format!("hiterm/{}", wezterm_version()))
         .arg(url);
     apply_to_command(&mut cmd, proxy);
 
@@ -413,7 +413,7 @@ fn verify_sha256(zip_path: &Path, checksum_text: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn find_kaku_app(extracted_dir: &Path) -> Option<PathBuf> {
+fn find_hiterm_app(extracted_dir: &Path) -> Option<PathBuf> {
     let direct = extracted_dir.join("Hiterm.app");
     if direct.exists() {
         return Some(direct);
@@ -462,7 +462,7 @@ fn download_and_stage_update(
     release: &Release,
     proxy: &Option<String>,
 ) -> anyhow::Result<StagedUpdateInfo> {
-    // Hold an exclusive lock for the whole staging operation so two Kaku
+    // Hold an exclusive lock for the whole staging operation so two Hiterm
     // processes cannot trample each other's `staged_update/` directory.
     let _lock = StagedUpdateLock::try_acquire()?;
 
@@ -511,7 +511,7 @@ fn download_and_stage_update(
     }
 
     // 4. Find and verify the extracted app
-    let new_app_path = find_kaku_app(&extracted_dir)
+    let new_app_path = find_hiterm_app(&extracted_dir)
         .ok_or_else(|| anyhow!("update package does not contain Hiterm.app"))?;
 
     let new_version = read_app_version(&new_app_path)?;
@@ -800,8 +800,8 @@ fn check_update_completed() {
 }
 
 // ---------------------------------------------------------------------------
-// Helper script for restart-to-update (duplicated from kaku/src/update.rs
-// because kaku-gui does not depend on the kaku crate).
+// Helper script for restart-to-update (duplicated from hiterm/src/update.rs
+// because hiterm-gui does not depend on the hiterm crate).
 // ---------------------------------------------------------------------------
 
 /// Resolve the installed Hiterm.app path, matching the logic in the CLI crate.
@@ -835,7 +835,7 @@ pub fn resolve_target_app_path() -> anyhow::Result<PathBuf> {
 }
 
 pub fn write_update_helper_script(script_path: &Path) -> anyhow::Result<()> {
-    // This is the same helper script as kaku/src/update.rs::write_helper_script.
+    // This is the same helper script as hiterm/src/update.rs::write_helper_script.
     let script = include_str!("../../scripts/update_helper.sh");
     std::fs::write(script_path, script)
         .map_err(|e| anyhow!("failed to write helper script: {}", e))?;
@@ -927,7 +927,7 @@ mod tests {
 
     /// End-to-end test: fetch real release from GitHub, download, verify,
     /// extract, and stage. Requires network access.
-    /// Run with: cargo nextest run -p kaku-gui staged_update_e2e -- --ignored
+    /// Run with: cargo nextest run -p hiterm-gui staged_update_e2e -- --ignored
     #[test]
     #[ignore]
     fn staged_update_e2e() {
@@ -989,7 +989,7 @@ mod tests {
         assert!(ditto_status.success(), "ditto extraction should succeed");
 
         // Find Hiterm.app
-        let app_path = find_kaku_app(&extracted).expect("should find Hiterm.app");
+        let app_path = find_hiterm_app(&extracted).expect("should find Hiterm.app");
         println!("found app: {}", app_path.display());
         assert!(app_path.exists());
 

@@ -1,9 +1,9 @@
-//! Unified conversation store for Kaku's AI chat overlay.
+//! Unified conversation store for Hiterm's AI chat overlay.
 //!
 //! Manages both the active (in-progress) conversation and the archive.
 //!
 //! Storage layout:
-//!   ~/.config/kaku/ai_conversations/
+//!   ~/.config/hiterm/ai_conversations/
 //!     index.json        -- active_id pointer + metadata for all conversations
 //!     <id>.json         -- messages for each conversation (active or archived)
 //!

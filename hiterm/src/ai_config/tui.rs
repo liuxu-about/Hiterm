@@ -1,4 +1,4 @@
-//! Interactive TUI for `kaku ai`.
+//! Interactive TUI for `hiterm ai`.
 
 use crate::assistant_config;
 use crate::utils::{is_jsonc_path, open_path_in_editor, parse_json_or_jsonc, write_atomic};
@@ -43,7 +43,7 @@ pub(crate) enum Tool {
 impl Tool {
     fn label(&self) -> &'static str {
         match self {
-            Tool::KakuAssistant => "Kaku Assistant",
+            Tool::KakuAssistant => "Hiterm Assistant",
             Tool::ClaudeCode => "Claude Code",
             Tool::Codex => "Codex",
             Tool::Kimi => "Kimi Code",
@@ -61,7 +61,7 @@ impl Tool {
             Tool::KakuAssistant => assistant_config::assistant_toml_path().unwrap_or_else(|_| {
                 config::HOME_DIR
                     .join(".config")
-                    .join("kaku")
+                    .join("hiterm")
                     .join("assistant.toml")
             }),
             Tool::ClaudeCode => home.join(".claude").join("settings.json"),
@@ -641,9 +641,9 @@ fn parse_exit_codes_toml(value: Option<&toml::Value>) -> Vec<i32> {
     }
 }
 
-/// Configuration for the Kaku built-in AI assistant.
+/// Configuration for the Hiterm built-in AI assistant.
 ///
-/// This struct holds the configuration for Kaku's AI-powered command analysis
+/// This struct holds the configuration for Hiterm's AI-powered command analysis
 /// feature. It ensures that model and base_url always have valid values
 /// by falling back to defaults when empty strings are provided.
 #[derive(Debug, Clone)]
@@ -827,7 +827,7 @@ impl Default for KakuAssistantConfig {
 fn parse_kaku_assistant_config(raw: &str) -> KakuAssistantConfig {
     let parsed = raw.parse::<toml::Value>().unwrap_or_else(|e| {
         log::warn!("failed to parse assistant.toml: {}", e);
-        push_ui_error("Kaku Assistant config TOML is malformed");
+        push_ui_error("Hiterm Assistant config TOML is malformed");
         toml::Value::Table(Default::default())
     });
 
@@ -1214,15 +1214,13 @@ fn render_toml_string(value: &str) -> String {
 
 fn write_kaku_assistant_config(path: &Path, cfg: &KakuAssistantConfig) -> anyhow::Result<()> {
     let mut out = String::new();
-    out.push_str("# Kaku Assistant configuration\n");
+    out.push_str("# Hiterm Assistant configuration\n");
     out.push_str(
         "# enabled: true enables command analysis suggestions; false disables requests.\n",
     );
     out.push_str("# api_key: provider API key, example: \"sk-xxxx\".\n");
     out.push_str("# model: Simple Model for quick command generation and lightweight chat.\n");
-    out.push_str(
-        "# chat_model: Deep Model for Cmd+L, k, and tool-using chat. Omit to reuse model.\n",
-    );
+    out.push_str("# chat_model: Deep Model for Cmd+L and tool-using chat. Omit to reuse model.\n");
     out.push_str(
         "# auto_fix_ignored_exit_codes: optional exit codes that should not trigger automatic command-fix suggestions.\n",
     );
@@ -1718,10 +1716,10 @@ fn title_case_first(s: &str) -> String {
     }
 }
 
-/// Fetch models.dev data, cached to ~/.cache/kaku/models.json.
+/// Fetch models.dev data, cached to ~/.cache/hiterm/models.json.
 /// No TTL - use `r` key in TUI to force refresh.
 fn load_models_dev_json() -> Option<serde_json::Value> {
-    let cache_dir = config::HOME_DIR.join(".cache").join("kaku");
+    let cache_dir = config::HOME_DIR.join(".cache").join("hiterm");
     let cache_path = cache_dir.join("models.json");
 
     // Use cache if exists
@@ -1737,7 +1735,7 @@ fn load_models_dev_json() -> Option<serde_json::Value> {
 
 /// Force fetch from models.dev and update cache.
 fn fetch_models_dev_json() -> Option<serde_json::Value> {
-    let cache_dir = config::HOME_DIR.join(".cache").join("kaku");
+    let cache_dir = config::HOME_DIR.join(".cache").join("hiterm");
     let cache_path = cache_dir.join("models.json");
 
     let output = match std::process::Command::new("curl")
@@ -2642,9 +2640,9 @@ impl App {
             self.field_index = 0;
         }
         self.set_status(if self.assistant_collapsed {
-            "Kaku Assistant hidden"
+            "Hiterm Assistant hidden"
         } else {
-            "Kaku Assistant expanded"
+            "Hiterm Assistant expanded"
         });
     }
 
@@ -3274,21 +3272,21 @@ impl App {
         let _ = self.sync_transient_errors();
     }
 
-    /// Open a shell command in a new Kaku tab (preferred) or fall back to Terminal.app.
+    /// Open a shell command in a new Hiterm tab (preferred) or fall back to Terminal.app.
     fn open_in_terminal(&mut self, cmd: &str) {
-        // Prefer a new tab in the current Kaku window.
-        // kaku cli spawn reads WEZTERM_PANE from the environment to target the right window.
+        // Prefer a new tab in the current Hiterm window.
+        // hiterm cli spawn reads WEZTERM_PANE from the environment to target the right window.
         // Append `exec $SHELL` so the pane stays alive after the command finishes.
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
         let shell_cmd = format!("{}; exec \"{}\"", cmd, shell);
-        let kaku_status = std::process::Command::new("kaku")
+        let hiterm_status = std::process::Command::new("hiterm")
             .args(["cli", "spawn", "--", &shell, "-c", &shell_cmd])
             .stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status();
-        if kaku_status.as_ref().is_ok_and(|status| status.success()) {
-            self.set_status("Opening in new Kaku tab...");
+        if hiterm_status.as_ref().is_ok_and(|status| status.success()) {
+            self.set_status("Opening in new Hiterm tab...");
             return;
         }
 
@@ -3328,7 +3326,7 @@ fn save_field(tool: Tool, field_key: &str, new_val: &str) -> anyhow::Result<()> 
         parse_json_or_jsonc(&raw).with_context(|| format!("parse {}", path.display()))?;
 
     match tool {
-        Tool::KakuAssistant => unreachable!("Kaku Assistant is handled before JSON parsing"),
+        Tool::KakuAssistant => unreachable!("Hiterm Assistant is handled before JSON parsing"),
         Tool::Antigravity => return Ok(()),
         Tool::Gemini => {
             if field_key == "Model" {
@@ -3538,7 +3536,7 @@ fn save_field(tool: Tool, field_key: &str, new_val: &str) -> anyhow::Result<()> 
     let output = serde_json::to_string_pretty(&parsed).context("serialize config")?;
     if is_jsonc_path(&path) {
         log::info!(
-            "Note: {} comments will be removed when Kaku rewrites this file.",
+            "Note: {} comments will be removed when Hiterm rewrites this file.",
             path.display()
         );
     }

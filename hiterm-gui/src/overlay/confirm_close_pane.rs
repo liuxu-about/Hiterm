@@ -80,7 +80,7 @@ pub fn confirm_apply_update(
     tab_id: TabId,
 ) -> anyhow::Result<()> {
     if confirm::run_confirmation(
-        "Update Kaku now?\nAll windows will close and running tasks will stop.",
+        "Update Hiterm now?\nAll windows will close and running tasks will stop.",
         &mut term,
     )? {
         promise::spawn::spawn_into_main_thread(async move {

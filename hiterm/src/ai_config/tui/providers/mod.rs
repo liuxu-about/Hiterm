@@ -1,4 +1,4 @@
-//! Per-provider usage scraping and quota formatting for the `kaku ai` TUI.
+//! Per-provider usage scraping and quota formatting for the `hiterm ai` TUI.
 //!
 //! This submodule isolates the AI-tool usage subsystem (Antigravity sqlite /
 //! protobuf probing, Codex/Claude/Kimi/Copilot/Gemini fetchers, OAuth
@@ -85,42 +85,42 @@ pub(super) struct UsageSummaryUpdate {
 pub(super) fn codex_usage_cache_path() -> PathBuf {
     config::HOME_DIR
         .join(".cache")
-        .join("kaku")
+        .join("hiterm")
         .join("codex_usage.json")
 }
 
 pub(super) fn claude_usage_cache_path() -> PathBuf {
     config::HOME_DIR
         .join(".cache")
-        .join("kaku")
+        .join("hiterm")
         .join("claude_usage.json")
 }
 
 pub(super) fn copilot_usage_cache_path() -> PathBuf {
     config::HOME_DIR
         .join(".cache")
-        .join("kaku")
+        .join("hiterm")
         .join("copilot_usage.json")
 }
 
 pub(super) fn kimi_usage_cache_path() -> PathBuf {
     config::HOME_DIR
         .join(".cache")
-        .join("kaku")
+        .join("hiterm")
         .join("kimi_usage.json")
 }
 
 pub(super) fn antigravity_usage_cache_path() -> PathBuf {
     config::HOME_DIR
         .join(".cache")
-        .join("kaku")
+        .join("hiterm")
         .join("antigravity_usage.json")
 }
 
 pub(super) fn assistant_models_cache_path() -> PathBuf {
     config::HOME_DIR
         .join(".cache")
-        .join("kaku")
+        .join("hiterm")
         .join("assistant_models.json")
 }
 
@@ -1127,7 +1127,7 @@ pub(super) fn parse_antigravity_usage_snapshot(
 
 pub(super) fn load_antigravity_usage_snapshot() -> Option<AntigravityUsageSnapshot> {
     let cache_path = antigravity_usage_cache_path();
-    // Antigravity model selection can change out of band while Kaku is open,
+    // Antigravity model selection can change out of band while Hiterm is open,
     // so prefer a live local fetch and only fall back to cache when it fails.
     if let Some(live) = fetch_antigravity_usage_json() {
         write_json_cache(&cache_path, &live);

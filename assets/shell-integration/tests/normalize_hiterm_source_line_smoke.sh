@@ -2,10 +2,10 @@
 
 set -euo pipefail
 
-PATH_LINE='[[ ":$PATH:" != *":$HOME/.config/kaku/zsh/bin:"* ]] && export PATH="$HOME/.config/kaku/zsh/bin:$PATH" # Kaku PATH Integration'
-SOURCE_LINE='[[ -f "$HOME/.config/kaku/zsh/kaku.zsh" ]] && source "$HOME/.config/kaku/zsh/kaku.zsh" # Kaku Shell Integration'
+PATH_LINE='[[ ":$PATH:" != *":$HOME/.config/hiterm/zsh/bin:"* ]] && export PATH="$HOME/.config/hiterm/zsh/bin:$PATH" # Hiterm PATH Integration'
+SOURCE_LINE='[[ -f "$HOME/.config/hiterm/zsh/hiterm.zsh" ]] && source "$HOME/.config/hiterm/zsh/hiterm.zsh" # Hiterm Shell Integration'
 
-normalize_kaku_path_line_file() {
+normalize_hiterm_path_line_file() {
   local input_file="$1"
   local output_file="$2"
 
@@ -18,7 +18,7 @@ BEGIN { replaced = 0; extra = 0 }
   }
 
   if ($0 ~ /^[[:space:]]*\[\[/ &&
-      $0 ~ /kaku\/zsh\/bin/ &&
+      $0 ~ /(hiterm\/zsh\/bin|kaku\/zsh\/bin)/ &&
       $0 ~ /&&[[:space:]]*export[[:space:]]+PATH=/) {
     if (!replaced) {
       print path_line
@@ -42,7 +42,7 @@ END {
 ' "$input_file" >"$output_file"
 }
 
-normalize_kaku_source_line_file() {
+normalize_hiterm_source_line_file() {
   local input_file="$1"
   local output_file="$2"
 
@@ -55,7 +55,7 @@ BEGIN { replaced = 0; extra = 0 }
   }
 
   if ($0 ~ /^[[:space:]]*\[\[/ &&
-      $0 ~ /kaku\/zsh\/kaku\.zsh/ &&
+      $0 ~ /(hiterm\/zsh\/hiterm\.zsh|kaku\/zsh\/kaku\.zsh)/ &&
       $0 ~ /&&[[:space:]]*source[[:space:]]/) {
     if (!replaced) {
       print source_line
@@ -105,7 +105,7 @@ run_normalize() {
   local label="$5"
 
   local tmp_dir input_file output_file expected_file status
-  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/kaku-normalize-test.XXXXXX")"
+  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/hiterm-normalize-test.XXXXXX")"
   input_file="$tmp_dir/input.zshrc"
   output_file="$tmp_dir/output.zshrc"
   expected_file="$tmp_dir/expected.zshrc"
@@ -123,59 +123,59 @@ run_normalize() {
 }
 
 run_normalize \
-  normalize_kaku_path_line_file \
+  normalize_hiterm_path_line_file \
   $'export PATH="$HOME/bin:$PATH"\n[[ ":$PATH:" != *":$HOME/.config/kaku/zsh/bin:"* ]] && export PATH="$HOME/.config/kaku/zsh/bin:$PATH"\n' \
   0 \
   $'export PATH="$HOME/bin:$PATH"\n'"$PATH_LINE"$'\n' \
   "legacy path line is replaced"
 
 run_normalize \
-  normalize_kaku_path_line_file \
-  $'# [[ ":$PATH:" != *":$HOME/.config/kaku/zsh/bin:"* ]] && export PATH="$HOME/.config/kaku/zsh/bin:$PATH"\n'"$PATH_LINE"$'\n'"$PATH_LINE"$'\n' \
+  normalize_hiterm_path_line_file \
+  $'# [[ ":$PATH:" != *":$HOME/.config/hiterm/zsh/bin:"* ]] && export PATH="$HOME/.config/hiterm/zsh/bin:$PATH"\n'"$PATH_LINE"$'\n'"$PATH_LINE"$'\n' \
   2 \
-  $'# [[ ":$PATH:" != *":$HOME/.config/kaku/zsh/bin:"* ]] && export PATH="$HOME/.config/kaku/zsh/bin:$PATH"\n'"$PATH_LINE"$'\n' \
+  $'# [[ ":$PATH:" != *":$HOME/.config/hiterm/zsh/bin:"* ]] && export PATH="$HOME/.config/hiterm/zsh/bin:$PATH"\n'"$PATH_LINE"$'\n' \
   "duplicate path lines collapse"
 
 run_normalize \
-  normalize_kaku_path_line_file \
-  $'if [[ -d "$HOME/.config/kaku/zsh/bin" ]]; then\n  export PATH="$PATH:$HOME/.config/kaku/zsh/bin"\nfi\n' \
+  normalize_hiterm_path_line_file \
+  $'if [[ -d "$HOME/.config/hiterm/zsh/bin" ]]; then\n  export PATH="$PATH:$HOME/.config/hiterm/zsh/bin"\nfi\n' \
   3 \
-  $'if [[ -d "$HOME/.config/kaku/zsh/bin" ]]; then\n  export PATH="$PATH:$HOME/.config/kaku/zsh/bin"\nfi\n' \
+  $'if [[ -d "$HOME/.config/hiterm/zsh/bin" ]]; then\n  export PATH="$PATH:$HOME/.config/hiterm/zsh/bin"\nfi\n' \
   "custom path logic is preserved"
 
 run_normalize \
-  normalize_kaku_source_line_file \
+  normalize_hiterm_source_line_file \
   $'export PATH="$HOME/bin:$PATH"\n[[ -f "$HOME/.config/kaku/zsh/kaku.zsh" ]] && source "$HOME/.config/kaku/zsh/kaku.zsh" # Kaku Shell Integration\n' \
   0 \
   $'export PATH="$HOME/bin:$PATH"\n'"$SOURCE_LINE"$'\n' \
   "legacy line is replaced"
 
 run_normalize \
-  normalize_kaku_source_line_file \
-  $'[[ -f "\\/Users/lex/.config/kaku/zsh/kaku.zsh" ]] && source "\\/Users/lex/.config/kaku/zsh/kaku.zsh" # Kaku Shell Integration\n' \
+  normalize_hiterm_source_line_file \
+  $'[[ -f "\\/Users/lex/.config/hiterm/zsh/hiterm.zsh" ]] && source "\\/Users/lex/.config/hiterm/zsh/hiterm.zsh" # Hiterm Shell Integration\n' \
   0 \
   "$SOURCE_LINE"$'\n' \
   "escaped absolute path line is normalized"
 
 run_normalize \
-  normalize_kaku_source_line_file \
-  $'[[ "$TERM_PROGRAM" == "Kaku" ]] && [[ -f "$HOME/.config/kaku/zsh/kaku.zsh" ]] && source "$HOME/.config/kaku/zsh/kaku.zsh" # Kaku Shell Integration\n' \
+  normalize_hiterm_source_line_file \
+  $'[[ "$TERM_PROGRAM" == "Kaku" ]] && [[ -f "$HOME/.config/hiterm/zsh/hiterm.zsh" ]] && source "$HOME/.config/hiterm/zsh/hiterm.zsh" # Hiterm Shell Integration\n' \
   0 \
   "$SOURCE_LINE"$'\n' \
   "term_program guarded line is normalized"
 
 run_normalize \
-  normalize_kaku_source_line_file \
-  $'# [[ -f "$HOME/.config/kaku/zsh/kaku.zsh" ]] && source "$HOME/.config/kaku/zsh/kaku.zsh"\n'"$SOURCE_LINE"$'\n'"$SOURCE_LINE"$'\n' \
+  normalize_hiterm_source_line_file \
+  $'# [[ -f "$HOME/.config/hiterm/zsh/hiterm.zsh" ]] && source "$HOME/.config/hiterm/zsh/hiterm.zsh"\n'"$SOURCE_LINE"$'\n'"$SOURCE_LINE"$'\n' \
   2 \
-  $'# [[ -f "$HOME/.config/kaku/zsh/kaku.zsh" ]] && source "$HOME/.config/kaku/zsh/kaku.zsh"\n'"$SOURCE_LINE"$'\n' \
+  $'# [[ -f "$HOME/.config/hiterm/zsh/hiterm.zsh" ]] && source "$HOME/.config/hiterm/zsh/hiterm.zsh"\n'"$SOURCE_LINE"$'\n' \
   "comments preserved and duplicate active lines collapsed"
 
 run_normalize \
-  normalize_kaku_source_line_file \
+  normalize_hiterm_source_line_file \
   $'export PATH="$HOME/bin:$PATH"\n# no kaku integration here\n' \
   3 \
   $'export PATH="$HOME/bin:$PATH"\n# no kaku integration here\n' \
   "no matching line returns no-op status"
 
-echo "normalize_kaku_source_line smoke tests passed"
+echo "normalize_hiterm_source_line smoke tests passed"

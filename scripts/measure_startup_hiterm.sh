@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/measure_startup_kaku.sh
+# scripts/measure_startup_hiterm.sh
 #
 # Measure Hiterm.app cold-start time and emit a JSON report compatible with
 # scripts/check_startup_budget.sh. Local-only helper: the budget gate is
@@ -35,7 +35,7 @@ if [[ ! -d "$APP_PATH" ]]; then
   exit 1
 fi
 
-quit_kaku() {
+quit_hiterm() {
   pkill -9 -x "hiterm-gui" >/dev/null 2>&1 || true
   for _ in {1..200}; do
     pgrep -x "hiterm-gui" >/dev/null 2>&1 || return 0
@@ -50,15 +50,15 @@ set timeoutSeconds to ${timeout_sec}
 set startAt to (current date)
 tell application "System Events"
   repeat
-    if exists process "Kaku" then
-      tell process "Kaku"
+    if exists process "Hiterm" then
+      tell process "Hiterm"
         if (count of windows) > 0 then
           return
         end if
       end tell
     end if
     if ((current date) - startAt) > timeoutSeconds then
-      error "timeout waiting for Kaku window"
+      error "timeout waiting for Hiterm window"
     end if
     delay 0.05
   end repeat
@@ -66,7 +66,7 @@ end tell
 OSA
 }
 
-cold_cmd="$(declare -f quit_kaku); $(declare -f wait_first_window); quit_kaku >/dev/null 2>&1; open -a '$APP_PATH'; wait_first_window $WAIT_TIMEOUT_SEC"
+cold_cmd="$(declare -f quit_hiterm); $(declare -f wait_first_window); quit_hiterm >/dev/null 2>&1; open -a '$APP_PATH'; wait_first_window $WAIT_TIMEOUT_SEC"
 
 tmp_json=$(mktemp)
 trap 'rm -f "$tmp_json"' EXIT
@@ -79,7 +79,7 @@ hyperfine \
   --command-name cold_start \
   "$cold_cmd" >&2
 
-quit_kaku
+quit_hiterm
 
 # Parse hyperfine JSON to budget-check JSON shape.
 cold_ms=$(jq -r '.results[0].mean * 1000 | round' "$tmp_json")
