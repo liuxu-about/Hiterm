@@ -896,15 +896,11 @@ impl CommandDef {
                         }
                         menu.add_item(&settings_item);
 
-                        let check_update = MenuItem::new_with(
-                            "Check for Updates...",
-                            Some(kaku_perform_key_assignment_sel),
-                            "",
-                        );
-                        check_update.set_represented_item(RepresentedItem::KeyAssignment(
-                            KeyAssignment::EmitEvent("run-kaku-update".to_string()),
-                        ));
-                        menu.add_item(&check_update);
+                        // "Check for Updates..." is deliberately absent: the
+                        // update feed still points at upstream Kaku releases,
+                        // so offering it from this fork would stage a package
+                        // that can never apply. Hiterm updates by rebuilding
+                        // from source.
 
                         // Show "Restart to Update" when a staged update is ready.
                         if let Some(info) = crate::update::staged_update_available() {
