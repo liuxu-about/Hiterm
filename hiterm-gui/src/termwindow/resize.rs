@@ -13,6 +13,7 @@ use wezterm_font::FontConfiguration;
 use wezterm_term::TerminalSize;
 
 const FONT_SCALE_PTY_RESIZE_DEBOUNCE: Duration = Duration::from_millis(750);
+const FONT_SCALE_APPLY_DEBOUNCE: Duration = Duration::from_millis(40);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RowsAndCols {
@@ -400,21 +401,48 @@ impl super::TermWindow {
     }
 
     pub fn apply_pending_scale_changes(&mut self) {
-        while self.resizes_pending == 0 {
-            match self.pending_scale_changes.pop_front() {
-                Some(ScaleChange::Relative(change)) => {
-                    if let Some(window) = self.window.as_ref().map(|w| w.clone()) {
-                        self.adjust_font_scale(self.fonts.get_font_scale() * change, &window);
-                    }
-                }
-                Some(ScaleChange::Absolute(change)) => {
-                    if let Some(window) = self.window.as_ref().map(|w| w.clone()) {
-                        self.adjust_font_scale(change, &window);
-                    }
-                }
-                None => break,
+        if self.resizes_pending != 0 || self.pending_scale_changes.is_empty() {
+            return;
+        }
+
+        let Some(window) = self.window.as_ref().map(|w| w.clone()) else {
+            self.pending_scale_changes.clear();
+            return;
+        };
+
+        let current_font_scale = self.fonts.get_font_scale();
+        let mut font_scale = current_font_scale;
+        while let Some(change) = self.pending_scale_changes.pop_front() {
+            match change {
+                ScaleChange::Relative(change) => font_scale *= change,
+                ScaleChange::Absolute(change) => font_scale = change,
             }
         }
+
+        if (font_scale - current_font_scale).abs() < 0.0001 {
+            return;
+        }
+
+        self.adjust_font_scale(font_scale, &window);
+    }
+
+    fn schedule_pending_scale_changes(&mut self) {
+        let Some(window) = self.window.as_ref().map(|w| w.clone()) else {
+            self.apply_pending_scale_changes();
+            return;
+        };
+
+        self.pending_scale_apply_epoch = self.pending_scale_apply_epoch.wrapping_add(1);
+        let epoch = self.pending_scale_apply_epoch;
+        promise::spawn::spawn_into_main_thread(async move {
+            smol::Timer::after(FONT_SCALE_APPLY_DEBOUNCE).await;
+            window.notify(super::TermWindowNotif::Apply(Box::new(move |tw| {
+                if tw.pending_scale_apply_epoch == epoch {
+                    tw.apply_pending_scale_changes();
+                }
+            })));
+        })
+        .detach();
     }
 
     pub fn apply_scale_change(&mut self, dimensions: &Dimensions, font_scale: f64) {
@@ -878,12 +906,16 @@ impl super::TermWindow {
             match self.config.adjust_window_size_when_changing_font_size {
                 Some(value) => value,
                 None => {
-                    let is_tiling = self
-                        .config
-                        .tiling_desktop_environments
-                        .iter()
-                        .any(|item| item.as_str() == self.connection_name.as_str());
-                    !is_tiling
+                    if cfg!(target_os = "macos") {
+                        false
+                    } else {
+                        let is_tiling = self
+                            .config
+                            .tiling_desktop_environments
+                            .iter()
+                            .any(|item| item.as_str() == self.connection_name.as_str());
+                        !is_tiling
+                    }
                 }
             };
 
@@ -903,19 +935,19 @@ impl super::TermWindow {
     pub fn decrease_font_size(&mut self) {
         self.pending_scale_changes
             .push_back(ScaleChange::Relative(1.0 / 1.1));
-        self.apply_pending_scale_changes();
+        self.schedule_pending_scale_changes();
     }
 
     pub fn increase_font_size(&mut self) {
         self.pending_scale_changes
             .push_back(ScaleChange::Relative(1.1));
-        self.apply_pending_scale_changes();
+        self.schedule_pending_scale_changes();
     }
 
     pub fn reset_font_size(&mut self) {
         self.pending_scale_changes
             .push_back(ScaleChange::Absolute(1.0));
-        self.apply_pending_scale_changes();
+        self.schedule_pending_scale_changes();
     }
 
     pub fn set_window_size(&mut self, size: TerminalSize, window: &Window) -> anyhow::Result<()> {

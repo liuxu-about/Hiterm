@@ -979,6 +979,7 @@ pub struct TermWindow {
     pub resizes_pending: usize,
     is_repaint_pending: bool,
     pending_scale_changes: LinkedList<resize::ScaleChange>,
+    pending_scale_apply_epoch: u64,
     /// Terminal dimensions
     terminal_size: TerminalSize,
     pub mux_window_id: MuxWindowId,
@@ -1638,6 +1639,7 @@ impl TermWindow {
             resizes_pending: 0,
             is_repaint_pending: false,
             pending_scale_changes: LinkedList::new(),
+            pending_scale_apply_epoch: 0,
             terminal_size,
             render_state,
             keyboard: KeyboardInputState::new(InputMap::new(&config)),

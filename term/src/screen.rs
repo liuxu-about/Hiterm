@@ -225,7 +225,10 @@ impl Screen {
         // this avoids growing the scrollback size when rapidly switching between normal and
         // maximized states.
         let cursor_phys = self.phys_row(cursor.y);
-        let max_prune = self.lines.len().saturating_sub(self.physical_rows);
+        let max_prune = self
+            .lines
+            .len()
+            .saturating_sub(self.physical_rows.min(physical_rows));
         let mut pruned = 0;
         for _ in cursor_phys + 1..self.lines.len() {
             if pruned >= max_prune {

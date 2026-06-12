@@ -1696,3 +1696,51 @@ fn refresh_focus_sends_only_focus_in_when_already_focused() {
 
     wait_for_writer_output(&writer, b"\x1b[I");
 }
+
+/// Shrinking rows on a screen with no scrollback content (fresh shell)
+/// must prune trailing blank lines instead of pushing the prompt line
+/// into scrollback. If the prompt is pushed out, the shell's SIGWINCH
+/// redraw lands on a lower row, and growing back (eg: Cmd+= then Cmd+-)
+/// reveals the stale prompt above a blank gap, duplicating the prompt.
+#[test]
+fn test_resize_row_shrink_then_grow_no_scrollback_content() {
+    let mut term = TestTerm::new(10, 20, 100);
+    term.print("PROMPT ");
+
+    // Cmd+= : same window pixels, fewer rows
+    term.resize(TerminalSize {
+        rows: 8,
+        cols: 20,
+        pixel_width: 0,
+        pixel_height: 0,
+        dpi: 0,
+    });
+    assert_visible_contents(
+        &term,
+        file!(),
+        line!(),
+        &["PROMPT ", "", "", "", "", "", "", ""],
+    );
+    assert_eq!(term.cursor_pos().y, 0);
+    // Nothing was pushed into scrollback
+    assert_eq!(term.screen().scrollback_rows(), 8);
+
+    // zsh redraws the prompt at the cursor row on SIGWINCH
+    term.print("\rPROMPT ");
+
+    // Cmd+- : back to the original rows
+    term.resize(TerminalSize {
+        rows: 10,
+        cols: 20,
+        pixel_width: 0,
+        pixel_height: 0,
+        dpi: 0,
+    });
+    assert_visible_contents(
+        &term,
+        file!(),
+        line!(),
+        &["PROMPT ", "", "", "", "", "", "", "", "", ""],
+    );
+    assert_eq!(term.cursor_pos().y, 0);
+}
