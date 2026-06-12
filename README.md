@@ -1,42 +1,38 @@
 <div align="center">
-  <img src="https://gw.alipayobjects.com/zos/k/6h/dwarf.svg" width="120" />
-  <h1>Kaku</h1>
-  <p><em>A fast, out-of-the-box terminal built for AI coding.</em></p>
+  <img src="assets/logo.png" width="120" alt="Hiterm logo" />
+  <h1>Hiterm</h1>
+  <p><em>A fast macOS terminal built for AI coding workflows.</em></p>
 </div>
 
 <p align="center">
-  <a href="https://github.com/tw93/Kaku/stargazers"><img src="https://img.shields.io/github/stars/tw93/Kaku?style=flat-square" alt="Stars"></a>
-  <a href="https://github.com/tw93/Kaku/releases"><img src="https://img.shields.io/github/v/tag/tw93/Kaku?label=version&style=flat-square" alt="Version"></a>
+  <a href="https://github.com/liuxu-about/Hiterm/stargazers"><img src="https://img.shields.io/github/stars/liuxu-about/Hiterm?style=flat-square" alt="Stars"></a>
+  <a href="https://github.com/liuxu-about/Hiterm/releases"><img src="https://img.shields.io/github/v/tag/liuxu-about/Hiterm?label=version&style=flat-square" alt="Version"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
-  <a href="https://github.com/tw93/Kaku/commits"><img src="https://img.shields.io/github/commit-activity/m/tw93/Kaku?style=flat-square" alt="Commits"></a>
-  <a href="https://twitter.com/HiTw93"><img src="https://img.shields.io/badge/follow-Tw93-red?style=flat-square&logo=Twitter" alt="Twitter"></a>
+  <a href="https://github.com/liuxu-about/Hiterm/commits"><img src="https://img.shields.io/github/commit-activity/m/liuxu-about/Hiterm?style=flat-square" alt="Commits"></a>
 </p>
 
 <p align="center">
-  <img src="assets/kaku.jpg" alt="Kaku Screenshot" width="1000" />
+  <img src="assets/hiterm.jpg" alt="Hiterm Screenshot" width="1000" />
 </p>
 
 ## Why
 
-Kaku (書く, かく) is the Japanese word for writing: the act of putting thought into form. A deeply customized fork of WezTerm, built for practical defaults on day one while keeping full Lua customization and a fast, lightweight feel.
-
-Part of a trilogy: [Kaku](https://github.com/tw93/Kaku) (書く) writes code, [Waza](https://github.com/tw93/Waza) (技) drills habits, [Kami](https://github.com/tw93/Kami) (紙) ships documents. Think of them as a family: Kaku is the dad, Waza the big sister, Kami the little sister.
+Hiterm is a macOS-native terminal emulator tuned for AI-assisted development. It keeps WezTerm-compatible Lua configuration and a GPU-accelerated terminal core, then adds practical defaults, curated shell integration, pane and tab ergonomics, and built-in AI command helpers.
 
 ## Features
 
 - **Zero Config**: Defaults with JetBrains Mono, macOS font rendering, and low-res font sizing.
 - **Theme-Aware Experience**: Auto-switches between dark and light modes with macOS, with tuned selection colors, font weight, and practical color overrides support.
 - **Curated Shell Suite**: Built-in zsh plugins with optional CLI tools for prompt, diff, and navigation workflows.
-- **Fast & Lightweight**: 40% smaller binary, instant startup, lazy loading, stripped-down GPU-accelerated core.
-- **WezTerm-Compatible Config**: Use WezTerm's Lua config directly with full API compatibility and no migration.
+- **Fast & Lightweight**: Smaller binary, instant startup, lazy loading, stripped-down GPU-accelerated core.
+- **WezTerm-Compatible Config**: Use WezTerm's Lua config directly with full API compatibility.
 - **Polished Defaults**: Copy on select, clickable file paths, history peek from full-screen apps, pane input broadcast, and visual bell on background tab completion.
 
 ## Quick Start
 
-1. [Download Kaku DMG](https://github.com/tw93/Kaku/releases/latest) & Drag to Applications
-2. Or install with Homebrew: `brew install tw93/tap/kakuku`
-3. Open Kaku. The app is notarized by Apple, so it opens without security warnings
-4. On first launch, Kaku will automatically set up your shell environment
+1. [Download the latest Hiterm DMG](https://github.com/liuxu-about/Hiterm/releases/latest) and drag `Hiterm.app` to Applications.
+2. Open Hiterm. The app is notarized by Apple, so it opens without security warnings.
+3. On first launch, Hiterm automatically sets up your shell environment.
 
 ## Usage Guide
 
@@ -45,7 +41,7 @@ Part of a trilogy: [Kaku](https://github.com/tw93/Kaku) (書く) writes code, [W
 | New Tab | `Cmd + T` |
 | New Window | `Cmd + N` |
 | Close Tab/Pane | `Cmd + W` |
-| Navigate Tabs | `Cmd + Shift + [` / `]` or `Cmd + 1–9` |
+| Navigate Tabs | `Cmd + Shift + [` / `]` or `Cmd + 1-9` |
 | Navigate Panes | `Cmd + Opt + Arrows` |
 | Split Pane Vertical | `Cmd + D` |
 | Split Pane Horizontal | `Cmd + Shift + D` |
@@ -58,17 +54,17 @@ Part of a trilogy: [Kaku](https://github.com/tw93/Kaku) (書く) writes code, [W
 
 Full keybinding reference: [docs/keybindings.md](docs/keybindings.md)
 
-## Kaku AI
+## Hiterm AI
 
-Kaku has a built-in assistant with two modes and a settings page for AI coding tools.
+Hiterm has a built-in assistant with two modes and a settings page for AI coding tools.
 
-- **Error recovery**: When a command fails, Kaku automatically suggests a fix. Press `Cmd + Shift + E` to apply.
-- **Natural language to command**: Type `# <description>` at the prompt and press Enter. Kaku sends the query to the LLM and injects the resulting command back into the prompt, ready to review and run.
+- **Error recovery**: When a command fails, Hiterm automatically suggests a fix. Press `Cmd + Shift + E` to apply.
+- **Natural language to command**: Type `# <description>` at the prompt and press Enter. Hiterm sends the query to the LLM and injects the resulting command back into the prompt, ready to review and run.
 - **AI Tools Config**: Manage settings for Claude Code, Codex, Gemini CLI, Copilot CLI, Kimi Code, and more.
 
 ### Provider Presets
 
-Select a provider in `kaku ai` to auto-fill the base URL and models:
+Select a provider in `hiterm ai` to auto-fill the base URL and models:
 
 | Provider | Base URL | Models |
 | :--- | :--- | :--- |
@@ -79,20 +75,20 @@ Full AI assistant docs: [docs/features.md](docs/features.md)
 
 ## Performance
 
-| Metric | Upstream | Kaku | Methodology |
+| Metric | Upstream | Hiterm | Methodology |
 | :--- | :--- | :--- | :--- |
-| **Executable Size** | ~67 MB | ~40 MB | Aggressive symbol stripping & feature pruning |
-| **Resources Volume** | ~100 MB | ~80 MB | Asset optimization & lazy-loaded assets |
+| **Executable Size** | ~67 MB | ~40 MB | Aggressive symbol stripping and feature pruning |
+| **Resources Volume** | ~100 MB | ~80 MB | Asset optimization and lazy-loaded assets |
 | **Launch Latency** | Standard | Instant | Just-in-time initialization |
 | **Shell Bootstrap** | ~200ms | ~100ms | Optimized environment provisioning |
 
 ## FAQ
 
-**Is there a Windows or Linux version?** Not currently. Kaku is macOS-only for now.
+**Is there a Windows or Linux version?** Not currently. Hiterm is macOS-only for now.
 
-**Can I use transparent windows?** Yes, set `config.window_background_opacity` in `~/.config/kaku/kaku.lua`.
+**Can I use transparent windows?** Yes, set `config.window_background_opacity` in `~/.config/hiterm/hiterm.lua`.
 
-**The `kaku` command is missing.** Run `/Applications/Kaku.app/Contents/MacOS/kaku init --update-only && exec zsh -l`, then `kaku doctor`.
+**The `hiterm` command is missing.** Run `/Applications/Hiterm.app/Contents/MacOS/hiterm init --update-only && exec zsh -l`, then `hiterm doctor`.
 
 Full FAQ: [docs/faq.md](docs/faq.md)
 
@@ -101,32 +97,27 @@ Full FAQ: [docs/faq.md](docs/faq.md)
 - [Keybindings](docs/keybindings.md) - full shortcut reference
 - [Features](docs/features.md) - AI assistant, lazygit, yazi, remote files, shell suite
 - [Configuration](docs/configuration.md) - themes, fonts, custom keybindings, Lua API
-- [CLI Reference](docs/cli.md) - `kaku ai`, `kaku config`, `kaku doctor`, and more
+- [CLI Reference](docs/cli.md) - `hiterm ai`, `hiterm config`, `hiterm doctor`, and more
 - [FAQ](docs/faq.md) - common questions and troubleshooting
 
 ## Background
 
-I heavily rely on the CLI for both work and personal projects. Tools I've built, like [Mole](https://github.com/tw93/mole) and [Pake](https://github.com/tw93/pake), reflect this.
+Hiterm is designed around fast terminal startup, native macOS behavior, strong tab and pane ergonomics, and command-line workflows that increasingly include AI coding tools.
 
-I used Alacritty for years and learned to value speed and simplicity. As my workflow shifted toward AI-assisted coding, I wanted stronger tab and pane ergonomics. I also explored Kitty, Ghostty, Warp, and iTerm2. Each is strong in different areas, but I still wanted a setup that matched my own balance of performance, defaults, and control.
-
-WezTerm is robust and highly hackable, and I am grateful for its engine and ecosystem. So I built Kaku to be that environment: fast, polished, and ready to work.
+WezTerm provides a robust and highly hackable terminal foundation. Hiterm builds on that foundation with product defaults and shell integration aimed at day-to-day AI-assisted development.
 
 ## Contributors
 
-Big thanks to all contributors who helped build Kaku. Go follow them! ❤️
+Thanks to everyone whose work made Hiterm possible.
 
-<a href="https://github.com/tw93/Kaku/graphs/contributors">
+<a href="https://github.com/liuxu-about/Hiterm/graphs/contributors">
   <img src="./CONTRIBUTORS.svg?v=2" width="1000" />
 </a>
 
 ## Support
 
-- If Kaku helped you, [share it](https://twitter.com/intent/tweet?url=https://github.com/tw93/Kaku&text=Kaku%20-%20A%20fast%20terminal%20built%20for%20AI%20coding.) with friends or give it a star.
-- Got ideas or bugs? Open an issue or PR, feel free to contribute your best AI model.
-- I have two cats, TangYuan and Coke. If you think Kaku delights your life, you can feed them <a href="https://cats.tw93.fun?name=Kaku" target="_blank">canned food 🥩</a>.
-
-<a href="https://cats.tw93.fun?name=Kaku"><img src="https://cdn.jsdelivr.net/gh/tw93/sponsors@main/assets/sponsors.svg" width="1000" loading="lazy" /></a>
+- If Hiterm helps you, star this repository and share it with friends.
+- Got ideas or bugs? Open an issue or PR.
 
 ## License
 
