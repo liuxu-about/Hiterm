@@ -3987,6 +3987,10 @@ end
 config.font_size = get_font_size()
 config.line_height = 1.28
 config.cell_width = 1.0
+-- Keep the window size fixed on Cmd+/Cmd- font zoom (change rows/cols
+-- instead). Physically resizing the window on every zoom step is slow on
+-- macOS and feels janky; Terminal.app and Ghostty behave this way too.
+config.adjust_window_size_when_changing_font_size = false
 config.harfbuzz_features = { 'calt=0', 'clig=0', 'liga=0' }
 config.use_cap_height_to_scale_fallback_fonts = false
 

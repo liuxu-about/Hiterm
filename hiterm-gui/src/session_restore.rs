@@ -299,12 +299,28 @@ fn capture_pane_content(
     Some((lines, dims.cols, dims.viewport_rows))
 }
 
-/// Drop blank rows from both ends of captured pane content. The viewport
-/// capture includes everything down to the bottom of the screen, and
-/// injecting those blanks on restore pushes the fresh prompt to the bottom
-/// of an otherwise empty window; leading blanks similarly waste the top.
+/// True if the line contains no command output: blank, or only cells the
+/// shell integration marked as Prompt/Input chrome.
+fn line_has_no_output(line: &wezterm_term::Line) -> bool {
+    use wezterm_term::SemanticType;
+    line.visible_cells()
+        .all(|c| c.str() == " " || c.attrs().semantic_type() != SemanticType::Output)
+}
+
+/// Drop rows that carry nothing worth restoring from both ends of captured
+/// pane content.
+///
+/// Trailing: the viewport capture includes everything down to the bottom of
+/// the screen, and the last populated rows are the shell prompt that was
+/// live at save time. The restored shell draws a fresh prompt, so injecting
+/// the stale one renders a confusing duplicate whenever a resize reflows it
+/// into view; blank padding rows likewise push the fresh prompt down the
+/// screen. Without shell integration every cell reads as Output, so this
+/// degrades to a plain blank-row trim.
+///
+/// Leading: blank rows at the top just waste viewport space.
 fn trim_blank_edges(lines: &mut Vec<wezterm_term::Line>) {
-    while lines.last().map(|l| l.is_whitespace()).unwrap_or(false) {
+    while lines.last().map(line_has_no_output).unwrap_or(false) {
         lines.pop();
     }
     let leading = lines
