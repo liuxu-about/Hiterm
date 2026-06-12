@@ -89,6 +89,9 @@ YAZI_FLAVORS_DIR="$YAZI_CONFIG_DIR/flavors"
 YAZI_WRAPPER_FILE="$USER_CONFIG_DIR/bin/yazi"
 HITERM_YAZI_THEME_MARKER_START="# ===== Hiterm Yazi Flavor (managed) ====="
 HITERM_YAZI_THEME_MARKER_END="# ===== End Hiterm Yazi Flavor (managed) ====="
+# Markers written by pre-rename Kaku versions; migrated to the Hiterm block.
+LEGACY_KAKU_YAZI_THEME_MARKER_START="# ===== Kaku Yazi Flavor (managed) ====="
+LEGACY_KAKU_YAZI_THEME_MARKER_END="# ===== End Kaku Yazi Flavor (managed) ====="
 ZSHRC="${ZDOTDIR:-$HOME}/.zshrc"
 TMUXRC="$HOME/.tmux.conf"
 BACKUP_SUFFIX=".hiterm-backup-$(date +%s)"
@@ -271,7 +274,7 @@ EOF
 		return
 	fi
 
-	if grep -Eq '^[[:space:]]*\[flavor\][[:space:]]*$' "$YAZI_THEME_FILE" && ! grep -Fq "$HITERM_YAZI_THEME_MARKER_START" "$YAZI_THEME_FILE"; then
+	if grep -Eq '^[[:space:]]*\[flavor\][[:space:]]*$' "$YAZI_THEME_FILE" && ! grep -Fq "$HITERM_YAZI_THEME_MARKER_START" "$YAZI_THEME_FILE" && ! grep -Fq "$LEGACY_KAKU_YAZI_THEME_MARKER_START" "$YAZI_THEME_FILE"; then
 		echo -e "  ${BLUE}•${NC} ${BOLD}Config${NC}      Preserved existing yazi [flavor] section ${NC}(user-managed)${NC}"
 		return
 	fi
@@ -279,9 +282,10 @@ EOF
 	local tmp_theme
 	tmp_theme="$(mktemp "${TMPDIR:-/tmp}/hiterm-yazi-theme.XXXXXX")"
 
-	awk -v start="$HITERM_YAZI_THEME_MARKER_START" -v end="$HITERM_YAZI_THEME_MARKER_END" '
-		index($0, start) { skip = 1; next }
-		index($0, end)   { skip = 0; next }
+	awk -v start="$HITERM_YAZI_THEME_MARKER_START" -v end="$HITERM_YAZI_THEME_MARKER_END" \
+		-v lstart="$LEGACY_KAKU_YAZI_THEME_MARKER_START" -v lend="$LEGACY_KAKU_YAZI_THEME_MARKER_END" '
+		index($0, start) || index($0, lstart) { skip = 1; next }
+		index($0, end) || index($0, lend)     { skip = 0; next }
 		!skip { print }
 	' "$YAZI_THEME_FILE" >"$tmp_theme"
 
@@ -309,6 +313,8 @@ set -euo pipefail
 YAZI_THEME_FILE="${HOME}/.config/yazi/theme.toml"
 MARKER_START="# ===== Hiterm Yazi Flavor (managed) ====="
 MARKER_END="# ===== End Hiterm Yazi Flavor (managed) ====="
+LEGACY_MARKER_START="# ===== Kaku Yazi Flavor (managed) ====="
+LEGACY_MARKER_END="# ===== End Kaku Yazi Flavor (managed) ====="
 WRAPPER_PATH="${BASH_SOURCE[0]}"
 WRAPPER_DIR="$(cd "$(dirname "$WRAPPER_PATH")" && pwd)"
 
@@ -421,15 +427,16 @@ BLOCK
 		return
 	fi
 
-	if grep -Eq '^[[:space:]]*\[flavor\][[:space:]]*$' "$YAZI_THEME_FILE" && ! grep -Fq "$MARKER_START" "$YAZI_THEME_FILE"; then
+	if grep -Eq '^[[:space:]]*\[flavor\][[:space:]]*$' "$YAZI_THEME_FILE" && ! grep -Fq "$MARKER_START" "$YAZI_THEME_FILE" && ! grep -Fq "$LEGACY_MARKER_START" "$YAZI_THEME_FILE"; then
 		return
 	fi
 
 	local tmp_theme
 	tmp_theme="$(mktemp "${TMPDIR:-/tmp}/hiterm-yazi-wrapper.XXXXXX")"
-	awk -v start="$MARKER_START" -v end="$MARKER_END" '
-		index($0, start) { skip = 1; next }
-		index($0, end)   { skip = 0; next }
+	awk -v start="$MARKER_START" -v end="$MARKER_END" \
+		-v lstart="$LEGACY_MARKER_START" -v lend="$LEGACY_MARKER_END" '
+		index($0, start) || index($0, lstart) { skip = 1; next }
+		index($0, end) || index($0, lend)     { skip = 0; next }
 		!skip { print }
 	' "$YAZI_THEME_FILE" >"$tmp_theme"
 
@@ -529,8 +536,8 @@ install_hiterm_terminfo() {
 
 	# Dev checkout fallback: compile from source terminfo definition.
 	for candidate in \
-		"$RESOURCES_DIR/../termwiz/data/kaku.terminfo" \
-		"$SCRIPT_DIR/../../termwiz/data/kaku.terminfo"; do
+		"$RESOURCES_DIR/../termwiz/data/hiterm.terminfo" \
+		"$SCRIPT_DIR/../../termwiz/data/hiterm.terminfo"; do
 		if [[ -f "$candidate" ]]; then
 			source_entry="$candidate"
 			break

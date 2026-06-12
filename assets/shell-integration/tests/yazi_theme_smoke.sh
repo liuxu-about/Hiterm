@@ -135,6 +135,44 @@ assert_file_not_contains 'overall = { bg = "#15141b" }' "$theme_static"
 assert_file_contains "dark = \"$expected_flavor\"" "$theme_static"
 assert_file_contains "light = \"$expected_flavor\"" "$theme_static"
 
+home_migrate="$tmp_dir/home-migrate"
+mkdir -p "$home_migrate/.config/yazi"
+cat <<'EOF' >"$home_migrate/.config/yazi/theme.toml"
+$schema = "https://yazi-rs.github.io/schemas/theme.json"
+
+[mgr]
+cwd = { fg = "#a277ff", bold = true }
+
+# ===== Kaku Yazi Flavor (managed) =====
+[flavor]
+dark = "kaku-dark"
+light = "kaku-dark"
+# ===== End Kaku Yazi Flavor (managed) =====
+EOF
+
+run_setup "$home_migrate"
+
+theme_migrate="$home_migrate/.config/yazi/theme.toml"
+assert_file_not_contains 'Kaku Yazi Flavor (managed)' "$theme_migrate"
+assert_file_not_contains 'kaku-dark' "$theme_migrate"
+assert_file_contains '# ===== Hiterm Yazi Flavor (managed) =====' "$theme_migrate"
+assert_file_contains "dark = \"$expected_flavor\"" "$theme_migrate"
+assert_file_contains 'cwd = { fg = "#a277ff", bold = true }' "$theme_migrate"
+
+home_userflavor="$tmp_dir/home-userflavor"
+mkdir -p "$home_userflavor/.config/yazi"
+cat <<'EOF' >"$home_userflavor/.config/yazi/theme.toml"
+[flavor]
+dark = "custom-dark"
+light = "custom-light"
+EOF
+
+run_setup "$home_userflavor"
+
+theme_userflavor="$home_userflavor/.config/yazi/theme.toml"
+assert_file_contains 'dark = "custom-dark"' "$theme_userflavor"
+assert_file_not_contains 'Hiterm Yazi Flavor (managed)' "$theme_userflavor"
+
 home_auto="$tmp_dir/home-auto"
 mkdir -p "$home_auto/.config/hiterm"
 cat <<'EOF' >"$home_auto/.config/hiterm/kaku.lua"

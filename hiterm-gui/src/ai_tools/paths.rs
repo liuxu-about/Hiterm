@@ -56,6 +56,11 @@ pub(crate) fn reject_if_sensitive(path: &Path) -> Result<()> {
             ".gnupg",
             ".config/hiterm/assistant.toml",
             ".config/hiterm/secrets",
+            // Pre-rename installs may still hold real files here (the
+            // kaku->hiterm dir migration is skipped when ~/.config/hiterm
+            // already exists), so keep blocking the legacy locations.
+            ".config/kaku/assistant.toml",
+            ".config/kaku/secrets",
         ] {
             blocked.push(home.join(rel));
         }

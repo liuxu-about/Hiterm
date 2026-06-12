@@ -45,7 +45,7 @@ mod imp {
     // When adding or removing lines, update both places.
     const KAKU_LEGACY_INLINE_KNOWN_LINES: &[&str] = &[
         "# Kaku Zsh Integration - DO NOT EDIT MANUALLY",
-        "# This file is managed by Hiterm.app. Any changes may be overwritten.",
+        "# This file is managed by Kaku.app. Any changes may be overwritten.",
         r#"export KAKU_ZSH_DIR="$HOME/.config/kaku/zsh""#,
         "# Add bundled binaries to PATH",
         r#"export PATH="$KAKU_ZSH_DIR/bin:$PATH""#,
@@ -177,6 +177,8 @@ mod imp {
         "    # Defer loading until first prompt display",
         "    zsh_syntax_highlighting_defer() {",
         r#"        source "$KAKU_ZSH_DIR/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh""#,
+        "        # Override comment color: default (fg=8) is invisible on dark backgrounds.",
+        "        ZSH_HIGHLIGHT_STYLES[comment]='fg=249'",
         "        # Remove this hook after first run",
         r#"        precmd_functions=("${precmd_functions[@]:#zsh_syntax_highlighting_defer}")"#,
         "    }",
@@ -671,7 +673,7 @@ mod imp {
             return Ok(());
         };
 
-        let original = std::fs::read_to_string(&config_path)
+        let original = std::fs::read_to_string(config_path)
             .with_context(|| format!("read {}", config_path.display()))?;
 
         let (after_managed, changed_managed) =
@@ -693,7 +695,7 @@ mod imp {
             return Ok(());
         }
 
-        std::fs::write(&config_path, after_kaku_legacy)
+        std::fs::write(config_path, after_kaku_legacy)
             .with_context(|| format!("write {}", config_path.display()))?;
         report.changed(format!(
             "removed managed Hiterm theme block from {}",
