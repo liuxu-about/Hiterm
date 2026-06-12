@@ -267,6 +267,10 @@ cp -R assets/shell-integration/* "$APP_BUNDLE_OUT/Contents/Resources/"
 cp -R assets/shell-completion "$APP_BUNDLE_OUT/Contents/Resources/"
 cp -R assets/fonts "$APP_BUNDLE_OUT/Contents/Resources/"
 cp -R assets/prompts "$APP_BUNDLE_OUT/Contents/Resources/"
+# Older generated user configs still resolve bundled defaults via
+# Resources/kaku.lua before falling back to /Applications/Kaku.app.
+# Keep that bundle-local alias so upgraded users load this build's defaults.
+cp "$APP_BUNDLE_OUT/Contents/Resources/hiterm.lua" "$APP_BUNDLE_OUT/Contents/Resources/kaku.lua"
 mkdir -p "$APP_BUNDLE_OUT/Contents/Resources/vendor"
 for vendor_item in starship.toml fast-syntax-highlighting zsh-autosuggestions zsh-completions zsh-z; do
 	src_path="assets/vendor/$vendor_item"
