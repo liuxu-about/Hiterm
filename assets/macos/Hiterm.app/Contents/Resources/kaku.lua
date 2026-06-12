@@ -4028,7 +4028,9 @@ config.initial_rows = 22
 config.window_decorations = "INTEGRATED_BUTTONS|RESIZE"
 -- Window frame colors will be set after color_scheme is determined
 
-config.window_background_opacity = 1.0
+-- Ghostty-style glass: translucent window over a system-blurred backdrop.
+config.window_background_opacity = 0.88
+config.macos_window_background_blur = 24
 config.text_background_opacity = 1.0
 -- Keep low-contrast text from third-party TUIs readable without rewriting
 -- their chosen palette colors.
@@ -4114,13 +4116,13 @@ config.color_schemes['Kaku Dark'] = {
 
   split = KAKU.SURFACE_ACTIVE,
 
-  -- Tab bar colors
+  -- Tab bar colors (alpha-aware: the bar itself is translucent glass)
   tab_bar = {
-    background = KAKU.BLACK,
-    inactive_tab_edge = KAKU.BLACK,
+    background = 'rgba(21,20,27,0.55)',
+    inactive_tab_edge = 'rgba(0,0,0,0)',
 
     active_tab = {
-      bg_color = KAKU.SURFACE_ACTIVE,
+      bg_color = 'rgba(48,45,70,0.92)',
       fg_color = KAKU.WHITE,
       intensity = 'Bold',
       underline = 'None',
@@ -4129,24 +4131,24 @@ config.color_schemes['Kaku Dark'] = {
     },
 
     inactive_tab = {
-      bg_color = KAKU.BLACK,
+      bg_color = 'rgba(0,0,0,0)',
       fg_color = KAKU.GRAY,
       intensity = 'Normal',
     },
 
     inactive_tab_hover = {
-      bg_color = KAKU.SURFACE,
+      bg_color = 'rgba(255,255,255,0.07)',
       fg_color = KAKU.WHITE,
       italic = false,
     },
 
     new_tab = {
-      bg_color = KAKU.BLACK,
+      bg_color = 'rgba(0,0,0,0)',
       fg_color = KAKU.GRAY,
     },
 
     new_tab_hover = {
-      bg_color = KAKU.SURFACE,
+      bg_color = 'rgba(255,255,255,0.07)',
       fg_color = KAKU.WHITE,
     },
   },
@@ -4208,11 +4210,11 @@ config.color_schemes['Kaku Light'] = {
   split = '#DDDBCF',
 
   tab_bar = {
-    background = '#FFFCF0',
-    inactive_tab_edge = '#FFFCF0',
+    background = 'rgba(255,252,240,0.60)',
+    inactive_tab_edge = 'rgba(0,0,0,0)',
 
     active_tab = {
-      bg_color = '#E8E6DB',
+      bg_color = 'rgba(232,230,219,0.92)',
       fg_color = '#100F0F',
       intensity = 'Bold',
       underline = 'None',
@@ -4221,24 +4223,24 @@ config.color_schemes['Kaku Light'] = {
     },
 
     inactive_tab = {
-      bg_color = '#FFFCF0',
+      bg_color = 'rgba(0,0,0,0)',
       fg_color = '#4A4946',
       intensity = 'Normal',
     },
 
     inactive_tab_hover = {
-      bg_color = '#E8E6DB',
+      bg_color = 'rgba(0,0,0,0.06)',
       fg_color = '#100F0F',
       italic = false,
     },
 
     new_tab = {
-      bg_color = '#FFFCF0',
+      bg_color = 'rgba(0,0,0,0)',
       fg_color = '#4A4946',
     },
 
     new_tab_hover = {
-      bg_color = '#E8E6DB',
+      bg_color = 'rgba(0,0,0,0.06)',
       fg_color = '#100F0F',
     },
   },
@@ -4276,8 +4278,8 @@ get_window_frame_colors = function(scheme)
   scheme = resolve_kaku_color_scheme(scheme)
   if scheme == 'Kaku Light' then
     return {
-      active_titlebar_bg = '#FFFCF0',
-      inactive_titlebar_bg = '#F8F5EA',
+      active_titlebar_bg = 'rgba(255,252,240,0.60)',
+      inactive_titlebar_bg = 'rgba(248,245,234,0.45)',
       active_titlebar_fg = '#100F0F',
       inactive_titlebar_fg = '#575653',
       active_titlebar_border_bottom = '#E8E1D0',
@@ -4293,12 +4295,13 @@ get_window_frame_colors = function(scheme)
     }
   else
     return {
-      active_titlebar_bg = KAKU.BLACK,
-      inactive_titlebar_bg = KAKU.BLACK,
+      -- Translucent so the CGS backdrop blur shows through the tab bar.
+      active_titlebar_bg = 'rgba(21,20,27,0.55)',
+      inactive_titlebar_bg = 'rgba(21,20,27,0.40)',
       active_titlebar_fg = KAKU.WHITE,
       inactive_titlebar_fg = KAKU.GRAY,
-      active_titlebar_border_bottom = KAKU.BLACK,
-      inactive_titlebar_border_bottom = KAKU.BLACK,
+      active_titlebar_border_bottom = 'rgba(0,0,0,0)',
+      inactive_titlebar_border_bottom = 'rgba(0,0,0,0)',
       border_left_width = 0,
       border_right_width = 0,
       border_top_height = 0,
