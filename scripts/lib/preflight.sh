@@ -16,16 +16,16 @@ die() {
     exit 1
 }
 
-# Read package.version from kaku/Cargo.toml.
+# Read package.version from hiterm/Cargo.toml.
 get_cargo_version() {
     local root="${1:-${REPO_ROOT:-.}}"
-    grep '^version =' "$root/kaku/Cargo.toml" | head -n1 | cut -d'"' -f2
+    grep '^version =' "$root/hiterm/Cargo.toml" | head -n1 | cut -d'"' -f2
 }
 
-# Read package.version from kaku-gui/Cargo.toml.
+# Read package.version from hiterm-gui/Cargo.toml.
 get_kaku_gui_version() {
     local root="${1:-${REPO_ROOT:-.}}"
-    grep '^version =' "$root/kaku-gui/Cargo.toml" | head -n1 | cut -d'"' -f2
+    grep '^version =' "$root/hiterm-gui/Cargo.toml" | head -n1 | cut -d'"' -f2
 }
 
 # Verify git tree is clean, on main, in sync with origin/main.

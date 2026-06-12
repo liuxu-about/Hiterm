@@ -27,12 +27,12 @@ dev:
 	RUST_LOG=$(RUST_LOG) cargo watch \
 		--skip-local-deps \
 		-w Cargo.toml \
-		-w kaku-gui \
+		-w hiterm-gui \
 		-w window \
 		-w term \
 		-w mux \
 		-w config \
-		-w kaku \
+		-w hiterm \
 		-w lua-api-crates \
 		-i "dist/**" \
 		-i "deps/**" \

@@ -85,8 +85,8 @@ time_stage() {
 check_version_consistency() {
     log_info "Checking version consistency..."
     local kaku_version kaku_gui_version
-    kaku_version=$(grep '^version =' "$REPO_ROOT/kaku/Cargo.toml" | head -n1 | cut -d'"' -f2)
-    kaku_gui_version=$(grep '^version =' "$REPO_ROOT/kaku-gui/Cargo.toml" | head -n1 | cut -d'"' -f2)
+    kaku_version=$(grep '^version =' "$REPO_ROOT/hiterm/Cargo.toml" | head -n1 | cut -d'"' -f2)
+    kaku_gui_version=$(grep '^version =' "$REPO_ROOT/hiterm-gui/Cargo.toml" | head -n1 | cut -d'"' -f2)
 
     if [[ "$kaku_version" != "$kaku_gui_version" ]]; then
         die "Version mismatch: kaku=$kaku_version, kaku-gui=$kaku_gui_version"

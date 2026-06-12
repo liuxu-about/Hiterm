@@ -242,14 +242,14 @@ mkdir -p "$APP_BUNDLE_OUT/Contents/MacOS"
 mkdir -p "$APP_BUNDLE_OUT/Contents/Resources"
 
 echo "[2.5/7] Syncing version from Cargo.toml..."
-# Extract version from kaku/Cargo.toml (assuming it's the source of truth)
-VERSION=$(grep '^version =' kaku/Cargo.toml | head -n 1 | cut -d '"' -f2)
+# Extract version from hiterm/Cargo.toml (assuming it's the source of truth)
+VERSION=$(grep '^version =' hiterm/Cargo.toml | head -n 1 | cut -d '"' -f2)
 if [[ -n "$VERSION" ]]; then
 	echo "Stamping version $VERSION into Info.plist"
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP_BUNDLE_OUT/Contents/Info.plist"
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $VERSION" "$APP_BUNDLE_OUT/Contents/Info.plist"
 else
-	echo "Warning: Could not detect version from kaku/Cargo.toml"
+	echo "Warning: Could not detect version from hiterm/Cargo.toml"
 fi
 
 echo "[3/7] Downloading vendor plugins..."

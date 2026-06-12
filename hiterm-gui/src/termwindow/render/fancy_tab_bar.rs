@@ -348,7 +348,6 @@ impl crate::TermWindow {
                     left_eles.push(elem);
                 }
                 TabBarItem::NewTabButton => right_eles.push(item_to_elem(item)),
-                _ => left_eles.push(item_to_elem(item)),
             }
         }
 

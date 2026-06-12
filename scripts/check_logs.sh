@@ -6,14 +6,14 @@
 # offending lines printed if any new violation appears.
 #
 # Allowlist rationale:
-#   - CLI binaries (kaku/src/main.rs, kaku/src/cli/*, kaku-gui/src/bin/k.rs,
-#     kaku-gui/src/cli_chat) speak directly to the user on stdout/stderr;
+#   - CLI binaries (hiterm/src/main.rs, hiterm/src/cli/*, hiterm-gui/src/bin/k.rs,
+#     hiterm-gui/src/cli_chat) speak directly to the user on stdout/stderr;
 #     log:: would either be filtered out or end up double-printed.
 #   - Test functions (#[test], tests/, *_test.rs) use println! as expected
 #     by cargo test output.
-#   - Startup trace (kaku-gui/src/startup_trace.rs) is env-var-gated diagnostic
+#   - Startup trace (hiterm-gui/src/startup_trace.rs) is env-var-gated diagnostic
 #     output; routing it through log:: would be suppressed by default level.
-#   - Stats dump (kaku-gui/src/stats.rs) tabulates to stderr by design.
+#   - Stats dump (hiterm-gui/src/stats.rs) tabulates to stderr by design.
 #
 # Anything outside the allowlist is a regression. Add a new path to
 # ALLOW_FILES only after explaining why log:: doesn't fit.
@@ -32,23 +32,23 @@ cd "$REPO_ROOT"
 #   - The configmeta proc-macro derive prints generated tokens for debugging
 #     macro expansion.
 ALLOW_FILES=(
-  'kaku/src/main\.rs'
-  'kaku/src/cli/'
-  'kaku/src/config_cmd\.rs'
-  'kaku/src/doctor\.rs'
-  'kaku/src/init\.rs'
-  'kaku/src/reset\.rs'
-  'kaku/src/update\.rs'
-  'kaku/src/utils\.rs'
-  'kaku/src/shell\.rs'
-  'kaku/src/chat\.rs'
-  'kaku/src/tui_splash\.rs'
-  'kaku-gui/src/bin/'
-  'kaku-gui/src/cli_chat/'
-  'kaku-gui/src/startup_trace\.rs'
-  'kaku-gui/src/stats\.rs'
-  'kaku-gui/src/update\.rs'
-  'kaku-gui/src/shapecache\.rs'
+  'hiterm/src/main\.rs'
+  'hiterm/src/cli/'
+  'hiterm/src/config_cmd\.rs'
+  'hiterm/src/doctor\.rs'
+  'hiterm/src/init\.rs'
+  'hiterm/src/reset\.rs'
+  'hiterm/src/update\.rs'
+  'hiterm/src/utils\.rs'
+  'hiterm/src/shell\.rs'
+  'hiterm/src/chat\.rs'
+  'hiterm/src/tui_splash\.rs'
+  'hiterm-gui/src/bin/'
+  'hiterm-gui/src/cli_chat/'
+  'hiterm-gui/src/startup_trace\.rs'
+  'hiterm-gui/src/stats\.rs'
+  'hiterm-gui/src/update\.rs'
+  'hiterm-gui/src/shapecache\.rs'
   'config/src/config\.rs'          # KAKU_STARTUP_TRACE env-gated trace
   'config/src/lua\.rs'             # KAKU_STARTUP_TRACE env-gated trace
   'config/derive/'                 # proc-macro derive debug
@@ -62,7 +62,7 @@ allow_pattern="$(IFS='|'; echo "${ALLOW_FILES[*]}")"
 # heuristic but sufficient for the call sites that exist today).
 violations=$(
   grep -rnE 'eprintln!|println!' --include='*.rs' \
-    kaku-gui/src kaku/src config mux term \
+    hiterm-gui/src hiterm/src config mux term \
     2>/dev/null \
     | grep -vE "($allow_pattern)" \
     | grep -vE '"[^"]*(eprintln!|println!)' \

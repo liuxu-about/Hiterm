@@ -134,7 +134,7 @@ log "Asset ready: $DMG_ASSET_PATH ($SIZE)"
 
 LAST_STABLE=$(git tag -l 'V*' --sort=-v:refname | head -n1 || true)
 BUILD_DATE=$(date -u "+%Y-%m-%d")
-CARGO_VERSION=$(grep '^version =' "$REPO_ROOT/kaku/Cargo.toml" | head -n1 | cut -d'"' -f2)
+CARGO_VERSION=$(grep '^version =' "$REPO_ROOT/hiterm/Cargo.toml" | head -n1 | cut -d'"' -f2)
 
 if [[ -n "$LAST_STABLE" ]]; then
     LOG_RANGE="$LAST_STABLE..HEAD"
